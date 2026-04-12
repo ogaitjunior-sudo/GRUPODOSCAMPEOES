@@ -1,0 +1,17 @@
+import { createClient } from "@supabase/supabase-js";
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim();
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim();
+
+export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
+export const supabaseAuthSetupMessage =
+  "Configure VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY para ativar o cadastro e login reais no portal.";
+
+export const supabase = isSupabaseConfigured
+  ? createClient(supabaseUrl!, supabaseAnonKey!, {
+      auth: {
+        autoRefreshToken: true,
+        persistSession: true,
+      },
+    })
+  : null;

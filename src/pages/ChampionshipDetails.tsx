@@ -1,0 +1,2888 @@
+import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { Link, useParams, useSearchParams } from "react-router-dom";
+import {
+  CalendarClock,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  Info,
+  ListChecks,
+  Medal,
+  RefreshCcw,
+  Save,
+  Settings2,
+  ShieldAlert,
+  Swords,
+  Trophy,
+  Users,
+  XCircle,
+} from "lucide-react";
+import { EmptyStateCard } from "@/components/EmptyStateCard";
+import { PageShell } from "@/components/PageShell";
+import { StatusBadge } from "@/components/StatusBadge";
+import { AdminPageHeader } from "@/admin/components/AdminPageHeader";
+import {
+  UltimateTeamChampionshipShell,
+  UltimateTeamGroupDashboard,
+  type UltimateTeamMatchEntry,
+  type UltimateTeamStandingsEntry,
+} from "@/components/championship/UltimateTeamDashboard";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { generateBracket, updateBracketMatch, validateBracketGeneration } from "@/lib/championship-bracket";
+import {
+  computeGroupStandings,
+  getChampionshipProgressSummary,
+  getQualifiedTeams,
+  rebuildGroupsAndSchedule,
+  renameTeam,
+  updateGroupMatch,
+  updateScoringSettings,
+  updateTeamAdjustment,
+} from "@/lib/championship-runtime";
+import {
+  formatChampionshipWorkspaceStoreError,
+  getChampionshipWorkspaceStorageMode,
+  loadChampionshipWorkspaceRecord,
+  saveChampionshipWorkspaceRecord,
+} from "@/lib/championship-workspace-store";
+import {
+  buildChampionshipDescription,
+  getChampionshipRegistrationByPlayer,
+  getChampionshipRegistrationStatusLabel,
+  buildChampionshipRules,
+  getFormatOption,
+} from "@/lib/championships";
+import { toast } from "@/hooks/use-toast";
+import { useAdminAuth } from "@/contexts/AdminAuthContext";
+import { useChampionships } from "@/contexts/ChampionshipContext";
+import { usePlayerAuth } from "@/contexts/PlayerAuthContext";
+import type {
+  ChampionshipConfiguration,
+  ChampionshipFormValues,
+  ChampionshipRecord,
+  ChampionshipRegistrationRequest,
+  ChampionshipRegistrationStatus,
+} from "@/types/championship";
+import type {
+  BracketMatchUpdateInput,
+  ChampionshipBracketMatch,
+  ChampionshipGroup,
+  ChampionshipGroupMatch,
+  ChampionshipTeam,
+  ChampionshipWorkspaceRecord,
+  GroupMatchUpdateInput,
+} from "@/types/championship-runtime";
+
+const inputClassName =
+  "h-11 w-full rounded-xl border border-border bg-background/70 px-4 text-sm text-foreground outline-none transition-colors focus:border-primary/50";
+const textareaClassName =
+  "min-h-28 w-full rounded-xl border border-border bg-background/70 px-4 py-3 text-sm text-foreground outline-none transition-colors focus:border-primary/50";
+
+function toChampionshipFormValues(
+  championship: ChampionshipRecord,
+  configuration: ChampionshipConfiguration,
+): ChampionshipFormValues {
+  return {
+    name: championship.name,
+    description: buildChampionshipDescription(configuration),
+    startDate: championship.startDate,
+    endDate: championship.endDate,
+    teamCount: championship.teamCount,
+    rules: buildChampionshipRules(configuration),
+    status: championship.status,
+    configuration,
+  };
+}
+
+function toDateTimeLocalValue(value: string | null) {
+  if (!value) {
+    return "";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  const offset = date.getTimezoneOffset();
+  const localDate = new Date(date.getTime() - offset * 60_000);
+  return localDate.toISOString().slice(0, 16);
+}
+
+function formatMatchDateTime(value: string | null) {
+  if (!value) {
+    return "A definir";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "A definir";
+  }
+
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+
+function getTeamName(teams: ChampionshipTeam[], teamId: string | null) {
+  if (!teamId) {
+    return "A definir";
+  }
+
+  return teams.find((team) => team.id === teamId)?.name ?? "A definir";
+}
+
+function hashTeamName(value: string) {
+  return value.split("").reduce((total, char) => total + char.charCodeAt(0), 0);
+}
+
+function getTeamInitials(name: string) {
+  const parts = name
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  if (parts.length === 0) {
+    return "EQ";
+  }
+
+  if (parts.length === 1) {
+    return parts[0].slice(0, 2).toUpperCase();
+  }
+
+  return `${parts[0][0] ?? ""}${parts[1][0] ?? ""}`.toUpperCase();
+}
+
+function getTeamMarkStyle(name: string) {
+  const seed = hashTeamName(name);
+  const hueA = seed % 360;
+  const hueB = (seed * 1.7 + 55) % 360;
+
+  return {
+    background: `linear-gradient(145deg, hsl(${hueA} 72% 58%), hsl(${hueB} 68% 42%))`,
+    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.18), 0 8px 20px rgba(0,0,0,0.18)",
+  } satisfies CSSProperties;
+}
+
+function getRegistrationBadgeClassName(status: ChampionshipRegistrationStatus) {
+  if (status === "approved") {
+    return "border-emerald-500/20 bg-emerald-500/10 text-emerald-100";
+  }
+
+  if (status === "rejected") {
+    return "border-red-500/20 bg-red-500/10 text-red-100";
+  }
+
+  return "border-amber-500/20 bg-amber-500/10 text-amber-100";
+}
+
+function getRegistrationStatusIcon(status: ChampionshipRegistrationStatus) {
+  if (status === "approved") {
+    return CheckCircle2;
+  }
+
+  if (status === "rejected") {
+    return XCircle;
+  }
+
+  return CalendarClock;
+}
+
+function getRegistrationActionLabel(
+  championship: ChampionshipRecord,
+  request: ChampionshipRegistrationRequest | null,
+) {
+  if (request) {
+    return getChampionshipRegistrationStatusLabel(request.status);
+  }
+
+  if (championship.status === "Inscricoes abertas") {
+    return "Participar";
+  }
+
+  if (championship.status === "Em andamento") {
+    return "Acompanhar disputa";
+  }
+
+  return "Ver regulamento";
+}
+
+function formatCoachHandle(
+  request: Pick<ChampionshipRegistrationRequest, "playerName" | "playerEmail"> | null,
+  fallbackSeed: number,
+) {
+  if (request?.playerEmail?.includes("@")) {
+    return `@${request.playerEmail.split("@")[0]}`;
+  }
+
+  if (request?.playerName?.trim()) {
+    return request.playerName.trim();
+  }
+
+  return `Tecnico seed ${String(fallbackSeed).padStart(2, "0")}`;
+}
+
+function calculateEfficiency(points: number, played: number) {
+  if (played <= 0) {
+    return 0;
+  }
+
+  return Math.round((points / (played * 3)) * 100);
+}
+
+function buildPublicTeamMetaMap(
+  teams: ChampionshipTeam[],
+  registrationRequests: ChampionshipRegistrationRequest[],
+) {
+  const approvedRequests = registrationRequests
+    .filter((request) => request.status === "approved")
+    .sort(
+      (left, right) =>
+        new Date(left.requestedAt).getTime() - new Date(right.requestedAt).getTime(),
+    );
+  const canBindApprovedUsers = approvedRequests.length === teams.length && teams.length > 0;
+
+  return new Map(
+    [...teams]
+      .sort((left, right) => left.seed - right.seed)
+      .map((team, index) => {
+        const approvedRequest = canBindApprovedUsers ? approvedRequests[index] ?? null : null;
+
+        return [
+          team.id,
+          {
+            handle: formatCoachHandle(approvedRequest, team.seed),
+            crestLabel: team.name,
+          },
+        ] as const;
+      }),
+  );
+}
+
+interface ChampionshipWorkspacePageProps {
+  mode?: "public" | "admin";
+}
+
+export function ChampionshipWorkspacePage({
+  mode = "public",
+}: ChampionshipWorkspacePageProps) {
+  const { championshipId } = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const isAdmin = mode === "admin";
+  const { displayName: adminDisplayName } = useAdminAuth();
+  const {
+    getChampionshipById,
+    reviewChampionshipRegistration,
+    submitChampionshipRegistration,
+    updateChampionship,
+  } = useChampionships();
+  const {
+    isAuthenticated: isPlayerAuthenticated,
+    loginName,
+    playerEmail,
+    session: playerSession,
+  } = usePlayerAuth();
+  const championship = championshipId ? getChampionshipById(championshipId) : undefined;
+  const [workspace, setWorkspace] = useState<ChampionshipWorkspaceRecord | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isSubmittingParticipation, setIsSubmittingParticipation] = useState(false);
+  const [reviewingRequestId, setReviewingRequestId] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [teamNameDrafts, setTeamNameDrafts] = useState<Record<string, string>>({});
+  const [adjustmentDrafts, setAdjustmentDrafts] = useState<Record<string, number>>({});
+  const [scoringDraft, setScoringDraft] = useState({ winPoints: 3, drawPoints: 1, lossPoints: 0 });
+  const [finalConfigDraft, setFinalConfigDraft] = useState<ChampionshipConfiguration | null>(null);
+  const [editingGroupMatch, setEditingGroupMatch] = useState<ChampionshipGroupMatch | null>(null);
+  const [editingBracketMatch, setEditingBracketMatch] = useState<ChampionshipBracketMatch | null>(null);
+  const [selectedGroupRounds, setSelectedGroupRounds] = useState<Record<string, number>>({});
+  const [selectedPublicGroupId, setSelectedPublicGroupId] = useState<string | null>(null);
+  const [isParticipationDialogOpen, setIsParticipationDialogOpen] = useState(
+    () => searchParams.get("acao") === "participar",
+  );
+  const storageMode = getChampionshipWorkspaceStorageMode();
+  const playerRegistrationRequest = useMemo(
+    () => getChampionshipRegistrationByPlayer(championship ?? { registrationRequests: [] }, playerSession?.id),
+    [championship, playerSession?.id],
+  );
+  const registrationActionLabel = championship
+    ? getRegistrationActionLabel(championship, playerRegistrationRequest)
+    : "Participar";
+  const shouldDisableRegistrationAction = Boolean(
+    championship &&
+      isPlayerAuthenticated &&
+      championship.status === "Inscricoes abertas" &&
+      playerRegistrationRequest,
+  );
+  const pendingRegistrationRequests = useMemo(
+    () => championship?.registrationRequests.filter((request) => request.status === "pending") ?? [],
+    [championship],
+  );
+  const reviewedRegistrationRequests = useMemo(
+    () =>
+      championship?.registrationRequests.filter((request) => request.status !== "pending") ?? [],
+    [championship],
+  );
+  const approvedRegistrationRequests = useMemo(
+    () =>
+      championship?.registrationRequests.filter((request) => request.status === "approved") ?? [],
+    [championship],
+  );
+
+  useEffect(() => {
+    if (!championship) {
+      setIsLoading(false);
+      return;
+    }
+
+    let isActive = true;
+
+    const loadWorkspace = async () => {
+      setIsLoading(true);
+
+      try {
+        const nextWorkspace = await loadChampionshipWorkspaceRecord(championship);
+
+        if (!isActive) {
+          return;
+        }
+
+        setWorkspace(nextWorkspace);
+        setErrorMessage(null);
+      } catch (error) {
+        if (!isActive) {
+          return;
+        }
+
+        setErrorMessage(formatChampionshipWorkspaceStoreError(error));
+      } finally {
+        if (isActive) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    void loadWorkspace();
+
+    return () => {
+      isActive = false;
+    };
+  }, [championship]);
+
+  useEffect(() => {
+    if (!workspace) {
+      return;
+    }
+
+    setTeamNameDrafts(
+      Object.fromEntries(workspace.teams.map((team) => [team.id, team.name])),
+    );
+    setAdjustmentDrafts(
+      Object.fromEntries(workspace.teams.map((team) => [team.id, team.pointsAdjustment])),
+    );
+    setScoringDraft(workspace.scoring);
+  }, [workspace]);
+
+  useEffect(() => {
+    if (!championship) {
+      return;
+    }
+
+    setFinalConfigDraft(championship.configuration);
+  }, [championship]);
+
+  useEffect(() => {
+    setIsParticipationDialogOpen(searchParams.get("acao") === "participar");
+  }, [searchParams]);
+
+  const openParticipationDialog = () => {
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set("acao", "participar");
+    setSearchParams(nextParams, { replace: true });
+  };
+
+  const closeParticipationDialog = () => {
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete("acao");
+    setSearchParams(nextParams, { replace: true });
+  };
+
+  const standings = useMemo(() => (workspace ? computeGroupStandings(workspace) : []), [workspace]);
+  const summary = useMemo(
+    () => (workspace && championship ? getChampionshipProgressSummary(workspace, championship) : null),
+    [championship, workspace],
+  );
+  const qualifiedTeams = useMemo(
+    () => (workspace && championship ? getQualifiedTeams(workspace, championship) : []),
+    [championship, workspace],
+  );
+
+  const saveWorkspace = async (nextWorkspace: ChampionshipWorkspaceRecord, successDescription: string) => {
+    if (!championship) {
+      return;
+    }
+
+    setIsSaving(true);
+
+    try {
+      const savedWorkspace = await saveChampionshipWorkspaceRecord(championship, nextWorkspace);
+      setWorkspace(savedWorkspace);
+      setErrorMessage(null);
+      toast({
+        title: "Campeonato atualizado",
+        description: successDescription,
+      });
+    } catch (error) {
+      setErrorMessage(formatChampionshipWorkspaceStoreError(error));
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const saveChampionshipConfiguration = async () => {
+    if (!championship || !finalConfigDraft) {
+      return;
+    }
+
+    setIsSaving(true);
+
+    try {
+      await updateChampionship(championship.id, toChampionshipFormValues(championship, finalConfigDraft));
+      toast({
+        title: "Configuracoes salvas",
+        description: "A fase final e as regras do campeonato foram atualizadas.",
+      });
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Nao foi possivel salvar as configuracoes.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSubmitParticipationRequest = async () => {
+    if (!championship || !playerSession || !playerEmail) {
+      return;
+    }
+
+    setIsSubmittingParticipation(true);
+
+    try {
+      await submitChampionshipRegistration({
+        championshipId: championship.id,
+        playerId: playerSession.id,
+        playerName: loginName?.trim() || playerSession.displayName,
+        playerEmail,
+      });
+      toast({
+        title: "Pedido enviado",
+        description: "A solicitacao foi encaminhada para o administrador do campeonato.",
+      });
+    } catch (error) {
+      toast({
+        title: "Nao foi possivel enviar o pedido",
+        description:
+          error instanceof Error ? error.message : "Tente novamente em alguns instantes.",
+      });
+    } finally {
+      setIsSubmittingParticipation(false);
+    }
+  };
+
+  const handleReviewParticipationRequest = async (
+    requestId: string,
+    status: Extract<ChampionshipRegistrationStatus, "approved" | "rejected">,
+  ) => {
+    if (!championship) {
+      return;
+    }
+
+    setReviewingRequestId(requestId);
+
+    try {
+      await reviewChampionshipRegistration({
+        championshipId: championship.id,
+        requestId,
+        status,
+        reviewedBy: adminDisplayName ?? "Administrador",
+      });
+      toast({
+        title: status === "approved" ? "Solicitacao aprovada" : "Solicitacao recusada",
+        description:
+          status === "approved"
+            ? "O jogador agora aparece como participante aprovado deste campeonato."
+            : "O pedido foi recusado e o status ja foi atualizado para o jogador.",
+      });
+    } catch (error) {
+      toast({
+        title: "Nao foi possivel revisar a solicitacao",
+        description:
+          error instanceof Error ? error.message : "Tente novamente em alguns instantes.",
+      });
+    } finally {
+      setReviewingRequestId(null);
+    }
+  };
+
+  const handleSaveTeamNames = async () => {
+    let nextWorkspace = workspace;
+
+    workspace.teams.forEach((team) => {
+      nextWorkspace = renameTeam(nextWorkspace, team.id, teamNameDrafts[team.id] ?? team.name);
+    });
+
+    await saveWorkspace(nextWorkspace, "Os nomes das equipes foram salvos.");
+  };
+
+  const handleSaveScoringAdjustments = async () => {
+    let nextWorkspace = updateScoringSettings(workspace, scoringDraft);
+
+    workspace.teams.forEach((team) => {
+      nextWorkspace = updateTeamAdjustment(
+        nextWorkspace,
+        team.id,
+        Number(adjustmentDrafts[team.id] ?? team.pointsAdjustment),
+      );
+    });
+
+    await saveWorkspace(nextWorkspace, "Os ajustes de pontuacao foram atualizados.");
+  };
+
+  const handleRebuildGroups = async () => {
+    await saveWorkspace(
+      rebuildGroupsAndSchedule(workspace, championship),
+      "Os grupos e a grade de partidas foram recriados.",
+    );
+  };
+
+  const handleSaveGroupMatch = async (patch: GroupMatchUpdateInput) => {
+    if (!editingGroupMatch) {
+      return;
+    }
+
+    await saveWorkspace(
+      updateGroupMatch(workspace, championship, editingGroupMatch.id, patch),
+      "A partida da fase de grupos foi atualizada.",
+    );
+    setEditingGroupMatch(null);
+  };
+
+  const handleGenerateBracket = async () => {
+    await saveWorkspace(
+      generateBracket(workspace, championship),
+      "O chaveamento da fase final foi gerado automaticamente.",
+    );
+  };
+
+  const handleSaveBracketMatch = async (patch: BracketMatchUpdateInput) => {
+    if (!editingBracketMatch) {
+      return;
+    }
+
+    await saveWorkspace(
+      updateBracketMatch(workspace, championship, editingBracketMatch.id, patch),
+      "O confronto do mata-mata foi atualizado e o bracket foi recalculado.",
+    );
+    setEditingBracketMatch(null);
+  };
+
+  const groupMatchesByGroup = useMemo(
+    () =>
+      workspace
+        ? workspace.groups.map((group) => ({
+            group,
+            rounds: Array.from(
+              workspace.groupMatches
+                .filter((match) => match.groupId === group.id)
+                .reduce((registry, match) => {
+                  const currentRound = registry.get(match.roundNumber) ?? [];
+                  currentRound.push(match);
+                  registry.set(match.roundNumber, currentRound);
+                  return registry;
+                }, new Map<number, ChampionshipGroupMatch[]>()),
+            ).sort((left, right) => left[0] - right[0]),
+          }))
+        : [],
+    [workspace],
+  );
+  const bracketColumns = workspace
+    ? workspace.bracket.rounds
+        .filter((round) => round.stageKey !== "third-place")
+        .map((round) => ({
+          round,
+          matches: workspace.bracket.matches.filter((match) => match.roundId === round.id),
+        }))
+    : [];
+  const thirdPlaceMatch = workspace
+    ? workspace.bracket.matches.find((match) => match.stageKey === "third-place") ?? null
+    : null;
+  const bracketValidationMessage =
+    workspace && championship ? validateBracketGeneration(workspace, championship) : null;
+  const championshipFormat = championship?.configuration.format ?? "groups-knockout";
+  const isLeagueFormat =
+    championshipFormat === "points-league" || championshipFormat === "points-league-knockout";
+  const isKnockoutOnlyFormat = championshipFormat === "knockout";
+  const isCrossBracketFormat = championshipFormat === "cross-brackets";
+  const classificationTabLabel = isKnockoutOnlyFormat
+    ? "Seeds"
+    : isLeagueFormat
+      ? "Liga"
+      : isCrossBracketFormat
+        ? "Chaves"
+        : "Grupos";
+  const participantsCardTitle = isKnockoutOnlyFormat
+    ? "Participantes do mata-mata"
+    : isLeagueFormat
+      ? "Participantes e tabela corrida"
+      : isCrossBracketFormat
+        ? "Participantes e chaves"
+        : "Participantes e fase de grupos";
+  const participantsCardDescription = isKnockoutOnlyFormat
+    ? "Organize os seeds de entrada antes de montar o bracket eliminatorio."
+    : isLeagueFormat
+      ? "Renomeie as equipes, acompanhe a tabela geral e navegue rodada por rodada."
+      : "Renomeie as equipes, acompanhe a classificacao por grupo e edite os resultados por rodada.";
+  const backPath = isAdmin ? "/admin/campeonatos" : "/campeonatos";
+  const canOpenRegistration = championship.status === "Inscricoes abertas";
+  const renderShell = (content: ReactNode) =>
+    isAdmin ? <>{content}</> : <PageShell>{content}</PageShell>;
+
+  useEffect(() => {
+    setSelectedGroupRounds((current) => {
+      const next: Record<string, number> = {};
+
+      groupMatchesByGroup.forEach(({ group, rounds }) => {
+        if (rounds.length === 0) {
+          return;
+        }
+
+        const availableRounds = rounds.map(([roundNumber]) => roundNumber);
+        const currentRound = current[group.id];
+        next[group.id] =
+          currentRound && availableRounds.includes(currentRound)
+            ? currentRound
+            : availableRounds[0];
+      });
+
+      const currentKeys = Object.keys(current);
+      const nextKeys = Object.keys(next);
+      const sameKeys =
+        currentKeys.length === nextKeys.length &&
+        nextKeys.every((key) => Object.prototype.hasOwnProperty.call(current, key));
+      const sameValues = nextKeys.every((key) => current[key] === next[key]);
+
+      return sameKeys && sameValues ? current : next;
+    });
+  }, [groupMatchesByGroup]);
+
+  useEffect(() => {
+    if (groupMatchesByGroup.length === 0) {
+      setSelectedPublicGroupId(null);
+      return;
+    }
+
+    setSelectedPublicGroupId((current) =>
+      current && groupMatchesByGroup.some(({ group }) => group.id === current)
+        ? current
+        : groupMatchesByGroup[0].group.id,
+    );
+  }, [groupMatchesByGroup]);
+
+  const publicTeamMetaById = useMemo(
+    () =>
+      championship && workspace
+        ? buildPublicTeamMetaMap(workspace.teams, championship.registrationRequests)
+        : new Map<string, { handle: string; crestLabel: string }>(),
+    [championship, workspace],
+  );
+  const selectedPublicGroupEntry = useMemo(() => {
+    if (isLeagueFormat || isKnockoutOnlyFormat) {
+      return groupMatchesByGroup[0] ?? null;
+    }
+
+    return groupMatchesByGroup.find(({ group }) => group.id === selectedPublicGroupId) ?? groupMatchesByGroup[0] ?? null;
+  }, [groupMatchesByGroup, isKnockoutOnlyFormat, isLeagueFormat, selectedPublicGroupId]);
+  const publicStandingsEntries = useMemo<UltimateTeamStandingsEntry[]>(() => {
+    if (!selectedPublicGroupEntry) {
+      return [];
+    }
+
+    const groupIndex = groupMatchesByGroup.findIndex(
+      ({ group }) => group.id === selectedPublicGroupEntry.group.id,
+    );
+    const selectedRows =
+      groupIndex >= 0 ? standings[groupIndex]?.rows ?? [] : standings[0]?.rows ?? [];
+
+    return selectedRows.map((row) => {
+      const teamSeed = workspace?.teams.find((team) => team.id === row.teamId)?.seed ?? row.position;
+
+      return {
+        id: row.teamId,
+        position: row.position,
+        team: {
+          id: row.teamId,
+          name: row.teamName,
+          meta:
+            publicTeamMetaById.get(row.teamId)?.handle ??
+            `Tecnico seed ${String(teamSeed).padStart(2, "0")}`,
+          crestLabel: publicTeamMetaById.get(row.teamId)?.crestLabel ?? row.teamName,
+        },
+        points: row.points,
+        played: row.played,
+        wins: row.wins,
+        draws: row.draws,
+        losses: row.losses,
+        goalsFor: row.goalsFor,
+        goalsAgainst: row.goalsAgainst,
+        goalDifference: row.goalDifference,
+        efficiency: calculateEfficiency(row.points, row.played),
+      };
+    });
+  }, [groupMatchesByGroup, publicTeamMetaById, selectedPublicGroupEntry, standings, workspace?.teams]);
+  const publicRoundMatches = useMemo<UltimateTeamMatchEntry[]>(() => {
+    if (!selectedPublicGroupEntry) {
+      return [];
+    }
+
+    const selectedRoundNumber =
+      selectedGroupRounds[selectedPublicGroupEntry.group.id] ??
+      selectedPublicGroupEntry.rounds[0]?.[0] ??
+      1;
+    const selectedRoundEntry =
+      selectedPublicGroupEntry.rounds.find(([roundNumber]) => roundNumber === selectedRoundNumber) ??
+      selectedPublicGroupEntry.rounds[0] ??
+      [selectedRoundNumber, []];
+    const [, matches] = selectedRoundEntry;
+
+    return matches.map((match) => {
+      const homeMeta = publicTeamMetaById.get(match.homeTeamId);
+      const awayMeta = publicTeamMetaById.get(match.awayTeamId);
+
+      return {
+        id: match.id,
+        home: {
+          id: match.homeTeamId,
+          name: getTeamName(workspace?.teams ?? [], match.homeTeamId),
+          meta: homeMeta?.handle,
+          crestLabel: homeMeta?.crestLabel,
+        },
+        away: {
+          id: match.awayTeamId,
+          name: getTeamName(workspace?.teams ?? [], match.awayTeamId),
+          meta: awayMeta?.handle,
+          crestLabel: awayMeta?.crestLabel,
+        },
+        scoreHome: match.scoreHome,
+        scoreAway: match.scoreAway,
+        statusLabel: match.status === "completed" ? "Encerrada" : "Em disputa",
+        metaLabel: formatMatchDateTime(match.playedAt),
+      };
+    });
+  }, [publicTeamMetaById, selectedGroupRounds, selectedPublicGroupEntry, workspace?.teams]);
+  const publicRoundLabel = useMemo(() => {
+    if (!selectedPublicGroupEntry) {
+      return "RODADA 1";
+    }
+
+    const selectedRoundNumber =
+      selectedGroupRounds[selectedPublicGroupEntry.group.id] ??
+      selectedPublicGroupEntry.rounds[0]?.[0] ??
+      1;
+
+    return `RODADA ${selectedRoundNumber}`;
+  }, [selectedGroupRounds, selectedPublicGroupEntry]);
+
+  if (!championshipId || !championship) {
+    return renderShell(
+        <section className="py-16">
+          <div className="container mx-auto px-4">
+            <EmptyStateCard
+              icon={Trophy}
+              title="Campeonato nao encontrado"
+              description="O campeonato solicitado nao existe ou foi removido."
+              actionLabel="Voltar para campeonatos"
+              actionTo="/campeonatos"
+              className="mx-auto max-w-3xl"
+            />
+          </div>
+        </section>
+    );
+  }
+
+  if (isLoading || !workspace || !finalConfigDraft) {
+    return renderShell(
+        <section className="py-16">
+          <div className="container mx-auto px-4">
+            <EmptyStateCard
+              icon={Trophy}
+              title="Carregando painel do campeonato"
+              description="Sincronizando grupos, finais e estatisticas mais recentes."
+              className="mx-auto max-w-3xl"
+            />
+          </div>
+        </section>
+    );
+  }
+
+  return (
+    <>
+      {renderShell(<section className={isAdmin ? "py-4" : "py-16"}>
+        <div className="container mx-auto flex max-w-7xl flex-col gap-6 px-4">
+          {isAdmin ? (
+            <AdminPageHeader
+              eyebrow="Operacao do campeonato"
+              title={championship.name}
+              description="Painel interno separado da experiencia publica para acompanhar grupos, bracket, pontuacao e andamento operacional."
+              actions={
+                <>
+                  <Button asChild variant="outline">
+                    <Link to={`/campeonatos/${championship.id}`}>Ver publico</Link>
+                  </Button>
+                  <Button asChild variant="outline">
+                    <Link to={backPath}>Voltar</Link>
+                  </Button>
+                </>
+              }
+            />
+          ) : null}
+
+          {isAdmin ? (
+            <div className="flex flex-wrap gap-3">
+              <StatusBadge status={championship.status} />
+              <Badge variant="secondary">{storageMode === "supabase" ? "Supabase" : "Base local"}</Badge>
+              <Badge variant="outline">{workspace.bracket.state.replaceAll("-", " ")}</Badge>
+              <Badge variant="outline">{pendingRegistrationRequests.length} pendentes</Badge>
+              <Badge variant="outline">{approvedRegistrationRequests.length} aprovados</Badge>
+              {workspace.bracket.consistencyStatus === "outdated" || workspace.bracket.consistencyStatus === "frozen" ? (
+                <Badge variant="destructive">Bracket com alerta</Badge>
+              ) : null}
+            </div>
+          ) : null}
+
+          {errorMessage ? (
+            <div className="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+              {errorMessage}
+            </div>
+          ) : null}
+
+          {isAdmin ? (
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <MetricCard label="Times" value={String(summary?.totalTeams ?? 0)} icon={Users} />
+              <MetricCard
+                label="Jogos de grupos"
+                value={`${summary?.groupMatchesCompleted ?? 0}/${summary?.totalGroupMatches ?? 0}`}
+                icon={ListChecks}
+              />
+              <MetricCard
+                label="Jogos de finais"
+                value={`${summary?.bracketMatchesCompleted ?? 0}/${summary?.totalBracketMatches ?? 0}`}
+                icon={Swords}
+              />
+              <MetricCard
+                label="Campeao"
+                value={summary?.championName ?? "Em disputa"}
+                icon={Medal}
+              />
+            </div>
+          ) : null}
+
+          {isAdmin ? (
+            <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Solicitacoes de participacao</CardTitle>
+                  <CardDescription>
+                    Aprove ou recuse os pedidos recebidos automaticamente pelo fluxo publico.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {pendingRegistrationRequests.length > 0 ? (
+                    pendingRegistrationRequests.map((request) => (
+                      <div
+                        key={request.id}
+                        className="rounded-2xl border border-border bg-muted/20 p-4"
+                      >
+                        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                          <div className="space-y-2">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="font-semibold text-foreground">{request.playerName}</p>
+                              <Badge
+                                variant="outline"
+                                className={getRegistrationBadgeClassName(request.status)}
+                              >
+                                {getChampionshipRegistrationStatusLabel(request.status)}
+                              </Badge>
+                            </div>
+                            <p className="text-sm text-muted-foreground">{request.playerEmail}</p>
+                            <p className="text-sm text-muted-foreground">
+                              Pedido em {formatMatchDateTime(request.requestedAt)}
+                            </p>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            <Button
+                              onClick={() =>
+                                handleReviewParticipationRequest(request.id, "approved")
+                              }
+                              disabled={reviewingRequestId === request.id}
+                            >
+                              Aprovar
+                            </Button>
+                            <Button
+                              variant="outline"
+                              onClick={() =>
+                                handleReviewParticipationRequest(request.id, "rejected")
+                              }
+                              disabled={reviewingRequestId === request.id}
+                            >
+                              Recusar
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="rounded-2xl border border-border bg-muted/20 p-4 text-sm text-muted-foreground">
+                      Nenhuma solicitacao pendente no momento.
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Participantes e historico</CardTitle>
+                  <CardDescription>
+                    Aprovacoes e recusas mais recentes deste campeonato.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="rounded-2xl border border-border bg-muted/20 p-4">
+                    <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                      Participantes aprovados
+                    </p>
+                    <p className="mt-2 text-3xl font-black text-foreground">
+                      {approvedRegistrationRequests.length}
+                    </p>
+                  </div>
+
+                  {reviewedRegistrationRequests.length > 0 ? (
+                    reviewedRegistrationRequests.map((request) => (
+                      <div
+                        key={request.id}
+                        className="rounded-2xl border border-border bg-muted/20 p-4"
+                      >
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-semibold text-foreground">{request.playerName}</p>
+                          <Badge
+                            variant="outline"
+                            className={getRegistrationBadgeClassName(request.status)}
+                          >
+                            {getChampionshipRegistrationStatusLabel(request.status)}
+                          </Badge>
+                        </div>
+                        <p className="mt-2 text-sm text-muted-foreground">{request.playerEmail}</p>
+                        {request.reviewedAt ? (
+                          <p className="mt-2 text-sm text-muted-foreground">
+                            Revisado por {request.reviewedBy ?? "Administrador"} em{" "}
+                            {formatMatchDateTime(request.reviewedAt)}
+                          </p>
+                        ) : null}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="rounded-2xl border border-border bg-muted/20 p-4 text-sm text-muted-foreground">
+                      As decisoes mais recentes vao aparecer aqui depois da primeira aprovacao ou recusa.
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          ) : null}
+
+            <Tabs defaultValue="groups" className="w-full">
+            {isAdmin ? (
+              <TabsList className="h-auto w-full flex-wrap justify-start gap-0 rounded-none border-b border-border/70 bg-transparent p-0">
+                <TabsTrigger value="groups" className="rounded-none border-b-2 border-transparent px-4 py-3 text-sm data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground">
+                  {classificationTabLabel}
+                </TabsTrigger>
+                <TabsTrigger value="finals" className="rounded-none border-b-2 border-transparent px-4 py-3 text-sm data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground">
+                  Finais
+                </TabsTrigger>
+                <TabsTrigger value="info" className="rounded-none border-b-2 border-transparent px-4 py-3 text-sm data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground">
+                  Info
+                </TabsTrigger>
+                <TabsTrigger value="stats" className="rounded-none border-b-2 border-transparent px-4 py-3 text-sm data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground">
+                  Estatisticas
+                </TabsTrigger>
+                <TabsTrigger value="adjustments" className="rounded-none border-b-2 border-transparent px-4 py-3 text-sm data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground">
+                  Ajustes pontuacao
+                </TabsTrigger>
+              </TabsList>
+            ) : (
+              <UltimateTeamChampionshipShell
+                title={championship.name.toUpperCase()}
+                statusBadge={<StatusBadge status={championship.status} className="text-[11px]" />}
+                actions={
+                  <>
+                    <Button
+                      onClick={openParticipationDialog}
+                      disabled={shouldDisableRegistrationAction}
+                      className="rounded-full bg-electric px-5 text-[11px] uppercase tracking-[0.18em] text-background hover:bg-electric/90"
+                    >
+                      {registrationActionLabel}
+                    </Button>
+                    <Button asChild variant="outline" className="rounded-full border-white/12 bg-white/5 text-slate-100 hover:bg-white/10">
+                      <Link to={backPath}>Voltar</Link>
+                    </Button>
+                  </>
+                }
+                tabs={
+                  <TabsList className="h-auto w-full flex-wrap justify-start gap-1 rounded-none border-b border-white/8 bg-transparent p-0">
+                    <TabsTrigger value="groups" className="rounded-none border-b-2 border-transparent px-4 py-3 text-sm font-medium text-slate-400 data-[state=active]:border-electric data-[state=active]:bg-transparent data-[state=active]:text-slate-50">
+                      Grupos
+                    </TabsTrigger>
+                    <TabsTrigger value="finals" className="rounded-none border-b-2 border-transparent px-4 py-3 text-sm font-medium text-slate-400 data-[state=active]:border-electric data-[state=active]:bg-transparent data-[state=active]:text-slate-50">
+                      Finais
+                    </TabsTrigger>
+                    <TabsTrigger value="info" className="rounded-none border-b-2 border-transparent px-4 py-3 text-sm font-medium text-slate-400 data-[state=active]:border-electric data-[state=active]:bg-transparent data-[state=active]:text-slate-50">
+                      Info
+                    </TabsTrigger>
+                    <TabsTrigger value="stats" className="rounded-none border-b-2 border-transparent px-4 py-3 text-sm font-medium text-slate-400 data-[state=active]:border-electric data-[state=active]:bg-transparent data-[state=active]:text-slate-50">
+                      Estatisticas
+                    </TabsTrigger>
+                  </TabsList>
+                }
+              >
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                  <p className="max-w-3xl text-sm leading-7 text-slate-300">
+                    Visual compacto inspirado em simuladores de campeonato, com classificacao alinhada e jogos da rodada em cards limpos.
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant="secondary" className="border-white/10 bg-white/8 text-slate-200">
+                      {storageMode === "supabase" ? "Supabase" : "Base local"}
+                    </Badge>
+                    {playerRegistrationRequest ? (
+                      <Badge
+                        variant="outline"
+                        className={getRegistrationBadgeClassName(playerRegistrationRequest.status)}
+                      >
+                        {getChampionshipRegistrationStatusLabel(playerRegistrationRequest.status)}
+                      </Badge>
+                    ) : null}
+                    {approvedRegistrationRequests.length > 0 ? (
+                      <Badge variant="outline" className="border-white/10 text-slate-200">
+                        {approvedRegistrationRequests.length} aprovados
+                      </Badge>
+                    ) : null}
+                  </div>
+                </div>
+              </UltimateTeamChampionshipShell>
+            )}
+
+            <TabsContent value="groups" className={isAdmin ? "space-y-4" : "mt-6 space-y-5"}>
+              {isAdmin ? (
+                <>
+                  <Card>
+                    <CardHeader className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                      <div>
+                        <CardTitle>{participantsCardTitle}</CardTitle>
+                        <CardDescription>{participantsCardDescription}</CardDescription>
+                      </div>
+                      <div className="flex flex-wrap gap-3">
+                        <Button variant="outline" onClick={handleSaveTeamNames} disabled={isSaving}>
+                          <Save className="mr-2 h-4 w-4" />
+                          Salvar equipes
+                        </Button>
+                        <Button variant="outline" onClick={handleRebuildGroups} disabled={isSaving}>
+                          <RefreshCcw className="mr-2 h-4 w-4" />
+                          Redistribuir grupos
+                        </Button>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                      {workspace.teams.map((team) => (
+                        <label key={team.id} className="space-y-2">
+                          <span className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                            Seed {team.seed}
+                          </span>
+                          <input
+                            value={teamNameDrafts[team.id] ?? team.name}
+                            onChange={(event) =>
+                              setTeamNameDrafts((current) => ({
+                                ...current,
+                                [team.id]: event.target.value,
+                              }))
+                            }
+                            disabled={!isAdmin}
+                            className={inputClassName}
+                          />
+                        </label>
+                      ))}
+                    </CardContent>
+                  </Card>
+
+                  {isKnockoutOnlyFormat ? (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Entrada do chaveamento</CardTitle>
+                        <CardDescription>
+                          Este formato pula a classificatoria. Aqui a leitura foca em seed, ordem de entrada e pronto encaminhamento para a aba de finais.
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                        {[...workspace.teams]
+                          .sort((left, right) => left.seed - right.seed)
+                          .map((team) => (
+                            <div key={team.id} className="rounded-2xl border border-border bg-muted/20 p-4">
+                              <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                                Seed {team.seed}
+                              </p>
+                              <p className="mt-2 text-lg font-semibold text-foreground">{team.name}</p>
+                              <p className="mt-3 text-sm text-muted-foreground">
+                                {team.pointsAdjustment !== 0
+                                  ? `Ajuste ativo: ${team.pointsAdjustment > 0 ? "+" : ""}${team.pointsAdjustment} pontos.`
+                                  : "Pronto para entrar no bracket eliminatorio."}
+                              </p>
+                            </div>
+                          ))}
+                      </CardContent>
+                    </Card>
+                  ) : workspace.groups.length === 0 ? (
+                    <EmptyStateCard
+                      icon={Users}
+                      title="Sem fase de grupos"
+                      description="Este campeonato esta configurado sem grupos. O mata-mata pode ser gerado direto a partir da lista de participantes."
+                    />
+                  ) : isLeagueFormat ? (
+                    (() => {
+                      const leagueGroup = groupMatchesByGroup[0];
+
+                      if (!leagueGroup) {
+                        return (
+                          <EmptyStateCard
+                            icon={ListChecks}
+                            title="Tabela ainda nao gerada"
+                            description="A fase classificatoria deste campeonato ainda nao foi montada."
+                          />
+                        );
+                      }
+
+                      return (
+                        <div className="grid gap-7 xl:grid-cols-[1.15fr_0.85fr]">
+                          <StandingsBoard
+                            title="Classificacao"
+                            description="Todos se enfrentam no mesmo quadro classificatorio, com leitura unica de pontos, saldo, gols e campanha."
+                            rows={standings[0]?.rows ?? []}
+                            qualifiedCount={finalConfigDraft.hasFinalStage ? finalConfigDraft.qualifiedPerGroup : 0}
+                          />
+
+                          <RoundMatchesBoard
+                            title="Rodadas da liga"
+                            description="Navegue por uma rodada de cada vez para manter a leitura mais limpa e objetiva."
+                            groupLabel={leagueGroup.group.name}
+                            rounds={leagueGroup.rounds}
+                            selectedRoundNumber={selectedGroupRounds[leagueGroup.group.id] ?? leagueGroup.rounds[0]?.[0] ?? 1}
+                            onSelectRound={(roundNumber) =>
+                              setSelectedGroupRounds((current) => ({
+                                ...current,
+                                [leagueGroup.group.id]: roundNumber,
+                              }))
+                            }
+                            teams={workspace.teams}
+                            isAdmin={isAdmin}
+                            onEditMatch={setEditingGroupMatch}
+                          />
+                        </div>
+                      );
+                    })()
+                  ) : (
+                    groupMatchesByGroup.map(({ group, rounds }, groupIndex) => (
+                      <div key={group.id} className="grid gap-7 xl:grid-cols-[1.15fr_0.85fr]">
+                        <StandingsBoard
+                          title={group.name}
+                          description="Classificacao atual com desempate por pontos, saldo, gols marcados e vitorias."
+                          rows={standings[groupIndex]?.rows ?? []}
+                          qualifiedCount={finalConfigDraft.hasFinalStage ? finalConfigDraft.qualifiedPerGroup : 0}
+                        />
+
+                        <RoundMatchesBoard
+                          title={`Partidas do ${group.name}`}
+                          description={
+                            isCrossBracketFormat
+                              ? "Cada chave navega por uma rodada de cada vez para evitar uma coluna longa demais."
+                              : "Clique em um confronto para editar placar, data, horario e local."
+                          }
+                          groupLabel={group.name}
+                          rounds={rounds}
+                          selectedRoundNumber={selectedGroupRounds[group.id] ?? rounds[0]?.[0] ?? 1}
+                          onSelectRound={(roundNumber) =>
+                            setSelectedGroupRounds((current) => ({
+                              ...current,
+                              [group.id]: roundNumber,
+                            }))
+                          }
+                          teams={workspace.teams}
+                          isAdmin={isAdmin}
+                          onEditMatch={setEditingGroupMatch}
+                        />
+                      </div>
+                    ))
+                  )}
+                </>
+              ) : (
+                <>
+                  {(canOpenRegistration || playerRegistrationRequest || (selectedPublicGroupEntry?.rounds.length ?? 0) > 1) ? (
+                    <Card className="border-white/8 bg-[linear-gradient(180deg,hsl(220_18%_14%_/_0.95),hsl(220_18%_11%_/_0.92))] shadow-[0_18px_36px_hsl(222_40%_3%_/_0.2)]">
+                      <CardContent className="flex flex-col gap-4 pt-6 lg:flex-row lg:items-center lg:justify-between">
+                        <div className="space-y-2">
+                          <p className="text-xs uppercase tracking-[0.24em] text-electric">Painel do jogador</p>
+                          <p className="text-sm leading-7 text-slate-300">
+                            {playerRegistrationRequest
+                              ? playerRegistrationRequest.status === "pending"
+                                ? "Seu pedido foi enviado e agora aguarda aprovacao do administrador."
+                                : playerRegistrationRequest.status === "approved"
+                                  ? "Participacao aprovada. Seu nome ja consta no campeonato."
+                                  : "O pedido foi recusado e o status continua visivel aqui."
+                              : canOpenRegistration
+                                ? "A janela de entrada esta aberta. Voce pode acompanhar a tabela e pedir entrada sem sair desta tela."
+                                : "Acompanhe a rodada e a classificacao em uma leitura compacta."}
+                          </p>
+                        </div>
+
+                        {(selectedPublicGroupEntry?.rounds.length ?? 0) > 1 ? (
+                          <div className="flex flex-wrap gap-2">
+                            {selectedPublicGroupEntry?.rounds.map(([roundNumber]) => (
+                              <button
+                                key={roundNumber}
+                                type="button"
+                                onClick={() =>
+                                  setSelectedGroupRounds((current) => ({
+                                    ...current,
+                                    [selectedPublicGroupEntry.group.id]: roundNumber,
+                                  }))
+                                }
+                                className={`rounded-full border px-3 py-1.5 text-xs uppercase tracking-[0.16em] transition-all ${
+                                  (selectedGroupRounds[selectedPublicGroupEntry.group.id] ??
+                                    selectedPublicGroupEntry.rounds[0]?.[0] ??
+                                    1) === roundNumber
+                                    ? "border-electric/35 bg-electric/12 text-electric"
+                                    : "border-white/10 bg-white/[0.03] text-slate-300 hover:border-electric/30 hover:text-electric"
+                                }`}
+                              >
+                                Rodada {roundNumber}
+                              </button>
+                            ))}
+                          </div>
+                        ) : null}
+                      </CardContent>
+                    </Card>
+                  ) : null}
+
+                  {isKnockoutOnlyFormat ? (
+                    <Card className="border-white/8 bg-[linear-gradient(180deg,hsl(220_18%_12%_/_0.98),hsl(220_20%_10%_/_0.96))]">
+                      <CardHeader>
+                        <CardTitle>Entrada do chaveamento</CardTitle>
+                        <CardDescription>
+                          Este formato vai direto para o mata-mata. A aba de grupos vira um resumo compacto dos seeds de entrada.
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                        {[...workspace.teams]
+                          .sort((left, right) => left.seed - right.seed)
+                          .map((team) => (
+                            <div key={team.id} className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
+                              <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
+                                Seed {team.seed}
+                              </p>
+                              <p className="mt-2 text-lg font-semibold text-slate-100">{team.name}</p>
+                              <p className="mt-3 text-sm text-slate-400">
+                                {publicTeamMetaById.get(team.id)?.handle ?? `Tecnico seed ${String(team.seed).padStart(2, "0")}`}
+                              </p>
+                            </div>
+                          ))}
+                      </CardContent>
+                    </Card>
+                  ) : workspace.groups.length === 0 ? (
+                    <EmptyStateCard
+                      icon={Users}
+                      title="Sem fase de grupos"
+                      description="Este campeonato esta configurado sem grupos. O mata-mata pode ser gerado direto a partir da lista de participantes."
+                    />
+                  ) : (
+                    <UltimateTeamGroupDashboard
+                      standingsTitle="CLASSIFICACAO"
+                      roundTitle={publicRoundLabel}
+                      standings={publicStandingsEntries}
+                      matches={publicRoundMatches}
+                      groupSwitcher={
+                        !isLeagueFormat && groupMatchesByGroup.length > 1 ? (
+                          <div className="flex flex-wrap gap-2">
+                            {groupMatchesByGroup.map(({ group }) => (
+                              <button
+                                key={group.id}
+                                type="button"
+                                onClick={() => setSelectedPublicGroupId(group.id)}
+                                className={`rounded-full border px-3 py-1.5 text-[11px] uppercase tracking-[0.16em] transition-all ${
+                                  selectedPublicGroupEntry?.group.id === group.id
+                                    ? "border-electric/35 bg-electric/12 text-electric"
+                                    : "border-white/10 bg-white/[0.03] text-slate-400 hover:border-electric/30 hover:text-electric"
+                                }`}
+                              >
+                                {group.name}
+                              </button>
+                            ))}
+                          </div>
+                        ) : null
+                      }
+                    />
+                  )}
+                </>
+              )}
+            </TabsContent>
+
+            <TabsContent value="finals" className="space-y-4">
+              {isAdmin ? (
+                <>
+                  <Card>
+                    <CardHeader className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                      <div>
+                        <CardTitle>Configuracao da fase final</CardTitle>
+                        <CardDescription>
+                          Defina se ha mata-mata, como os classificados viram confrontos e qual politica vale quando a fase de grupos muda.
+                        </CardDescription>
+                      </div>
+                      {isAdmin ? (
+                        <Button onClick={saveChampionshipConfiguration} disabled={isSaving}>
+                          <Save className="mr-2 h-4 w-4" />
+                          Salvar configuracoes
+                        </Button>
+                      ) : null}
+                    </CardHeader>
+                    <CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                      <ToggleField
+                        label="Habilitar fase final"
+                        value={finalConfigDraft.hasFinalStage}
+                        disabled={!isAdmin}
+                        onChange={(value) =>
+                          setFinalConfigDraft((current) => (current ? { ...current, hasFinalStage: value } : current))
+                        }
+                      />
+                      <ToggleField
+                        label="Disputa de 3o lugar"
+                        value={finalConfigDraft.thirdPlaceMatch}
+                        disabled={!isAdmin}
+                        onChange={(value) =>
+                          setFinalConfigDraft((current) => (current ? { ...current, thirdPlaceMatch: value } : current))
+                        }
+                      />
+                      <label className="space-y-2">
+                        <span className="text-sm font-medium text-foreground">Classificados por grupo</span>
+                        <input
+                          type="number"
+                          min={1}
+                          value={finalConfigDraft.qualifiedPerGroup}
+                          onChange={(event) =>
+                            setFinalConfigDraft((current) =>
+                              current
+                                ? {
+                                    ...current,
+                                    qualifiedPerGroup: Math.max(1, Number(event.target.value)),
+                                  }
+                                : current,
+                            )
+                          }
+                          disabled={!isAdmin}
+                          className={inputClassName}
+                        />
+                      </label>
+                      <SelectField
+                        label="Montagem automatica"
+                        value={finalConfigDraft.knockoutBracketMode}
+                        disabled={!isAdmin}
+                        onChange={(value) =>
+                          setFinalConfigDraft((current) =>
+                            current ? { ...current, knockoutBracketMode: value as ChampionshipConfiguration["knockoutBracketMode"] } : current,
+                          )
+                        }
+                        options={[
+                          { value: "cross-groups", label: "Cruzamento por grupos" },
+                          { value: "best-vs-worst", label: "Melhor x pior" },
+                        ]}
+                      />
+                      <SelectField
+                        label="Modo de definicao"
+                        value={finalConfigDraft.knockoutSetupMode}
+                        disabled={!isAdmin}
+                        onChange={(value) =>
+                          setFinalConfigDraft((current) =>
+                            current ? { ...current, knockoutSetupMode: value as ChampionshipConfiguration["knockoutSetupMode"] } : current,
+                          )
+                        }
+                        options={[
+                          { value: "automatic", label: "Automatico" },
+                          { value: "manual", label: "Manual" },
+                        ]}
+                      />
+                      <SelectField
+                        label="Mudancas na fase de grupos"
+                        value={finalConfigDraft.bracketSyncPolicy}
+                        disabled={!isAdmin}
+                        onChange={(value) =>
+                          setFinalConfigDraft((current) =>
+                            current ? { ...current, bracketSyncPolicy: value as ChampionshipConfiguration["bracketSyncPolicy"] } : current,
+                          )
+                        }
+                        options={[
+                          { value: "warn", label: "Avisar e regerar" },
+                          { value: "freeze", label: "Congelar bracket" },
+                        ]}
+                      />
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Nomes das fases</CardTitle>
+                      <CardDescription>
+                        Os nomes abaixo aparecem no bracket visual e podem ser adaptados ao regulamento do campeonato.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+                      <label className="space-y-2">
+                        <span className="text-sm font-medium text-foreground">Oitavas</span>
+                        <input
+                          value={finalConfigDraft.phaseLabels.roundOf16}
+                          onChange={(event) =>
+                            setFinalConfigDraft((current) =>
+                              current
+                                ? {
+                                    ...current,
+                                    phaseLabels: {
+                                      ...current.phaseLabels,
+                                      roundOf16: event.target.value,
+                                    },
+                                  }
+                                : current,
+                            )
+                          }
+                          disabled={!isAdmin}
+                          className={inputClassName}
+                        />
+                      </label>
+                      <label className="space-y-2">
+                        <span className="text-sm font-medium text-foreground">Quartas</span>
+                        <input
+                          value={finalConfigDraft.phaseLabels.quarterfinal}
+                          onChange={(event) =>
+                            setFinalConfigDraft((current) =>
+                              current
+                                ? {
+                                    ...current,
+                                    phaseLabels: {
+                                      ...current.phaseLabels,
+                                      quarterfinal: event.target.value,
+                                    },
+                                  }
+                                : current,
+                            )
+                          }
+                          disabled={!isAdmin}
+                          className={inputClassName}
+                        />
+                      </label>
+                      <label className="space-y-2">
+                        <span className="text-sm font-medium text-foreground">Semifinal</span>
+                        <input
+                          value={finalConfigDraft.phaseLabels.semifinal}
+                          onChange={(event) =>
+                            setFinalConfigDraft((current) =>
+                              current
+                                ? {
+                                    ...current,
+                                    phaseLabels: {
+                                      ...current.phaseLabels,
+                                      semifinal: event.target.value,
+                                    },
+                                  }
+                                : current,
+                            )
+                          }
+                          disabled={!isAdmin}
+                          className={inputClassName}
+                        />
+                      </label>
+                      <label className="space-y-2">
+                        <span className="text-sm font-medium text-foreground">Final</span>
+                        <input
+                          value={finalConfigDraft.phaseLabels.final}
+                          onChange={(event) =>
+                            setFinalConfigDraft((current) =>
+                              current
+                                ? {
+                                    ...current,
+                                    phaseLabels: {
+                                      ...current.phaseLabels,
+                                      final: event.target.value,
+                                    },
+                                  }
+                                : current,
+                            )
+                          }
+                          disabled={!isAdmin}
+                          className={inputClassName}
+                        />
+                      </label>
+                      <label className="space-y-2">
+                        <span className="text-sm font-medium text-foreground">3o lugar</span>
+                        <input
+                          value={finalConfigDraft.phaseLabels.thirdPlace}
+                          onChange={(event) =>
+                            setFinalConfigDraft((current) =>
+                              current
+                                ? {
+                                    ...current,
+                                    phaseLabels: {
+                                      ...current.phaseLabels,
+                                      thirdPlace: event.target.value,
+                                    },
+                                  }
+                                : current,
+                            )
+                          }
+                          disabled={!isAdmin}
+                          className={inputClassName}
+                        />
+                      </label>
+                    </CardContent>
+                  </Card>
+                </>
+              ) : (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Estrutura da fase final</CardTitle>
+                    <CardDescription>
+                      Resumo publico da configuracao do mata-mata, separado do painel administrativo.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    <InfoRow label="Fase final" value={finalConfigDraft.hasFinalStage ? "Habilitada" : "Desabilitada"} />
+                    <InfoRow label="Classificados" value={String(finalConfigDraft.qualifiedPerGroup)} />
+                    <InfoRow label="Montagem" value={finalConfigDraft.knockoutBracketMode} />
+                    <InfoRow label="Definicao" value={finalConfigDraft.knockoutSetupMode} />
+                    <InfoRow label="Atualizacao" value={finalConfigDraft.bracketSyncPolicy} />
+                    <InfoRow label="3o lugar" value={finalConfigDraft.thirdPlaceMatch ? "Ativo" : "Nao"} />
+                  </CardContent>
+                </Card>
+              )}
+
+              {workspace.bracket.consistencyMessage ? (
+                <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+                  <div className="flex items-start gap-3">
+                    <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
+                    <div>
+                      <p className="font-medium">Bracket com atencao</p>
+                      <p className="mt-1 leading-6">{workspace.bracket.consistencyMessage}</p>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+
+              <Card>
+                <CardHeader className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                  <div>
+                    <CardTitle>Chaveamento visual</CardTitle>
+                    <CardDescription>
+                      O vencedor avanca automaticamente ate a final. Clique em um confronto para editar o resultado.
+                    </CardDescription>
+                  </div>
+                  {isAdmin ? (
+                    <div className="flex flex-wrap gap-3">
+                      <Button
+                        onClick={handleGenerateBracket}
+                        disabled={isSaving || Boolean(bracketValidationMessage)}
+                      >
+                        <RefreshCcw className="mr-2 h-4 w-4" />
+                        {workspace.bracket.matches.length ? "Regerar chaveamento" : "Gerar chaveamento"}
+                      </Button>
+                    </div>
+                  ) : null}
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {bracketValidationMessage && !workspace.bracket.matches.length ? (
+                    <div className="rounded-2xl border border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
+                      {bracketValidationMessage}
+                    </div>
+                  ) : null}
+
+                  {!workspace.bracket.matches.length ? (
+                    <EmptyStateCard
+                      icon={Swords}
+                      title="Bracket ainda nao gerado"
+                      description="Assim que a classificacao estiver valida, use o botao acima para criar o mata-mata."
+                    />
+                  ) : (
+                    <>
+                      <div className="overflow-x-auto pb-2">
+                        <div className="flex min-w-max items-start gap-4">
+                          {bracketColumns.map((column, index) => (
+                            <div key={column.round.id} className="flex items-start gap-4">
+                              <div className="w-[290px] rounded-2xl border border-border bg-card p-4">
+                                <div className="mb-4 flex items-center justify-between">
+                                  <div>
+                                    <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">
+                                      Fase
+                                    </p>
+                                    <h3 className="text-lg font-semibold text-foreground">
+                                      {column.round.stageName}
+                                    </h3>
+                                  </div>
+                                  <Badge variant="outline">{column.matches.length} jogos</Badge>
+                                </div>
+                                <div className="space-y-4">
+                                  {column.matches.map((match) => (
+                                    <MatchCard
+                                      key={match.id}
+                                      title={`${match.stageName} ${match.matchOrder}`}
+                                      homeLabel={getTeamName(workspace.teams, match.homeTeamId)}
+                                      awayLabel={getTeamName(workspace.teams, match.awayTeamId)}
+                                      scoreHome={match.scoreHome}
+                                      scoreAway={match.scoreAway}
+                                      statusLabel={
+                                        match.winnerTeamId
+                                          ? "Concluido"
+                                          : match.homeTeamId && match.awayTeamId
+                                          ? "Pronto"
+                                          : "Pendente"
+                                      }
+                                      metaLabel={formatMatchDateTime(match.playedAt)}
+                                      secondaryMeta={match.venue || "Local a definir"}
+                                      winnerTeamId={match.winnerTeamId}
+                                      homeTeamId={match.homeTeamId}
+                                      awayTeamId={match.awayTeamId}
+                                      onClick={
+                                        isAdmin ? () => setEditingBracketMatch(match) : undefined
+                                      }
+                                    />
+                                  ))}
+                                </div>
+                              </div>
+                              {index < bracketColumns.length - 1 ? (
+                                <div className="hidden self-center pt-10 lg:block">
+                                  <ChevronRight className="h-8 w-8 text-muted-foreground/50" />
+                                </div>
+                              ) : null}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {thirdPlaceMatch ? (
+                        <div className="rounded-2xl border border-border bg-card p-4">
+                          <div className="mb-4 flex items-center justify-between">
+                            <div>
+                              <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">
+                                Partida extra
+                              </p>
+                              <h3 className="text-lg font-semibold text-foreground">
+                                {thirdPlaceMatch.stageName}
+                              </h3>
+                            </div>
+                          </div>
+                          <MatchCard
+                            title={thirdPlaceMatch.stageName}
+                            homeLabel={getTeamName(workspace.teams, thirdPlaceMatch.homeTeamId)}
+                            awayLabel={getTeamName(workspace.teams, thirdPlaceMatch.awayTeamId)}
+                            scoreHome={thirdPlaceMatch.scoreHome}
+                            scoreAway={thirdPlaceMatch.scoreAway}
+                            statusLabel={
+                              thirdPlaceMatch.winnerTeamId
+                                ? "Concluido"
+                                : thirdPlaceMatch.homeTeamId && thirdPlaceMatch.awayTeamId
+                                ? "Pronto"
+                                : "Pendente"
+                            }
+                            metaLabel={formatMatchDateTime(thirdPlaceMatch.playedAt)}
+                            secondaryMeta={thirdPlaceMatch.venue || "Local a definir"}
+                            winnerTeamId={thirdPlaceMatch.winnerTeamId}
+                            homeTeamId={thirdPlaceMatch.homeTeamId}
+                            awayTeamId={thirdPlaceMatch.awayTeamId}
+                            onClick={isAdmin ? () => setEditingBracketMatch(thirdPlaceMatch) : undefined}
+                          />
+                        </div>
+                      ) : null}
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="info" className="space-y-4">
+              <div className="grid gap-4 lg:grid-cols-2">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Resumo do campeonato</CardTitle>
+                    <CardDescription>
+                      Visao geral da competicao, incluindo formato, cadastro e janela oficial.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-3 text-sm text-muted-foreground">
+                    <InfoRow label="Descricao" value={championship.description} />
+                    <InfoRow label="Regras" value={championship.rules} />
+                    <InfoRow label="Periodo" value={`${championship.startDate} ate ${championship.endDate}`} />
+                    <InfoRow label="Times previstos" value={String(championship.teamCount)} />
+                    <InfoRow label="Fase atual" value={workspace.bracket.state.replaceAll("-", " ")} />
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Configuracao competitiva</CardTitle>
+                    <CardDescription>
+                      Parametros que alimentam classificacao, bracket e sincronizacao da fase final.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-3 text-sm text-muted-foreground">
+                    <InfoRow label="Formato" value={championship.configuration.format} />
+                    <InfoRow label="Grupos" value={String(championship.configuration.groupCount)} />
+                    <InfoRow label="Classificados por grupo" value={String(finalConfigDraft.qualifiedPerGroup)} />
+                    <InfoRow label="Montagem" value={finalConfigDraft.knockoutBracketMode} />
+                    <InfoRow label="Definicao inicial" value={finalConfigDraft.knockoutSetupMode} />
+                    <InfoRow label="Politica de mudanca" value={finalConfigDraft.bracketSyncPolicy} />
+                    <InfoRow label="Terceiro lugar" value={finalConfigDraft.thirdPlaceMatch ? "Sim" : "Nao"} />
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="stats" className="space-y-4">
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <MetricCard label="Grupos" value={String(summary?.totalGroups ?? 0)} icon={Users} />
+                <MetricCard label="Gols" value={String(summary?.totalGoals ?? 0)} icon={Trophy} />
+                <MetricCard
+                  label="Situacao do bracket"
+                  value={(summary?.bracketState ?? "not-generated").replaceAll("-", " ")}
+                  icon={Swords}
+                />
+                <MetricCard
+                  label="Consistencia"
+                  value={summary?.consistencyStatus ?? "idle"}
+                  icon={ShieldAlert}
+                />
+              </div>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Leitura rapida da competicao</CardTitle>
+                  <CardDescription>
+                    Estatisticas resumidas para acompanhamento do andamento do campeonato.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="grid gap-4 lg:grid-cols-2">
+                  <div className="rounded-2xl border border-border bg-muted/30 p-4">
+                    <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">
+                      Melhor campanha por grupo
+                    </p>
+                    <div className="mt-3 space-y-3">
+                      {standings.map((group) => (
+                        <div key={group.groupId} className="flex items-center justify-between text-sm">
+                          <span>{group.groupName}</span>
+                          <span className="font-medium text-foreground">
+                            {group.rows[0]?.teamName ?? "Sem lider"}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="rounded-2xl border border-border bg-muted/30 p-4">
+                    <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">
+                      Classificados atuais
+                    </p>
+                    <div className="mt-3 space-y-3 text-sm">
+                      {qualifiedTeams.map((team) => (
+                        <div key={`${team.teamId}-${team.sourceLabel}`} className="flex items-center justify-between">
+                          <span>{team.teamName}</span>
+                          <span className="text-muted-foreground">{team.sourceLabel}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {isAdmin ? <TabsContent value="adjustments" className="space-y-4">
+              <Card>
+                <CardHeader className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                  <div>
+                    <CardTitle>Ajustes de classificacao</CardTitle>
+                    <CardDescription>
+                      Configure a pontuacao padrao e aplique bonus ou punicoes por equipe sem mexer no historico de partidas.
+                    </CardDescription>
+                  </div>
+                  {isAdmin ? (
+                    <Button onClick={handleSaveScoringAdjustments} disabled={isSaving}>
+                      <Save className="mr-2 h-4 w-4" />
+                      Salvar ajustes
+                    </Button>
+                  ) : null}
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="grid gap-4 md:grid-cols-3">
+                    <label className="space-y-2">
+                      <span className="text-sm font-medium text-foreground">Vitoria</span>
+                      <input
+                        type="number"
+                        value={scoringDraft.winPoints}
+                        disabled={!isAdmin}
+                        onChange={(event) =>
+                          setScoringDraft((current) => ({
+                            ...current,
+                            winPoints: Number(event.target.value),
+                          }))
+                        }
+                        className={inputClassName}
+                      />
+                    </label>
+                    <label className="space-y-2">
+                      <span className="text-sm font-medium text-foreground">Empate</span>
+                      <input
+                        type="number"
+                        value={scoringDraft.drawPoints}
+                        disabled={!isAdmin}
+                        onChange={(event) =>
+                          setScoringDraft((current) => ({
+                            ...current,
+                            drawPoints: Number(event.target.value),
+                          }))
+                        }
+                        className={inputClassName}
+                      />
+                    </label>
+                    <label className="space-y-2">
+                      <span className="text-sm font-medium text-foreground">Derrota</span>
+                      <input
+                        type="number"
+                        value={scoringDraft.lossPoints}
+                        disabled={!isAdmin}
+                        onChange={(event) =>
+                          setScoringDraft((current) => ({
+                            ...current,
+                            lossPoints: Number(event.target.value),
+                          }))
+                        }
+                        className={inputClassName}
+                      />
+                    </label>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-border text-left text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                          <th className="py-2 pr-3">Equipe</th>
+                          <th className="py-2 pr-3">Grupo</th>
+                          <th className="py-2 pr-3">Ajuste</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {workspace.teams.map((team) => (
+                          <tr key={team.id} className="border-b border-border/60">
+                            <td className="py-3 pr-3 font-medium text-foreground">{team.name}</td>
+                            <td className="py-3 pr-3 text-muted-foreground">
+                              {workspace.groups.find((group) => group.id === team.groupId)?.name ?? "Sem grupo"}
+                            </td>
+                            <td className="py-3 pr-3">
+                              <input
+                                type="number"
+                                value={adjustmentDrafts[team.id] ?? 0}
+                                disabled={!isAdmin}
+                                onChange={(event) =>
+                                  setAdjustmentDrafts((current) => ({
+                                    ...current,
+                                    [team.id]: Number(event.target.value),
+                                  }))
+                                }
+                                className={inputClassName}
+                              />
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent> : null}
+          </Tabs>
+        </div>
+      </section>)}
+
+      <GroupMatchDialog
+        match={editingGroupMatch}
+        teams={workspace.teams}
+        onClose={() => setEditingGroupMatch(null)}
+        onSave={handleSaveGroupMatch}
+      />
+      <BracketMatchDialog
+        match={editingBracketMatch}
+        teams={workspace.teams}
+        qualifiedTeams={qualifiedTeams}
+        onClose={() => setEditingBracketMatch(null)}
+        onSave={handleSaveBracketMatch}
+      />
+      {!isAdmin ? (
+        <ParticipationDialog
+          open={isParticipationDialogOpen}
+          championship={championship}
+          isPlayerAuthenticated={isPlayerAuthenticated}
+          registrationRequest={playerRegistrationRequest}
+          isSubmitting={isSubmittingParticipation}
+          playerName={loginName}
+          onSubmitRequest={handleSubmitParticipationRequest}
+          onClose={closeParticipationDialog}
+        />
+      ) : null}
+    </>
+  );
+}
+
+export default function ChampionshipDetails() {
+  return <ChampionshipWorkspacePage mode="public" />;
+}
+
+function ParticipationDialog({
+  open,
+  championship,
+  isPlayerAuthenticated,
+  registrationRequest,
+  isSubmitting,
+  playerName,
+  onSubmitRequest,
+  onClose,
+}: {
+  open: boolean;
+  championship: ChampionshipRecord;
+  isPlayerAuthenticated: boolean;
+  registrationRequest: ChampionshipRegistrationRequest | null;
+  isSubmitting: boolean;
+  playerName: string | null;
+  onSubmitRequest: () => Promise<void>;
+  onClose: () => void;
+}) {
+  const canRegister = championship.status === "Inscricoes abertas";
+  const isPublicRegistration = championship.configuration.registrationMode === "public";
+  const statusLabel = registrationRequest
+    ? getChampionshipRegistrationStatusLabel(registrationRequest.status)
+    : null;
+  const StatusIcon = registrationRequest
+    ? getRegistrationStatusIcon(registrationRequest.status)
+    : null;
+  const entryFeeLabel = championship.configuration.entryFee.trim()
+    ? championship.configuration.entryFee.trim()
+    : "Gratuita";
+  const resultsLabel =
+    championship.configuration.resultsReportedBy === "players"
+      ? "Administrador e jogadores"
+      : "Somente administrador";
+
+  let title = "Acompanhar campeonato";
+  let description =
+    "Esta tela continua sendo o centro de leitura do campeonato com classificacao, rodadas, fase final e regras.";
+
+  if (!canRegister) {
+    title =
+      championship.status === "Em andamento"
+        ? "Inscricoes fechadas, campeonato em disputa"
+        : "Janela de entrada indisponivel";
+    description =
+      championship.status === "Em andamento"
+        ? "A entrada nao esta aberta agora. Use esta pagina para acompanhar tabela, rodadas e mata-mata."
+        : "O campeonato ainda nao esta pronto para entrada publica. Acompanhe o status e volte quando a janela abrir.";
+  } else if (!isPlayerAuthenticated) {
+    title = "Entre para participar";
+    description =
+      "A acao principal deste campeonato comeca pelo seu login. Depois disso, o portal te leva para o fluxo de entrada com menos atrito.";
+  } else if (registrationRequest) {
+    title = `Pedido ${statusLabel?.toLowerCase() ?? "enviado"}`;
+    description =
+      registrationRequest.status === "pending"
+        ? "Seu pedido ja foi enviado para o administrador do campeonato e agora aguarda decisao."
+        : registrationRequest.status === "approved"
+          ? "Seu pedido foi aprovado e voce ja consta como participante aprovado deste campeonato."
+          : "Seu pedido foi recusado. O status continua visivel aqui para consulta.";
+  } else if (isPublicRegistration) {
+    title = "Conta pronta para pedir entrada";
+    description = `${playerName?.trim() || "Seu perfil"} ja pode seguir com a inscricao publica deste campeonato.`;
+  } else {
+    title = "Entrada controlada pela organizacao";
+    description =
+      "Este campeonato usa inscricao privada. O proximo passo e acompanhar o contato e as validacoes da organizacao.";
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
+      <DialogContent className="sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
+        </DialogHeader>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <InfoRow label="Status" value={championship.status} />
+          <InfoRow label="Plataforma" value={championship.configuration.platform} />
+          <InfoRow label="Formato" value={getFormatOption(championship.configuration.format).label} />
+          <InfoRow label="Taxa" value={entryFeeLabel} />
+          <InfoRow
+            label="Inscricao"
+            value={isPublicRegistration ? "Publica com aprovacao" : "Privada pela organizacao"}
+          />
+          <InfoRow label="Resultados" value={resultsLabel} />
+        </div>
+
+        <div className="rounded-2xl border border-border bg-muted/20 p-4">
+          <p className="text-xs uppercase tracking-[0.18em] text-primary">Leitura do fluxo</p>
+          <div className="mt-3 space-y-2 text-sm leading-7 text-muted-foreground">
+            <p>1. Confira formato, calendario e regulamento antes de entrar.</p>
+            <p>
+              2. {championship.configuration.playerChoosesTeamOnSignup
+                ? "O jogador escolhe a conta UT no fluxo de inscricao."
+                : "A organizacao define a conta UT ou seed da entrada."}
+            </p>
+            <p>
+              3. {canRegister
+                ? "Depois do pedido de entrada, acompanhe o restante pelo seu perfil e pelo proprio campeonato."
+                : "Enquanto a janela nao abre, acompanhe tabela, rodadas e fase final por aqui."}
+            </p>
+          </div>
+        </div>
+
+        {registrationRequest && StatusIcon ? (
+          <div className="rounded-2xl border border-border bg-muted/20 p-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <Badge
+                variant="outline"
+                className={getRegistrationBadgeClassName(registrationRequest.status)}
+              >
+                <StatusIcon className="mr-2 h-4 w-4" />
+                {statusLabel}
+              </Badge>
+              <span className="text-sm text-muted-foreground">
+                Enviado em {formatMatchDateTime(registrationRequest.requestedAt)}
+              </span>
+              {registrationRequest.reviewedAt ? (
+                <span className="text-sm text-muted-foreground">
+                  Revisado em {formatMatchDateTime(registrationRequest.reviewedAt)}
+                </span>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+
+        <DialogFooter className="flex flex-wrap gap-3 sm:justify-between">
+          <div className="flex flex-wrap gap-3">
+            {canRegister && !isPlayerAuthenticated ? (
+              <>
+                <Button asChild>
+                  <Link
+                    to={`/entrar?redirect=${encodeURIComponent(`/campeonatos/${championship.id}?acao=participar`)}`}
+                  >
+                    Entrar
+                  </Link>
+                </Button>
+                <Button asChild variant="outline">
+                  <Link
+                    to={`/criar-conta?redirect=${encodeURIComponent(`/campeonatos/${championship.id}?acao=participar`)}`}
+                  >
+                    Criar conta
+                  </Link>
+                </Button>
+              </>
+            ) : canRegister && isPublicRegistration ? (
+              <>
+                <Button
+                  onClick={() => void onSubmitRequest()}
+                  disabled={Boolean(registrationRequest) || isSubmitting}
+                >
+                  {registrationRequest ? statusLabel : isSubmitting ? "Enviando..." : "Participar"}
+                </Button>
+                <Button asChild variant="outline">
+                  <Link to="/ajuda">Ler ajuda</Link>
+                </Button>
+              </>
+            ) : (
+              <Button asChild>
+                <Link to="/explorar">Explorar circuito</Link>
+              </Button>
+            )}
+          </div>
+
+          <Button variant="outline" onClick={onClose}>
+            Fechar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function MetricCard({
+  label,
+  value,
+  icon: Icon,
+}: {
+  label: string;
+  value: string;
+  icon: typeof Trophy;
+}) {
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardDescription className="flex items-center gap-2 text-xs uppercase tracking-[0.22em]">
+          <Icon className="h-4 w-4 text-primary" />
+          {label}
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <p className="text-2xl font-semibold text-foreground">{value}</p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function InfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="space-y-1 rounded-2xl border border-border bg-muted/20 p-3">
+      <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">{label}</p>
+      <p className="leading-6 text-foreground">{value}</p>
+    </div>
+  );
+}
+
+function ToggleField({
+  label,
+  value,
+  disabled,
+  onChange,
+}: {
+  label: string;
+  value: boolean;
+  disabled: boolean;
+  onChange: (value: boolean) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      <span className="text-sm font-medium text-foreground">{label}</span>
+      <div className="inline-flex rounded-xl border border-border bg-background/70 p-1">
+        {[
+          { label: "Nao", value: false },
+          { label: "Sim", value: true },
+        ].map((option) => (
+          <button
+            key={String(option.value)}
+            type="button"
+            disabled={disabled}
+            onClick={() => onChange(option.value)}
+            className={`rounded-lg px-4 py-2 text-sm transition ${
+              value === option.value
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:bg-muted"
+            }`}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function SelectField({
+  label,
+  value,
+  disabled,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: string;
+  disabled: boolean;
+  onChange: (value: string) => void;
+  options: Array<{ value: string; label: string }>;
+}) {
+  return (
+    <label className="space-y-2">
+      <span className="text-sm font-medium text-foreground">{label}</span>
+      <select
+        value={value}
+        disabled={disabled}
+        onChange={(event) => onChange(event.target.value)}
+        className={inputClassName}
+      >
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function TeamMark({
+  name,
+  size = "md",
+}: {
+  name: string;
+  size?: "sm" | "md";
+}) {
+  const initials = getTeamInitials(name);
+  const sizeClassName = size === "sm" ? "h-7 w-7 text-[10px]" : "h-9 w-9 text-xs";
+
+  return (
+    <span
+      className={`inline-flex shrink-0 items-center justify-center rounded-[10px] border border-white/15 font-heading font-bold uppercase tracking-[0.12em] text-white ${sizeClassName}`}
+      style={getTeamMarkStyle(name)}
+      aria-hidden="true"
+    >
+      {initials}
+    </span>
+  );
+}
+
+function StandingsBoard({
+  title,
+  description,
+  rows,
+  qualifiedCount,
+}: {
+  title: string;
+  description: string;
+  rows: ReturnType<typeof computeGroupStandings>[number]["rows"];
+  qualifiedCount: number;
+}) {
+  return (
+    <section className="border-t border-border/70 pt-4">
+      <div className="mb-4">
+        <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">{title}</p>
+        <p className="mt-2 text-sm leading-6 text-muted-foreground">{description}</p>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="min-w-full text-sm">
+          <thead>
+            <tr className="border-b border-border/80 text-left text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
+              <th className="py-3 pr-3">#</th>
+              <th className="py-3 pr-3">Classificacao</th>
+              <th className="py-3 pr-3 text-center">P</th>
+              <th className="py-3 pr-3 text-center">J</th>
+              <th className="py-3 pr-3 text-center">V</th>
+              <th className="py-3 pr-3 text-center">E</th>
+              <th className="py-3 pr-3 text-center">D</th>
+              <th className="py-3 pr-3 text-center">GP</th>
+              <th className="py-3 pr-3 text-center">GC</th>
+              <th className="py-3 text-center">SG</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => {
+              const isQualified = qualifiedCount > 0 && row.position <= qualifiedCount;
+
+              return (
+                <tr key={row.teamId} className="border-b border-border/50">
+                  <td
+                    className={`py-3 pr-3 text-center font-semibold ${
+                      isQualified ? "bg-primary/12 text-primary" : "text-foreground"
+                    }`}
+                  >
+                    {row.position}
+                  </td>
+                  <td className="py-3 pr-3">
+                    <div className="flex items-center gap-3">
+                      <TeamMark name={row.teamName} />
+                      <div className="min-w-0">
+                        <div className="truncate font-medium text-foreground">{row.teamName}</div>
+                        {row.pointsAdjustment !== 0 ? (
+                          <div className="mt-1 text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+                            Ajuste {row.pointsAdjustment > 0 ? "+" : ""}
+                            {row.pointsAdjustment}
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+                  </td>
+                  <td className="py-3 pr-3 text-center font-semibold text-foreground">{row.points}</td>
+                  <td className="py-3 pr-3 text-center text-muted-foreground">{row.played}</td>
+                  <td className="py-3 pr-3 text-center text-muted-foreground">{row.wins}</td>
+                  <td className="py-3 pr-3 text-center text-muted-foreground">{row.draws}</td>
+                  <td className="py-3 pr-3 text-center text-muted-foreground">{row.losses}</td>
+                  <td className="py-3 pr-3 text-center text-muted-foreground">{row.goalsFor}</td>
+                  <td className="py-3 pr-3 text-center text-muted-foreground">{row.goalsAgainst}</td>
+                  <td className="py-3 text-center text-muted-foreground">{row.goalDifference}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+function RoundMatchesBoard({
+  title,
+  description,
+  groupLabel,
+  rounds,
+  selectedRoundNumber,
+  onSelectRound,
+  teams,
+  isAdmin,
+  onEditMatch,
+}: {
+  title: string;
+  description: string;
+  groupLabel: string;
+  rounds: Array<[number, ChampionshipGroupMatch[]]>;
+  selectedRoundNumber: number;
+  onSelectRound: (roundNumber: number) => void;
+  teams: ChampionshipTeam[];
+  isAdmin: boolean;
+  onEditMatch: (match: ChampionshipGroupMatch) => void;
+}) {
+  const availableRounds = rounds.map(([roundNumber]) => roundNumber);
+  const selectedRoundIndex = Math.max(
+    0,
+    availableRounds.findIndex((roundNumber) => roundNumber === selectedRoundNumber),
+  );
+  const currentRoundEntry =
+    rounds[selectedRoundIndex] ?? rounds[0] ?? [selectedRoundNumber, []];
+  const [, currentMatches] = currentRoundEntry;
+  const canGoPrevious = selectedRoundIndex > 0;
+  const canGoNext = selectedRoundIndex < rounds.length - 1;
+
+  return (
+    <section className="border-t border-border/70 pt-4">
+      <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">{title}</p>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">{description}</p>
+        </div>
+        {rounds.length > 0 ? (
+          <div className="flex items-center gap-2 self-start">
+            <button
+              type="button"
+              disabled={!canGoPrevious}
+              onClick={() => onSelectRound(availableRounds[selectedRoundIndex - 1] ?? selectedRoundNumber)}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border bg-background/60 text-muted-foreground transition hover:border-primary/30 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-35"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <div className="min-w-[110px] text-center text-xs uppercase tracking-[0.24em] text-foreground">
+              Rodada {selectedRoundNumber}
+            </div>
+            <button
+              type="button"
+              disabled={!canGoNext}
+              onClick={() => onSelectRound(availableRounds[selectedRoundIndex + 1] ?? selectedRoundNumber)}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border bg-background/60 text-muted-foreground transition hover:border-primary/30 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-35"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+        ) : null}
+      </div>
+
+      <div className="space-y-4">
+        {rounds.length > 1 ? (
+          <div className="flex flex-wrap gap-2">
+            {availableRounds.map((roundNumber) => (
+              <button
+                key={roundNumber}
+                type="button"
+                onClick={() => onSelectRound(roundNumber)}
+                className={`rounded-full border px-3 py-1.5 text-xs uppercase tracking-[0.18em] transition ${
+                  roundNumber === selectedRoundNumber
+                    ? "border-primary/30 bg-primary/10 text-primary"
+                    : "border-border bg-background/60 text-muted-foreground hover:border-primary/20 hover:text-foreground"
+                }`}
+              >
+                R{roundNumber}
+              </button>
+            ))}
+          </div>
+        ) : null}
+
+        {rounds.length > 0 ? (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs uppercase tracking-[0.22em] text-muted-foreground">
+                {groupLabel}
+              </h3>
+              <span className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                {currentMatches.length} jogos
+              </span>
+            </div>
+            <div className="space-y-3">
+              {currentMatches.map((match) => (
+                <RoundMatchRow
+                  key={match.id}
+                  homeLabel={getTeamName(teams, match.homeTeamId)}
+                  awayLabel={getTeamName(teams, match.awayTeamId)}
+                  scoreHome={match.scoreHome}
+                  scoreAway={match.scoreAway}
+                  statusLabel={match.status === "completed" ? "Encerrada" : "Pendente"}
+                  metaLabel={formatMatchDateTime(match.playedAt)}
+                  secondaryMeta={match.venue || "Local a definir"}
+                  onClick={isAdmin ? () => onEditMatch(match) : undefined}
+                />
+              ))}
+            </div>
+          </div>
+        ) : (
+            <div className="rounded-2xl border border-border bg-muted/20 px-4 py-4 text-sm text-muted-foreground">
+              Nenhuma partida foi gerada para este recorte ainda.
+            </div>
+          )}
+      </div>
+    </section>
+  );
+}
+
+function RoundMatchRow({
+  homeLabel,
+  awayLabel,
+  scoreHome,
+  scoreAway,
+  statusLabel,
+  metaLabel,
+  secondaryMeta,
+  winnerTeamId,
+  homeTeamId,
+  awayTeamId,
+  onClick,
+}: {
+  homeLabel: string;
+  awayLabel: string;
+  scoreHome: number | null;
+  scoreAway: number | null;
+  statusLabel: string;
+  metaLabel: string;
+  secondaryMeta: string;
+  winnerTeamId?: string | null;
+  homeTeamId?: string | null;
+  awayTeamId?: string | null;
+  onClick?: () => void;
+}) {
+  const Wrapper = onClick ? "button" : "div";
+
+  return (
+    <Wrapper
+      type={onClick ? "button" : undefined}
+      onClick={onClick}
+      className={`w-full border-b border-border/50 pb-4 text-left last:border-b-0 ${
+        onClick ? "transition hover:border-primary/40 hover:bg-primary/5" : ""
+      }`}
+    >
+      <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-4">
+        <div className="flex min-w-0 items-center justify-end gap-3 text-right">
+          <div className="min-w-0">
+            <p className={`truncate text-base ${winnerTeamId && winnerTeamId === homeTeamId ? "font-semibold text-foreground" : "text-foreground"}`}>
+              {homeLabel}
+            </p>
+          </div>
+          <TeamMark name={homeLabel} size="sm" />
+        </div>
+
+        <div className="flex items-center gap-1">
+          <ScoreBox score={scoreHome} highlighted={Boolean(winnerTeamId && winnerTeamId === homeTeamId)} />
+          <ScoreBox score={scoreAway} highlighted={Boolean(winnerTeamId && winnerTeamId === awayTeamId)} />
+        </div>
+
+        <div className="flex min-w-0 items-center gap-3">
+          <TeamMark name={awayLabel} size="sm" />
+          <div className="min-w-0">
+            <p className={`truncate text-base ${winnerTeamId && winnerTeamId === awayTeamId ? "font-semibold text-foreground" : "text-foreground"}`}>
+              {awayLabel}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+        <span>{metaLabel}</span>
+        <span>{secondaryMeta}</span>
+        <span>{statusLabel}</span>
+      </div>
+    </Wrapper>
+  );
+}
+
+function ScoreBox({
+  score,
+  highlighted,
+}: {
+  score: number | null;
+  highlighted: boolean;
+}) {
+  return (
+    <span
+      className={`inline-flex h-11 w-11 items-center justify-center rounded-sm border text-lg font-semibold ${
+        highlighted
+          ? "border-primary/30 bg-primary/12 text-primary"
+          : "border-border bg-background/70 text-foreground"
+      }`}
+    >
+      {score ?? "-"}
+    </span>
+  );
+}
+
+function GroupMatchDialog({
+  match,
+  teams,
+  onClose,
+  onSave,
+}: {
+  match: ChampionshipGroupMatch | null;
+  teams: ChampionshipTeam[];
+  onClose: () => void;
+  onSave: (patch: GroupMatchUpdateInput) => Promise<void>;
+}) {
+  const [form, setForm] = useState<GroupMatchUpdateInput>({
+    playedAt: null,
+    venue: "",
+    scoreHome: null,
+    scoreAway: null,
+  });
+
+  useEffect(() => {
+    if (!match) {
+      return;
+    }
+
+    setForm({
+      playedAt: match.playedAt,
+      venue: match.venue,
+      scoreHome: match.scoreHome,
+      scoreAway: match.scoreAway,
+    });
+  }, [match]);
+
+  return (
+    <Dialog open={Boolean(match)} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="sm:max-w-xl">
+        <DialogHeader>
+          <DialogTitle>Editar partida da fase de grupos</DialogTitle>
+          <DialogDescription>
+            {match
+              ? `${getTeamName(teams, match.homeTeamId)} x ${getTeamName(teams, match.awayTeamId)}`
+              : ""}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4">
+          <label className="space-y-2">
+            <span className="text-sm font-medium text-foreground">Data e horario</span>
+            <input
+              type="datetime-local"
+              value={toDateTimeLocalValue(form.playedAt ?? null)}
+              onChange={(event) =>
+                setForm((current) => ({
+                  ...current,
+                  playedAt: event.target.value ? new Date(event.target.value).toISOString() : null,
+                }))
+              }
+              className={inputClassName}
+            />
+          </label>
+          <label className="space-y-2">
+            <span className="text-sm font-medium text-foreground">Local</span>
+            <input
+              value={form.venue ?? ""}
+              onChange={(event) => setForm((current) => ({ ...current, venue: event.target.value }))}
+              className={inputClassName}
+            />
+          </label>
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="space-y-2">
+              <span className="text-sm font-medium text-foreground">Placar mandante</span>
+              <input
+                type="number"
+                value={form.scoreHome ?? ""}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    scoreHome: event.target.value === "" ? null : Number(event.target.value),
+                  }))
+                }
+                className={inputClassName}
+              />
+            </label>
+            <label className="space-y-2">
+              <span className="text-sm font-medium text-foreground">Placar visitante</span>
+              <input
+                type="number"
+                value={form.scoreAway ?? ""}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    scoreAway: event.target.value === "" ? null : Number(event.target.value),
+                  }))
+                }
+                className={inputClassName}
+              />
+            </label>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button onClick={() => void onSave(form)}>Salvar partida</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function BracketMatchDialog({
+  match,
+  teams,
+  qualifiedTeams,
+  onClose,
+  onSave,
+}: {
+  match: ChampionshipBracketMatch | null;
+  teams: ChampionshipTeam[];
+  qualifiedTeams: ReturnType<typeof getQualifiedTeams>;
+  onClose: () => void;
+  onSave: (patch: BracketMatchUpdateInput) => Promise<void>;
+}) {
+  const [form, setForm] = useState<BracketMatchUpdateInput>({
+    playedAt: null,
+    venue: "",
+    scoreHome: null,
+    scoreAway: null,
+    penaltiesHome: null,
+    penaltiesAway: null,
+    resolution: null,
+    winnerTeamId: null,
+    manualHomeTeamId: null,
+    manualAwayTeamId: null,
+  });
+
+  useEffect(() => {
+    if (!match) {
+      return;
+    }
+
+    setForm({
+      playedAt: match.playedAt,
+      venue: match.venue,
+      scoreHome: match.scoreHome,
+      scoreAway: match.scoreAway,
+      penaltiesHome: match.penaltiesHome,
+      penaltiesAway: match.penaltiesAway,
+      resolution: match.resolution,
+      winnerTeamId: match.winnerTeamId,
+      manualHomeTeamId: match.sourceHome.type === "manual-team" ? match.sourceHome.teamId : null,
+      manualAwayTeamId: match.sourceAway.type === "manual-team" ? match.sourceAway.teamId : null,
+    });
+  }, [match]);
+
+  return (
+    <Dialog open={Boolean(match)} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Editar confronto do mata-mata</DialogTitle>
+          <DialogDescription>
+            {match ? `${match.stageName} ${match.matchOrder}` : ""}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4">
+          {match?.sourceHome.type === "manual-team" && match?.sourceAway.type === "manual-team" ? (
+            <div className="grid gap-4 md:grid-cols-2">
+              <SelectField
+                label="Equipe mandante"
+                value={form.manualHomeTeamId ?? ""}
+                disabled={false}
+                onChange={(value) =>
+                  setForm((current) => ({
+                    ...current,
+                    manualHomeTeamId: value || null,
+                  }))
+                }
+                options={[
+                  { value: "", label: "A definir" },
+                  ...qualifiedTeams.map((team) => ({ value: team.teamId, label: team.teamName })),
+                ]}
+              />
+              <SelectField
+                label="Equipe visitante"
+                value={form.manualAwayTeamId ?? ""}
+                disabled={false}
+                onChange={(value) =>
+                  setForm((current) => ({
+                    ...current,
+                    manualAwayTeamId: value || null,
+                  }))
+                }
+                options={[
+                  { value: "", label: "A definir" },
+                  ...qualifiedTeams.map((team) => ({ value: team.teamId, label: team.teamName })),
+                ]}
+              />
+            </div>
+          ) : null}
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="space-y-2">
+              <span className="text-sm font-medium text-foreground">Data e horario</span>
+              <input
+                type="datetime-local"
+                value={toDateTimeLocalValue(form.playedAt ?? null)}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    playedAt: event.target.value ? new Date(event.target.value).toISOString() : null,
+                  }))
+                }
+                className={inputClassName}
+              />
+            </label>
+            <label className="space-y-2">
+              <span className="text-sm font-medium text-foreground">Local</span>
+              <input
+                value={form.venue ?? ""}
+                onChange={(event) => setForm((current) => ({ ...current, venue: event.target.value }))}
+                className={inputClassName}
+              />
+            </label>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="space-y-2">
+              <span className="text-sm font-medium text-foreground">Placar mandante</span>
+              <input
+                type="number"
+                value={form.scoreHome ?? ""}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    scoreHome: event.target.value === "" ? null : Number(event.target.value),
+                  }))
+                }
+                className={inputClassName}
+              />
+            </label>
+            <label className="space-y-2">
+              <span className="text-sm font-medium text-foreground">Placar visitante</span>
+              <input
+                type="number"
+                value={form.scoreAway ?? ""}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    scoreAway: event.target.value === "" ? null : Number(event.target.value),
+                  }))
+                }
+                className={inputClassName}
+              />
+            </label>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-3">
+            <SelectField
+              label="Desempate"
+              value={form.resolution ?? ""}
+              disabled={false}
+              onChange={(value) =>
+                setForm((current) => ({
+                  ...current,
+                  resolution: (value || null) as BracketMatchUpdateInput["resolution"],
+                }))
+              }
+              options={[
+                { value: "", label: "Sem criterio" },
+                { value: "normal", label: "Tempo normal" },
+                { value: "extra-time", label: "Prorrogacao" },
+                { value: "penalties", label: "Penaltis" },
+                { value: "wo", label: "WO" },
+              ]}
+            />
+            <label className="space-y-2">
+              <span className="text-sm font-medium text-foreground">Penaltis mandante</span>
+              <input
+                type="number"
+                value={form.penaltiesHome ?? ""}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    penaltiesHome: event.target.value === "" ? null : Number(event.target.value),
+                  }))
+                }
+                className={inputClassName}
+              />
+            </label>
+            <label className="space-y-2">
+              <span className="text-sm font-medium text-foreground">Penaltis visitante</span>
+              <input
+                type="number"
+                value={form.penaltiesAway ?? ""}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    penaltiesAway: event.target.value === "" ? null : Number(event.target.value),
+                  }))
+                }
+                className={inputClassName}
+              />
+            </label>
+          </div>
+
+          <SelectField
+            label="Vencedor"
+            value={form.winnerTeamId ?? ""}
+            disabled={false}
+            onChange={(value) =>
+              setForm((current) => ({
+                ...current,
+                winnerTeamId: value || null,
+              }))
+            }
+            options={[
+              { value: "", label: "Definir depois" },
+              ...(match?.homeTeamId
+                ? [{ value: match.homeTeamId, label: getTeamName(teams, match.homeTeamId) }]
+                : []),
+              ...(match?.awayTeamId
+                ? [{ value: match.awayTeamId, label: getTeamName(teams, match.awayTeamId) }]
+                : []),
+            ]}
+          />
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button onClick={() => void onSave(form)}>Salvar confronto</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}

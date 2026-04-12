@@ -1,0 +1,445 @@
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum AdminRole {
+  SUPER_ADMIN
+  OPERATIONS_MANAGER
+  MODERATOR
+  SUPPORT_MANAGER
+}
+
+enum UserRole {
+  PLAYER
+  CAPTAIN
+  MANAGER
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum PlatformName {
+  PLAYSTATION
+  XBOX
+  PC
+}
+
+enum PlayerStatus {
+  PENDING
+  APPROVED
+  BLOCKED
+}
+
+enum TeamStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum ChampionshipStatus {
+  DRAFT
+  PUBLISHED
+  LIVE
+  FINISHED
+}
+
+enum ParticipantStatus {
+  INVITED
+  CONFIRMED
+  ELIMINATED
+  CHAMPION
+}
+
+enum ImageRequestType {
+  USER
+  PLAYER
+  TEAM
+}
+
+enum ImageRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum LanguageStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  WAITING_USER
+  RESOLVED
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum LogSeverity {
+  INFO
+  WARNING
+  ERROR
+  CRITICAL
+  SUCCESS
+}
+
+enum ErrorStatus {
+  NEW
+  INVESTIGATING
+  RESOLVED
+}
+
+enum PlatformHealth {
+  HEALTHY
+  ATTENTION
+  MAINTENANCE
+}
+
+enum RegistrationMode {
+  OPEN
+  APPROVAL_ONLY
+  INVITE_ONLY
+}
+
+model User {
+  id                String            @id @default(uuid()) @db.Uuid
+  name              String
+  email             String            @unique
+  passwordHash      String?
+  role              UserRole          @default(PLAYER)
+  status            UserStatus        @default(ACTIVE)
+  locale            String?           @db.VarChar(10)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  lastLoginAt       DateTime?
+  adminProfile      AdminProfile?
+  playerProfile     PlayerProfile?
+  teamMemberships   TeamMember[]
+  captainedTeams    Team[]            @relation("TeamCaptain")
+  requestedTickets  SupportTicket[]   @relation("TicketRequester")
+  assignedTickets   SupportTicket[]   @relation("TicketAssignee")
+  supportMessages   SupportMessage[]
+  createdAuditLogs  AuditLog[]        @relation("AuditActor")
+  imageRequests     ImageRequest[]    @relation("ImageRequesterUser")
+  moderatedImages   ImageRequest[]    @relation("ImageModerator")
+
+  @@index([role, status])
+  @@index([createdAt])
+}
+
+model AdminProfile {
+  id           String    @id @default(uuid()) @db.Uuid
+  userId       String    @unique @db.Uuid
+  adminRole    AdminRole
+  permissions  Json
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([adminRole])
+}
+
+model PlayerProfile {
+  id               String                      @id @default(uuid()) @db.Uuid
+  userId           String                      @unique @db.Uuid
+  platform         PlatformName
+  status           PlayerStatus                @default(PENDING)
+  linkedTeamId     String?                     @db.Uuid
+  isVerified       Boolean                     @default(false)
+  bio              String?
+  createdAt        DateTime                    @default(now())
+  updatedAt        DateTime                    @updatedAt
+  user             User                        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  linkedTeam       Team?                       @relation(fields: [linkedTeamId], references: [id], onDelete: SetNull)
+  participations   ChampionshipParticipant[]
+  imageRequests    ImageRequest[]              @relation("ImageRequesterPlayer")
+
+  @@index([platform, status])
+}
+
+model Team {
+  id               String                      @id @default(uuid()) @db.Uuid
+  name             String
+  slug             String                      @unique
+  tag              String                      @db.VarChar(16)
+  captainId        String?                     @db.Uuid
+  platform         PlatformName
+  status           TeamStatus                  @default(PENDING)
+  summary          String?
+  championshipsWon Int                         @default(0)
+  createdAt        DateTime                    @default(now())
+  updatedAt        DateTime                    @updatedAt
+  captain          User?                       @relation("TeamCaptain", fields: [captainId], references: [id], onDelete: SetNull)
+  members          TeamMember[]
+  players          PlayerProfile[]
+  championships    ChampionshipParticipant[]
+  imageRequests    ImageRequest[]              @relation("ImageRequesterTeam")
+
+  @@index([platform, status])
+  @@index([createdAt])
+}
+
+model TeamMember {
+  id         String    @id @default(uuid()) @db.Uuid
+  teamId      String    @db.Uuid
+  userId      String    @db.Uuid
+  title       String?
+  joinedAt    DateTime  @default(now())
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  team        Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, userId])
+  @@index([teamId])
+}
+
+model Championship {
+  id                String                      @id @default(uuid()) @db.Uuid
+  name              String
+  slug              String                      @unique
+  format            String
+  status            ChampionshipStatus          @default(DRAFT)
+  phase             String
+  rules             String?
+  registrationOpen  Boolean                     @default(false)
+  startsAt          DateTime
+  endsAt            DateTime
+  createdAt         DateTime                    @default(now())
+  updatedAt         DateTime                    @updatedAt
+  stages            ChampionshipStage[]
+  participants      ChampionshipParticipant[]
+  workspace         ChampionshipWorkspace?
+
+  @@index([status, registrationOpen])
+  @@index([startsAt])
+}
+
+model ChampionshipStage {
+  id              String              @id @default(uuid()) @db.Uuid
+  championshipId  String              @db.Uuid
+  name            String
+  order           Int
+  status          ChampionshipStatus  @default(DRAFT)
+  rules           String?
+  startsAt        DateTime?
+  endsAt          DateTime?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  championship    Championship        @relation(fields: [championshipId], references: [id], onDelete: Cascade)
+
+  @@unique([championshipId, order])
+  @@index([championshipId])
+}
+
+model ChampionshipParticipant {
+  id              String             @id @default(uuid()) @db.Uuid
+  championshipId  String             @db.Uuid
+  teamId          String?            @db.Uuid
+  playerId        String?            @db.Uuid
+  seed            Int?
+  status          ParticipantStatus  @default(CONFIRMED)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  championship    Championship       @relation(fields: [championshipId], references: [id], onDelete: Cascade)
+  team            Team?              @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  player          PlayerProfile?     @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@index([championshipId, status])
+}
+
+model ChampionshipWorkspace {
+  championshipId  String        @id @map("championship_id")
+  teams           Json
+  groups          Json
+  groupMatches    Json          @map("group_matches")
+  bracket         Json
+  scoring         Json
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+  championship    Championship  @relation(fields: [championshipId], references: [id], onDelete: Cascade)
+
+  @@map("championship_workspaces")
+}
+
+model ImageRequest {
+  id                 String             @id @default(uuid()) @db.Uuid
+  type               ImageRequestType
+  status             ImageRequestStatus @default(PENDING)
+  previewUrl         String
+  originalUrl        String?
+  rejectionReason    String?
+  requesterUserId    String?            @db.Uuid
+  requesterPlayerId  String?            @db.Uuid
+  requesterTeamId    String?            @db.Uuid
+  moderatorId        String?            @db.Uuid
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  requesterUser      User?              @relation("ImageRequesterUser", fields: [requesterUserId], references: [id], onDelete: SetNull)
+  requesterPlayer    PlayerProfile?     @relation("ImageRequesterPlayer", fields: [requesterPlayerId], references: [id], onDelete: SetNull)
+  requesterTeam      Team?              @relation("ImageRequesterTeam", fields: [requesterTeamId], references: [id], onDelete: SetNull)
+  moderator          User?              @relation("ImageModerator", fields: [moderatorId], references: [id], onDelete: SetNull)
+
+  @@index([type, status])
+  @@index([createdAt])
+}
+
+model Language {
+  id            String             @id @default(uuid()) @db.Uuid
+  code          String             @unique @db.VarChar(10)
+  label         String
+  status        LanguageStatus     @default(INACTIVE)
+  completion    Int                @default(0)
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  translations  TranslationEntry[]
+
+  @@index([status])
+}
+
+model TranslationEntry {
+  id          String    @id @default(uuid()) @db.Uuid
+  languageId   String    @db.Uuid
+  namespace    String
+  key          String
+  value        String
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  language     Language  @relation(fields: [languageId], references: [id], onDelete: Cascade)
+
+  @@unique([languageId, namespace, key])
+  @@index([namespace])
+}
+
+model SupportTicket {
+  id              String           @id @default(uuid()) @db.Uuid
+  requesterId     String           @db.Uuid
+  assignedToId    String?          @db.Uuid
+  subject         String
+  category        String
+  status          TicketStatus     @default(OPEN)
+  priority        TicketPriority   @default(MEDIUM)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  requester       User             @relation("TicketRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  assignedTo      User?            @relation("TicketAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  messages        SupportMessage[]
+
+  @@index([status, priority])
+  @@index([updatedAt])
+}
+
+model SupportMessage {
+  id          String         @id @default(uuid()) @db.Uuid
+  ticketId     String         @db.Uuid
+  authorId     String?        @db.Uuid
+  body         String
+  isInternal   Boolean        @default(false)
+  createdAt    DateTime       @default(now())
+  ticket       SupportTicket  @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author       User?          @relation(fields: [authorId], references: [id], onDelete: SetNull)
+
+  @@index([ticketId, createdAt])
+}
+
+model AuditLog {
+  id          String       @id @default(uuid()) @db.Uuid
+  actorId      String?      @db.Uuid
+  actorLabel   String
+  module       String
+  action       String
+  target       String
+  severity     LogSeverity  @default(INFO)
+  metadata     Json?
+  createdAt    DateTime     @default(now())
+  actor        User?        @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([module, createdAt])
+  @@index([severity])
+}
+
+model ErrorLog {
+  id           String       @id @default(uuid()) @db.Uuid
+  module       String
+  message      String
+  stackSummary String?
+  severity     LogSeverity  @default(ERROR)
+  status       ErrorStatus  @default(NEW)
+  metadata     Json?
+  createdAt    DateTime     @default(now())
+  resolvedAt   DateTime?
+
+  @@index([status, severity])
+  @@index([createdAt])
+}
+
+model SiteSetting {
+  id                String           @id @default("default")
+  siteName          String
+  logoUrl           String?
+  faviconUrl        String?
+  primaryColor      String           @default("#ffcc00")
+  accentColor       String           @default("#00b8ff")
+  institutionalText String?
+  seoTitle          String?
+  seoDescription    String?
+  platformStatus    PlatformHealth   @default(HEALTHY)
+  registrationMode  RegistrationMode @default(APPROVAL_ONLY)
+  maintenanceMode   Boolean          @default(false)
+  allowImageUploads Boolean          @default(true)
+  socialLinks       Json?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  banners           Banner[]
+  staticPages       StaticPage[]
+}
+
+model Banner {
+  id             String       @id @default(uuid()) @db.Uuid
+  siteSettingId  String       @default("default")
+  title          String
+  subtitle       String?
+  imageUrl       String?
+  ctaLabel       String?
+  ctaHref        String?
+  isActive       Boolean      @default(true)
+  sortOrder      Int          @default(0)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  siteSetting    SiteSetting  @relation(fields: [siteSettingId], references: [id], onDelete: Cascade)
+
+  @@index([siteSettingId, isActive])
+}
+
+model StaticPage {
+  id               String       @id @default(uuid()) @db.Uuid
+  siteSettingId    String       @default("default")
+  slug             String       @unique
+  title            String
+  excerpt          String?
+  body             String
+  seoTitle         String?
+  seoDescription   String?
+  published        Boolean      @default(false)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  siteSetting      SiteSetting  @relation(fields: [siteSettingId], references: [id], onDelete: Cascade)
+
+  @@index([published])
+}
