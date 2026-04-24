@@ -14,11 +14,22 @@ import {
   createChampionshipRegistrationId,
   sortChampionships,
 } from "@/lib/championships";
+import {
+  addParticipantToChampionshipWorkspace,
+  generateChampionshipTable as buildChampionshipTable,
+  getChampionshipMaxTeams,
+  getChampionshipParticipantStatus,
+} from "@/lib/championship-table";
+import {
+  loadChampionshipWorkspaceRecord,
+  saveChampionshipWorkspaceRecord,
+} from "@/lib/championship-workspace-store";
 import type {
   ChampionshipFormValues,
   ChampionshipRecord,
   ChampionshipRegistrationStatus,
 } from "@/types/championship";
+import type { ChampionshipWorkspaceRecord } from "@/types/championship-runtime";
 
 interface ChampionshipContextValue {
   championships: ChampionshipRecord[];
@@ -42,13 +53,17 @@ interface ChampionshipContextValue {
     status: Extract<ChampionshipRegistrationStatus, "approved" | "rejected">;
     reviewedBy: string;
   }) => Promise<ChampionshipRecord>;
+  generateChampionshipTable: (championshipId: string) => Promise<{
+    championship: ChampionshipRecord;
+    workspace: ChampionshipWorkspaceRecord;
+  }>;
   removeChampionship: (id: string) => Promise<void>;
 }
 
 const ChampionshipContext = createContext<ChampionshipContextValue | undefined>(undefined);
 
 export function ChampionshipProvider({ children }: { children: ReactNode }) {
-  const { isAdmin } = useAdminAuth();
+  const { isPrimaryAdmin } = useAdminAuth();
   const storageMode = getChampionshipStorageMode();
   const [championships, setChampionships] = useState<ChampionshipRecord[]>(() =>
     sortChampionships(readStoredChampionships()),
@@ -57,8 +72,8 @@ export function ChampionshipProvider({ children }: { children: ReactNode }) {
   const [syncError, setSyncError] = useState<string | null>(null);
 
   const ensureAdminAccess = () => {
-    if (!isAdmin) {
-      throw new Error("Somente administradores podem criar campeonatos.");
+    if (!isPrimaryAdmin) {
+      throw new Error("Somente o ADM pode gerenciar campeonatos.");
     }
   };
 
@@ -170,7 +185,7 @@ export function ChampionshipProvider({ children }: { children: ReactNode }) {
       throw new Error("Campeonato nao encontrado.");
     }
 
-    if (championship.status !== "Inscricoes abertas") {
+    if (championship.status !== "REGISTRATION") {
       throw new Error("Este campeonato nao esta aceitando pedidos no momento.");
     }
 
@@ -184,6 +199,14 @@ export function ChampionshipProvider({ children }: { children: ReactNode }) {
 
     if (existingRequest) {
       return championship;
+    }
+
+    const occupiedSlots = championship.registrationRequests.filter(
+      (request) => request.status === "approved" || request.status === "pending",
+    ).length;
+
+    if (occupiedSlots >= getChampionshipMaxTeams(championship)) {
+      throw new Error("O limite maximo de participantes deste campeonato ja foi atingido.");
     }
 
     const timestamp = new Date().toISOString();
@@ -239,23 +262,69 @@ export function ChampionshipProvider({ children }: { children: ReactNode }) {
     }
 
     const timestamp = new Date().toISOString();
+    const reviewedRequest = {
+      ...request,
+      status,
+      reviewedAt: timestamp,
+      reviewedBy: reviewedBy.trim() || "Administrador",
+    };
+    const nextRegistrationRequests = championship.registrationRequests.map((item) =>
+      item.id === requestId ? reviewedRequest : item,
+    );
+    let nextWorkspace: ChampionshipWorkspaceRecord | null = null;
+
+    if (status === "approved") {
+      const currentWorkspace = await loadChampionshipWorkspaceRecord(championship);
+      nextWorkspace = addParticipantToChampionshipWorkspace(
+        currentWorkspace,
+        championship,
+        reviewedRequest,
+      );
+    }
+
+    const participantCount = nextWorkspace
+      ? nextWorkspace.teams.length
+      : nextRegistrationRequests.filter((item) => item.status === "approved").length;
     const updatedChampionship = await saveChampionshipRecord({
       ...championship,
-      registrationRequests: championship.registrationRequests.map((item) =>
-        item.id === requestId
-          ? {
-              ...item,
-              status,
-              reviewedAt: timestamp,
-              reviewedBy: reviewedBy.trim() || "Administrador",
-            }
-          : item,
-      ),
+      status: getChampionshipParticipantStatus(championship, participantCount),
+      registrationRequests: nextRegistrationRequests,
       updatedAt: timestamp,
     });
 
+    if (nextWorkspace) {
+      await saveChampionshipWorkspaceRecord(updatedChampionship, nextWorkspace);
+    }
+
     commitChampionship(updatedChampionship);
     return updatedChampionship;
+  };
+
+  const generateChampionshipTable = async (championshipId: string) => {
+    ensureAdminAccess();
+
+    const championship = getChampionshipById(championshipId);
+
+    if (!championship) {
+      throw new Error("Campeonato nao encontrado.");
+    }
+
+    const workspace = await loadChampionshipWorkspaceRecord(championship);
+    const nextWorkspace = buildChampionshipTable(workspace, championship);
+    const timestamp = new Date().toISOString();
+    const nextChampionship = await saveChampionshipRecord({
+      ...championship,
+      status: "STARTED",
+      updatedAt: timestamp,
+    });
+    const savedWorkspace = await saveChampionshipWorkspaceRecord(nextChampionship, nextWorkspace);
+
+    commitChampionship(nextChampionship);
+
+    return {
+      championship: nextChampionship,
+      workspace: savedWorkspace,
+    };
   };
 
   const removeChampionship = async (id: string) => {
@@ -280,6 +349,7 @@ export function ChampionshipProvider({ children }: { children: ReactNode }) {
         updateChampionship,
         submitChampionshipRegistration,
         reviewChampionshipRegistration,
+        generateChampionshipTable,
         removeChampionship,
       }}
     >

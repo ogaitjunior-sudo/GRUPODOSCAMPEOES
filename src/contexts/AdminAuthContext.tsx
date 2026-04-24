@@ -29,6 +29,7 @@ interface AdminAuthContextValue {
   session: AdminSession | null;
   role: AdminRole | "usuario";
   isAdmin: boolean;
+  isPrimaryAdmin: boolean;
   displayName: string | null;
   permissions: AdminPermission[];
   login: (username: string, password: string) => Promise<LoginResult>;
@@ -37,12 +38,20 @@ interface AdminAuthContextValue {
 }
 
 const ADMIN_SESSION_STORAGE_KEY = "gc_admin_session";
-const ADMIN_USERNAME = (import.meta.env.VITE_ADMIN_USERNAME ?? "admin-geral").trim();
+const ADMIN_USERNAME = (import.meta.env.VITE_ADMIN_USERNAME ?? "ADMIN").trim();
 const ADMIN_PASSWORD_HASH =
   (import.meta.env.VITE_ADMIN_PASSWORD_HASH ??
-    "53c69c94cc806f3a2d2e3ecf19860a4ffc797a424a8175beb155dfb2239b1159").trim();
+    "ce1a850a19682e82f96266c7dc27893ffb08fc53f37d60f7a233c712f7a7e29f").trim();
 
 const AdminAuthContext = createContext<AdminAuthContextValue | undefined>(undefined);
+
+function isPrimaryAdminSession(session: Pick<AdminSession, "username" | "role"> | null | undefined) {
+  if (!session) {
+    return false;
+  }
+
+  return session.username.trim() === ADMIN_USERNAME && session.role === "super_admin";
+}
 
 function readStoredSession() {
   if (typeof window === "undefined") {
@@ -71,7 +80,7 @@ function readStoredSession() {
       return null;
     }
 
-    return {
+    const nextSession = {
       username: parsed.username,
       displayName: parsed.displayName,
       role: parsed.role,
@@ -80,6 +89,8 @@ function readStoredSession() {
         : getPermissionsForRole(parsed.role),
       loginAt: parsed.loginAt,
     } satisfies AdminSession;
+
+    return isPrimaryAdminSession(nextSession) ? nextSession : null;
   } catch {
     return null;
   }
@@ -97,6 +108,7 @@ async function hashSecret(value: string) {
 
 export function AdminAuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<AdminSession | null>(() => readStoredSession());
+  const isPrimaryAdmin = isPrimaryAdminSession(session);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -152,7 +164,7 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
   };
 
   const hasPermission = (permission: AdminPermission) => {
-    if (!session) {
+    if (!session || !isPrimaryAdmin) {
       return false;
     }
 
@@ -169,6 +181,7 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
         session,
         role: session?.role ?? "usuario",
         isAdmin: Boolean(session),
+        isPrimaryAdmin,
         displayName: session?.displayName ?? null,
         permissions: session?.permissions ?? [],
         login,

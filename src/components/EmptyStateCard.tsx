@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { Link } from "react-router-dom";
+import { SiteActionLink } from "@/components/SiteActionLink";
 import { cn } from "@/lib/utils";
 
 interface EmptyStateCardProps {
@@ -22,26 +22,28 @@ export function EmptyStateCard({
   return (
     <div
       className={cn(
-        "rounded-2xl border border-primary/20 bg-metallic-card px-6 py-10 text-center shadow-[0_0_30px_hsl(51_100%_50%_/_0.08)]",
+        "site-card rounded-[28px] px-6 py-10 text-center",
         className,
       )}
     >
-      <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full border border-primary/30 bg-primary/10">
+      <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full border border-primary/20 bg-primary/10">
         <Icon className="h-6 w-6 text-primary" />
       </div>
-      <h3 className="mb-2 font-heading text-xl font-bold gradient-gold-text text-glow-gold">
+      <h3 className="mb-3 font-heading text-2xl font-semibold text-foreground">
         {title}
       </h3>
-      <p className="mx-auto max-w-2xl text-sm leading-6 text-muted-foreground">
+      <p className="mx-auto max-w-2xl text-sm leading-7 text-muted-foreground">
         {description}
       </p>
       {actionLabel && actionTo && (
-        <Link
+        <SiteActionLink
           to={actionTo}
-          className="mt-5 inline-flex rounded-md border border-primary/30 px-5 py-2 font-heading text-xs font-bold uppercase tracking-[0.2em] text-primary transition-all hover:bg-primary/10"
+          variant="secondary"
+          size="sm"
+          className="mt-6"
         >
           {actionLabel}
-        </Link>
+        </SiteActionLink>
       )}
     </div>
   );

@@ -18,7 +18,11 @@ import { PageShell } from "@/components/PageShell";
 import { StatusBadge } from "@/components/StatusBadge";
 import { useChampionships } from "@/contexts/ChampionshipContext";
 import { champions } from "@/data/siteContent";
-import { formatChampionshipDateRange, getFormatOption } from "@/lib/championships";
+import {
+  formatChampionshipDateRange,
+  getChampionshipStatusLabel,
+  getFormatOption,
+} from "@/lib/championships";
 import type { ChampionshipPlatform, ChampionshipRecord, ChampionshipStatus } from "@/types/championship";
 
 type DiscoveryView = "todos" | "campeonatos" | "rankings" | "arquivo" | "atalhos";
@@ -34,10 +38,11 @@ const discoveryViews: Array<{ key: DiscoveryView; label: string }> = [
 
 const statusFilters: Array<{ key: StatusFilter; label: string }> = [
   { key: "todos", label: "Todos" },
-  { key: "Inscricoes abertas", label: "Inscricoes abertas" },
-  { key: "Em andamento", label: "Em andamento" },
-  { key: "Em breve", label: "Em breve" },
-  { key: "Finalizado", label: "Finalizados" },
+  { key: "DRAFT", label: "Rascunho" },
+  { key: "REGISTRATION", label: "Inscricoes abertas" },
+  { key: "READY", label: "Pronto para tabela" },
+  { key: "STARTED", label: "Em andamento" },
+  { key: "FINISHED", label: "Finalizados" },
 ];
 
 const quickRoutes: Array<{
@@ -163,7 +168,7 @@ function ChampionshipDiscoveryCard({
 }) {
   const formatLabel = getFormatOption(item.configuration.format).label;
   const primaryActionLabel =
-    item.status === "Inscricoes abertas" ? "Participar" : "Ver detalhes";
+    item.status === "REGISTRATION" ? "Participar" : "Ver detalhes";
 
   return (
     <article
@@ -194,7 +199,7 @@ function ChampionshipDiscoveryCard({
 
       <div className="mt-6 flex flex-wrap gap-3">
         <Link
-          to={`/campeonatos/${item.id}${item.status === "Inscricoes abertas" ? "?acao=participar" : ""}`}
+          to={`/campeonatos/${item.id}${item.status === "REGISTRATION" ? "?acao=participar" : ""}`}
           className="rounded-full border-glow-gold px-5 py-2.5 text-xs uppercase tracking-[0.18em] text-primary-foreground gradient-gold transition-all hover:-translate-y-0.5 hover:brightness-110"
         >
           {primaryActionLabel}
@@ -310,8 +315,8 @@ export default function Pesquisar() {
   );
 
   const rankingMonitors = useMemo(() => buildRankingMonitors(championships), [championships]);
-  const openChampionships = championships.filter((item) => item.status === "Inscricoes abertas");
-  const liveChampionships = championships.filter((item) => item.status === "Em andamento");
+  const openChampionships = championships.filter((item) => item.status === "REGISTRATION");
+  const liveChampionships = championships.filter((item) => item.status === "STARTED");
   const highlightChampionship =
     openChampionships[0] ?? liveChampionships[0] ?? championships[0] ?? null;
 
@@ -328,6 +333,7 @@ export default function Pesquisar() {
             item.description,
             item.configuration.rankingName,
             item.configuration.platform,
+            getChampionshipStatusLabel(item.status),
             getFormatOption(item.configuration.format).label,
           ]
             .join(" ")
@@ -545,10 +551,10 @@ export default function Pesquisar() {
                     </div>
                     <div className="mt-5 flex flex-wrap gap-3">
                       <Link
-                        to={`/campeonatos/${highlightChampionship.id}${highlightChampionship.status === "Inscricoes abertas" ? "?acao=participar" : ""}`}
+                        to={`/campeonatos/${highlightChampionship.id}${highlightChampionship.status === "REGISTRATION" ? "?acao=participar" : ""}`}
                         className="rounded-full border-glow-gold px-5 py-2.5 text-xs uppercase tracking-[0.18em] text-primary-foreground gradient-gold transition-all hover:-translate-y-0.5 hover:brightness-110"
                       >
-                        {highlightChampionship.status === "Inscricoes abertas"
+                        {highlightChampionship.status === "REGISTRATION"
                           ? "Participar agora"
                           : "Abrir campeonato"}
                       </Link>
@@ -612,12 +618,12 @@ export default function Pesquisar() {
                           count={monitor.championships.length}
                           openCount={
                             monitor.championships.filter(
-                              (item) => item.status === "Inscricoes abertas",
+                              (item) => item.status === "REGISTRATION",
                             ).length
                           }
                           liveCount={
                             monitor.championships.filter(
-                              (item) => item.status === "Em andamento",
+                              (item) => item.status === "STARTED",
                             ).length
                           }
                           platformCount={

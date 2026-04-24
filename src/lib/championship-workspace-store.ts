@@ -4,7 +4,7 @@ import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import type { ChampionshipRecord } from "@/types/championship";
 import type { ChampionshipWorkspaceRecord } from "@/types/championship-runtime";
 
-const CHAMPIONSHIP_WORKSPACES_STORAGE_KEY = "gc_championship_workspaces_v1";
+const CHAMPIONSHIP_WORKSPACES_STORAGE_KEY = "gc_championship_workspaces_v2";
 const CHAMPIONSHIP_WORKSPACES_TABLE = "championship_workspaces";
 
 type ChampionshipWorkspaceRow = {

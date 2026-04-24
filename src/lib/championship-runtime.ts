@@ -89,17 +89,7 @@ function groupNameFromIndex(index: number) {
   return `Grupo ${String.fromCharCode(65 + index)}`;
 }
 
-function createPlaceholderTeams(teamCount: number): ChampionshipTeam[] {
-  return Array.from({ length: Math.max(2, teamCount) }, (_, index) => ({
-    id: createRuntimeId("team"),
-    name: `Equipe ${index + 1}`,
-    seed: index + 1,
-    groupId: null,
-    pointsAdjustment: 0,
-  }));
-}
-
-function createDefaultGroups(groupCount: number): ChampionshipGroup[] {
+export function createDefaultGroups(groupCount: number): ChampionshipGroup[] {
   return Array.from({ length: Math.max(0, groupCount) }, (_, index) => ({
     id: createRuntimeId("group"),
     name: groupNameFromIndex(index),
@@ -107,13 +97,14 @@ function createDefaultGroups(groupCount: number): ChampionshipGroup[] {
   }));
 }
 
-function normalizeTeams(teams: ChampionshipTeam[] | undefined, fallbackCount: number) {
-  const source = teams?.length ? teams : createPlaceholderTeams(fallbackCount);
-
-  return source
+function normalizeTeams(teams: ChampionshipTeam[] | undefined) {
+  return (teams ?? [])
     .map((team, index) => ({
       id: typeof team.id === "string" && team.id ? team.id : createRuntimeId("team"),
       name: String(team.name ?? `Equipe ${index + 1}`).trim() || `Equipe ${index + 1}`,
+      playerId: typeof team.playerId === "string" && team.playerId ? team.playerId : null,
+      playerEmail:
+        typeof team.playerEmail === "string" && team.playerEmail ? team.playerEmail : null,
       seed: Math.max(1, Number(team.seed ?? index + 1)),
       groupId: typeof team.groupId === "string" && team.groupId ? team.groupId : null,
       pointsAdjustment: Number(team.pointsAdjustment ?? 0),
@@ -229,7 +220,7 @@ function normalizeBracketMatches(
     });
 }
 
-function snakeAssignTeams(teams: ChampionshipTeam[], groups: ChampionshipGroup[]) {
+export function snakeAssignTeams(teams: ChampionshipTeam[], groups: ChampionshipGroup[]) {
   if (!groups.length) {
     return teams.map((team) => ({ ...team, groupId: null }));
   }
@@ -259,7 +250,7 @@ function snakeAssignTeams(teams: ChampionshipTeam[], groups: ChampionshipGroup[]
   });
 }
 
-function buildRoundRobinMatches(
+export function buildRoundRobinMatches(
   championshipId: string,
   groups: ChampionshipGroup[],
   teams: ChampionshipTeam[],
@@ -592,32 +583,13 @@ export function applyBracketConsistency(
 export function createDefaultChampionshipWorkspace(
   championship: ChampionshipRecord,
 ): ChampionshipWorkspaceRecord {
-  const configuration = normalizeChampionshipConfiguration(championship.configuration);
-  const teams = normalizeTeams(undefined, championship.teamCount);
   const timestamp = nowIso();
-
-  if (configuration.groupCount === 0) {
-    return {
-      championshipId: championship.id,
-      teams: teams.map((team) => ({ ...team, groupId: null })),
-      groups: [],
-      groupMatches: [],
-      bracket: createEmptyBracketState(),
-      scoring: createDefaultScoring(),
-      createdAt: timestamp,
-      updatedAt: timestamp,
-    };
-  }
-
-  const groups = createDefaultGroups(configuration.groupCount);
-  const assignedTeams = snakeAssignTeams(teams, groups);
-  const groupMatches = buildRoundRobinMatches(championship.id, groups, assignedTeams);
 
   return {
     championshipId: championship.id,
-    teams: assignedTeams,
-    groups,
-    groupMatches,
+    teams: [],
+    groups: [],
+    groupMatches: [],
     bracket: createEmptyBracketState(),
     scoring: createDefaultScoring(),
     createdAt: timestamp,
@@ -643,17 +615,7 @@ export function normalizeChampionshipWorkspace(
         Number.isFinite(match.scoreAway),
     ) && !(workspace.bracket?.matches ?? []).some((match) => Boolean(match.winnerTeamId));
 
-  let teams = normalizeTeams(workspace.teams, championship.teamCount);
-
-  if (teams.length < championship.teamCount) {
-    const additionalTeams = createPlaceholderTeams(championship.teamCount - teams.length).map(
-      (team, index) => ({
-        ...team,
-        seed: teams.length + index + 1,
-      }),
-    );
-    teams = [...teams, ...additionalTeams];
-  }
+  let teams = normalizeTeams(workspace.teams);
 
   let groups = normalizeGroups(workspace.groups);
   let groupMatches = normalizeGroupMatches(workspace.groupMatches, championship.id);
@@ -662,7 +624,7 @@ export function normalizeChampionshipWorkspace(
     teams = teams.map((team) => ({ ...team, groupId: null }));
     groups = [];
     groupMatches = [];
-  } else if (!groups.length || (canRestructure && groups.length !== configuration.groupCount)) {
+  } else if (canRestructure && groups.length > 0 && groups.length !== configuration.groupCount) {
     groups = createDefaultGroups(configuration.groupCount);
     teams = snakeAssignTeams(teams, groups);
     groupMatches = buildRoundRobinMatches(championship.id, groups, teams);
@@ -674,9 +636,6 @@ export function normalizeChampionshipWorkspace(
       teams = snakeAssignTeams(teams, groups);
     }
 
-    if (!groupMatches.length && groups.length) {
-      groupMatches = buildRoundRobinMatches(championship.id, groups, teams);
-    }
   }
 
   const normalizedWorkspace: ChampionshipWorkspaceRecord = {

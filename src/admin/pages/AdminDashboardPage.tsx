@@ -27,6 +27,7 @@ import { useAdminPanel } from "@/admin/context/AdminPanelContext";
 import { formatDateTime } from "@/admin/utils/format";
 import { Button } from "@/components/ui/button";
 import { useChampionships } from "@/contexts/ChampionshipContext";
+import { getChampionshipStatusLabel } from "@/lib/championships";
 
 const monthFormatter = new Intl.DateTimeFormat("pt-BR", {
   month: "short",
@@ -78,9 +79,10 @@ export default function AdminDashboardPage() {
   const activeChampionships = championships
     .filter(
       (item) =>
-        item.status === "Inscricoes abertas" ||
-        item.status === "Em andamento" ||
-        item.status === "Em breve",
+        item.status === "REGISTRATION" ||
+        item.status === "READY" ||
+        item.status === "STARTED" ||
+        item.status === "DRAFT",
     )
     .slice(0, 5);
   const quickActions = [
@@ -183,7 +185,11 @@ export default function AdminDashboardPage() {
           label="Campeonatos ativos"
           value={
             championships.filter(
-              (item) => item.status === "Inscricoes abertas" || item.status === "Em andamento" || item.status === "Em breve",
+              (item) =>
+                item.status === "REGISTRATION" ||
+                item.status === "READY" ||
+                item.status === "STARTED" ||
+                item.status === "DRAFT",
             ).length
           }
           helper="Eventos publicados ou em andamento na grade atual."
@@ -234,11 +240,11 @@ export default function AdminDashboardPage() {
                       <p className="mt-2 font-semibold text-white">{championship.name}</p>
                     </div>
                     <AdminStatusBadge
-                      label={championship.status}
+                      label={getChampionshipStatusLabel(championship.status)}
                       tone={
-                        championship.status === "Inscricoes abertas"
+                        championship.status === "REGISTRATION" || championship.status === "READY"
                           ? "success"
-                          : championship.status === "Em andamento"
+                          : championship.status === "STARTED"
                             ? "info"
                             : "warning"
                       }
@@ -442,7 +448,7 @@ export default function AdminDashboardPage() {
             <div className="rounded-2xl border border-white/8 bg-black/20 p-4">
               <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Publicados</p>
               <p className="mt-3 font-heading text-3xl text-white">
-                {championships.filter((item) => item.status === "Inscricoes abertas" || item.status === "Em breve").length}
+                {championships.filter((item) => item.status === "REGISTRATION" || item.status === "READY").length}
               </p>
             </div>
             <div className="rounded-2xl border border-white/8 bg-black/20 p-4">
@@ -451,13 +457,13 @@ export default function AdminDashboardPage() {
                 <BarChart3 className="h-4 w-4 text-primary" />
               </div>
               <p className="mt-3 font-heading text-3xl text-primary">
-                {championships.filter((item) => item.status === "Em andamento").length}
+                {championships.filter((item) => item.status === "STARTED").length}
               </p>
             </div>
             <div className="rounded-2xl border border-white/8 bg-black/20 p-4">
               <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Encerrados</p>
               <p className="mt-3 font-heading text-3xl text-electric">
-                {championships.filter((item) => item.status === "Finalizado").length}
+                {championships.filter((item) => item.status === "FINISHED").length}
               </p>
             </div>
           </div>

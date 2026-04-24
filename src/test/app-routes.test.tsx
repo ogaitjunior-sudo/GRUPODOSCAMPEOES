@@ -15,7 +15,7 @@ describe("app routes", () => {
     render(<App />);
 
     expect(
-      screen.getByRole("heading", { level: 1, name: /campeonatos x1/i }),
+      screen.getByRole("heading", { level: 1, name: /menos.*mais campeonato/i }),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /pesquisar/i })).toBeInTheDocument();
   });
@@ -113,7 +113,7 @@ describe("app routes", () => {
 
   it("renders the championship management page", async () => {
     window.localStorage.setItem(
-      "gc_championships",
+      "gc_championships_v2",
       JSON.stringify([
         {
           id: "championship-details-test",
@@ -123,10 +123,11 @@ describe("app routes", () => {
           endDate: "2026-04-30",
           teamCount: 4,
           rules: "Regras de teste",
-          status: "Em andamento",
+          status: "STARTED",
           configuration: {
             game: "FC 26",
             rankingName: "CAMPEOES",
+            isRankedGame: true,
             platform: "PlayStation 5",
             format: "groups-knockout",
             qualifiedPerGroup: 2,

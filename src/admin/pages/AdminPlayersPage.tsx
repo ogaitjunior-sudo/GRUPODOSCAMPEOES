@@ -69,7 +69,7 @@ interface PlayerFormState {
 
 interface PendingPlayerSave {
   payload: PlayerFormState;
-  nameChanged: boolean;
+  sensitiveChanged: boolean;
 }
 
 function normalizeEmail(email: string) {
@@ -239,7 +239,9 @@ export default function AdminPlayersPage() {
 
     setPendingSave({
       payload: form,
-      nameChanged: editingRow.name.trim() !== form.name.trim(),
+      sensitiveChanged:
+        editingRow.name.trim() !== form.name.trim() ||
+        normalizeEmail(editingRow.email) !== normalizeEmail(form.email),
     });
   };
 
@@ -470,9 +472,9 @@ export default function AdminPlayersPage() {
               />
               <input
                 value={form.email}
-                readOnly
+                onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))}
                 placeholder="E-mail da conta"
-                className={`${inputClassName} cursor-not-allowed opacity-70`}
+                className={inputClassName}
               />
             </div>
 
@@ -516,7 +518,7 @@ export default function AdminPlayersPage() {
             </div>
 
             <div className="rounded-2xl border border-white/8 bg-black/20 p-4 text-sm text-muted-foreground">
-              O e-mail de acesso fica protegido para evitar quebra no login real. Use a redefinicao de senha para ajudar o jogador e mantenha alteracoes de conta em um fluxo seguro separado.
+              O ADM pode corrigir nome e e-mail do cadastro. Para senha, use o fluxo seguro de redefinicao e mantenha alteracoes criticas com confirmacao.
             </div>
           </div>
           <DialogFooter>
@@ -599,7 +601,7 @@ export default function AdminPlayersPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar alteracoes do jogador</AlertDialogTitle>
             <AlertDialogDescription>
-              {pendingSave?.nameChanged
+              {pendingSave?.sensitiveChanged
                 ? "Voce esta alterando dados sensiveis do cadastro administrativo. Revise as informacoes antes de confirmar."
                 : "Confirme a atualizacao dos dados competitivos do jogador selecionado."}
             </AlertDialogDescription>

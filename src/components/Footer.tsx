@@ -4,99 +4,85 @@ import { navItems } from "@/navigation";
 
 export function Footer() {
   const currentYear = new Date().getFullYear();
-  const quickLinks = navItems.filter((item) => item.path !== "/");
-  const supportLinks = [
+  const quickLinks = navItems.filter((item) =>
+    ["/campeonatos", "/explorar", "/ranking", "/campeoes"].includes(item.path),
+  );
+  const accountLinks = [
     { label: "Entrar", path: "/entrar" },
     { label: "Criar conta", path: "/criar-conta" },
-    { label: "Ajuda", path: "/ajuda" },
     { label: "Perfil", path: "/perfil" },
-  ];
-  const secondaryLinks = [
-    { label: "Campeoes", path: "/campeoes" },
-    { label: "Ligas", path: "/ligas" },
+    { label: "Ajuda", path: "/ajuda" },
   ];
 
   return (
-    <footer className="py-10">
+    <footer className="pb-10 pt-16">
       <div className="container mx-auto px-4">
-        <div className="grid gap-8 rounded-[32px] panel-premium p-6 text-center md:p-8 md:text-left xl:grid-cols-[1.05fr_0.8fr_0.8fr_0.6fr]">
-          <div>
-            <div className="mb-4 flex items-center justify-center gap-3 md:justify-start">
-              <span className="flex h-12 w-12 items-center justify-center rounded-full border border-primary/20 bg-black/30">
-                <img src={logoGC} alt="Logo" className="h-8 w-8" />
-              </span>
-              <div>
-                <p className="font-heading text-[10px] uppercase tracking-[0.34em] text-primary">
-                  Plataforma publica
-                </p>
-                <span className="mt-1 block font-heading text-sm font-bold gradient-gold-text">
-                  GRUPO DE CAMPEOES - FC 26
+        <div className="rounded-[32px] site-card px-6 py-8 md:px-8 md:py-10">
+          <div className="grid gap-10 md:grid-cols-[minmax(0,1.25fr)_minmax(220px,0.8fr)_minmax(220px,0.8fr)]">
+            <div className="max-w-xl">
+              <div className="flex items-center gap-3">
+                <span className="flex h-12 w-12 items-center justify-center rounded-full site-card-soft">
+                  <img src={logoGC} alt="Grupo de Campeões FC26" className="h-8 w-8 object-contain" />
                 </span>
+                <div>
+                  <p className="font-heading text-xs uppercase tracking-[0.32em] text-primary">
+                    Grupo de Campeões
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">Circuito oficial de FC 26 X1 UT</p>
+                </div>
+              </div>
+
+              <p className="mt-5 text-sm leading-7 text-muted-foreground">
+                Um portal mais direto para encontrar campeonatos, acompanhar o ranking e seguir o
+                fluxo do jogador sem excesso de informação.
+              </p>
+
+              <div className="mt-6 flex flex-wrap gap-3 text-sm">
+                <Link to="/campeonatos" className="cta-secondary px-4 py-2.5">
+                  Ver campeonatos
+                </Link>
+                <Link to="/entrar" className="cta-ghost px-1 py-2">
+                  Entrar no portal
+                </Link>
               </div>
             </div>
 
-            <p className="max-w-md text-xs leading-6 text-muted-foreground">
-              Plataforma publica do Grupo de Campeoes para campeonatos X1 de Ultimate Team,
-              com calendario competitivo, ranking, relampago e area do jogador.
-            </p>
-          </div>
+            <div>
+              <p className="text-xs uppercase tracking-[0.24em] text-primary">Navegação</p>
+              <div className="mt-4 grid gap-3">
+                {quickLinks.map((item) => (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+                  >
+                    {item.label}
+                  </Link>
+                ))}
+              </div>
+            </div>
 
-          <div>
-            <p className="mb-4 font-heading text-xs uppercase tracking-[0.3em] text-primary">
-              Circuito principal
-            </p>
-            <div className="flex flex-wrap justify-center gap-3 md:justify-start">
-              {quickLinks.map((item) => (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  className="rounded-full panel-premium-soft px-4 py-2.5 text-xs text-muted-foreground transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:text-foreground"
-                >
-                  {item.label}
-                </Link>
-              ))}
+            <div>
+              <p className="text-xs uppercase tracking-[0.24em] text-primary">Conta e suporte</p>
+              <div className="mt-4 grid gap-3">
+                {accountLinks.map((item) => (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+                  >
+                    {item.label}
+                  </Link>
+                ))}
+              </div>
             </div>
           </div>
 
-          <div>
-            <p className="mb-4 font-heading text-xs uppercase tracking-[0.3em] text-primary">
-              Conta e suporte
-            </p>
-            <div className="flex flex-wrap justify-center gap-3 md:justify-start">
-              {supportLinks.map((item) => (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  className="rounded-full panel-premium-soft px-4 py-2.5 text-xs text-muted-foreground transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:text-foreground"
-                >
-                  {item.label}
-                </Link>
-              ))}
-            </div>
-          </div>
+          <div className="my-8 site-divider" />
 
-          <div>
-            <p className="mb-4 font-heading text-xs uppercase tracking-[0.3em] text-muted-foreground">
-              Areas secundarias
-            </p>
-            <div className="flex flex-wrap justify-center gap-3 md:justify-start">
-              {secondaryLinks.map((item) => (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  className="rounded-full border border-white/10 bg-white/5 px-4 py-2.5 text-xs text-muted-foreground transition-all hover:-translate-y-0.5 hover:border-electric/30 hover:text-foreground"
-                >
-                  {item.label}
-                </Link>
-              ))}
-            </div>
-          </div>
-
-          <div className="xl:col-span-4">
-            <div className="h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-            <p className="pt-6 text-xs text-muted-foreground">
-              &copy; {currentYear} Grupo de Campeoes. Circuito publico de FC 26 para X1 UT.
-            </p>
+          <div className="flex flex-col gap-3 text-sm text-muted-foreground md:flex-row md:items-center md:justify-between">
+            <p>&copy; {currentYear} Grupo de Campeões. Plataforma pública do circuito FC 26.</p>
+            <p>Campeonatos, ranking, histórico e jornada do jogador em um fluxo mais simples.</p>
           </div>
         </div>
       </div>

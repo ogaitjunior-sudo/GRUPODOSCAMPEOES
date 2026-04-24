@@ -14,6 +14,8 @@ export type BracketSlot = "home" | "away";
 export interface ChampionshipTeam {
   id: string;
   name: string;
+  playerId: string | null;
+  playerEmail: string | null;
   seed: number;
   groupId: string | null;
   pointsAdjustment: number;

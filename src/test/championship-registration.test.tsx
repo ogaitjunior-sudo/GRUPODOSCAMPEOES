@@ -12,10 +12,11 @@ function createChampionship(overrides: Record<string, unknown> = {}) {
     endDate: "2026-04-30",
     teamCount: 8,
     rules: "Regras",
-    status: "Inscricoes abertas",
+    status: "REGISTRATION",
     configuration: {
       game: "FC 26",
       rankingName: "CAMPEOES",
+      isRankedGame: true,
       platform: "PlayStation 5",
       format: "groups-knockout",
       qualifiedPerGroup: 2,
@@ -110,7 +111,7 @@ afterEach(() => {
 describe("championship registrations", () => {
   it("submits a participation request for the player", async () => {
     window.localStorage.setItem(
-      "gc_championships",
+      "gc_championships_v2",
       JSON.stringify([createChampionship()]),
     );
 
@@ -123,7 +124,7 @@ describe("championship registrations", () => {
       expect(screen.getByTestId("request-status")).toHaveTextContent("pending");
     });
 
-    const stored = JSON.parse(window.localStorage.getItem("gc_championships") ?? "[]");
+    const stored = JSON.parse(window.localStorage.getItem("gc_championships_v2") ?? "[]");
     expect(stored[0].registrationRequests).toHaveLength(1);
     expect(stored[0].registrationRequests[0].status).toBe("pending");
   });
@@ -132,15 +133,15 @@ describe("championship registrations", () => {
     window.localStorage.setItem(
       "gc_admin_session",
       JSON.stringify({
-        username: "admin-geral",
-        displayName: "Admin",
+        username: "ADMIN",
+        displayName: "ADMIN",
         role: "super_admin",
         permissions: [],
         loginAt: "2026-04-12T10:00:00.000Z",
       }),
     );
     window.localStorage.setItem(
-      "gc_championships",
+      "gc_championships_v2",
       JSON.stringify([
         createChampionship({
           registrationRequests: [
@@ -167,7 +168,7 @@ describe("championship registrations", () => {
       expect(screen.getByTestId("request-status")).toHaveTextContent("approved");
     });
 
-    const stored = JSON.parse(window.localStorage.getItem("gc_championships") ?? "[]");
+    const stored = JSON.parse(window.localStorage.getItem("gc_championships_v2") ?? "[]");
     expect(stored[0].registrationRequests[0].status).toBe("approved");
     expect(stored[0].registrationRequests[0].reviewedBy).toBe("Admin");
   });

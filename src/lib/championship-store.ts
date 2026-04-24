@@ -2,6 +2,7 @@ import type { PostgrestError } from "@supabase/supabase-js";
 import {
   createChampionshipId,
   createDefaultChampionshipConfiguration,
+  normalizeChampionshipStatus,
   normalizeChampionshipConfiguration,
   normalizeChampionshipFormValues,
   normalizeChampionshipRegistrationRequests,
@@ -15,7 +16,7 @@ import type {
   ChampionshipStatus,
 } from "@/types/championship";
 
-const CHAMPIONSHIPS_STORAGE_KEY = "gc_championships";
+const CHAMPIONSHIPS_STORAGE_KEY = "gc_championships_v2";
 const CHAMPIONSHIPS_TABLE = "championships";
 
 type ChampionshipRow = {
@@ -26,7 +27,7 @@ type ChampionshipRow = {
   end_date: string;
   team_count: number;
   rules: string;
-  status: ChampionshipStatus;
+  status: unknown;
   configuration?: unknown;
   created_at: string;
   updated_at: string;
@@ -87,7 +88,7 @@ function mapRowToRecord(row: ChampionshipRow): ChampionshipRecord {
     endDate: row.end_date,
     teamCount: row.team_count,
     rules: row.rules,
-    status: row.status,
+    status: normalizeChampionshipStatus(row.status),
     configuration: normalizeChampionshipConfiguration(payload.settings as object | undefined),
     registrationRequests: payload.registrationRequests,
     createdAt: row.created_at,
@@ -196,6 +197,7 @@ export function readStoredChampionships(): ChampionshipRecord[] {
           if (isChampionshipRecord(item)) {
             return {
               ...item,
+              status: normalizeChampionshipStatus(item.status),
               configuration: normalizeChampionshipConfiguration(item.configuration),
               registrationRequests: normalizeChampionshipRegistrationRequests(
                 item.registrationRequests,
@@ -228,7 +230,7 @@ export function readStoredChampionships(): ChampionshipRecord[] {
             endDate: legacyItem.endDate,
             teamCount: legacyItem.teamCount,
             rules: legacyItem.rules,
-            status: legacyItem.status as ChampionshipStatus,
+            status: normalizeChampionshipStatus(legacyItem.status),
             configuration: createDefaultChampionshipConfiguration(),
             registrationRequests: [],
             createdAt: legacyItem.createdAt,

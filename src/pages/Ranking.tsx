@@ -52,9 +52,9 @@ const Ranking = () => {
   const [activeView, setActiveView] = useState<RankingView>("temporada");
   const { championships } = useChampionships();
   const monitors = buildRankingMonitors(championships);
-  const openCount = championships.filter((item) => item.status === "Inscricoes abertas").length;
-  const liveCount = championships.filter((item) => item.status === "Em andamento").length;
-  const finalCount = championships.filter((item) => item.status === "Finalizado").length;
+  const openCount = championships.filter((item) => item.status === "REGISTRATION").length;
+  const liveCount = championships.filter((item) => item.status === "STARTED").length;
+  const finalCount = championships.filter((item) => item.status === "FINISHED").length;
   const totalTitles = champions.reduce((sum, player) => sum + player.titles, 0);
   const topThree = champions.slice(0, 3);
 
@@ -314,10 +314,10 @@ const Ranking = () => {
                 <div className="mt-10 grid gap-4 lg:grid-cols-2">
                   {monitors.map((monitor) => {
                     const liveRows = monitor.championships.filter(
-                      (item) => item.status === "Em andamento",
+                      (item) => item.status === "STARTED",
                     ).length;
                     const openRows = monitor.championships.filter(
-                      (item) => item.status === "Inscricoes abertas",
+                      (item) => item.status === "REGISTRATION",
                     ).length;
                     const platformCount = new Set(
                       monitor.championships.map((item) => item.configuration.platform),

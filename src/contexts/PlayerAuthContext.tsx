@@ -12,6 +12,13 @@ import {
   supabaseAuthSetupMessage,
 } from "@/lib/supabase";
 import {
+  authenticatePlayerFallback,
+  createPlayerFallbackSession,
+  getPlayerFallbackCredentials,
+  isPlayerFallbackSession,
+  type PlayerFallbackSession,
+} from "@/lib/player-fallback-auth";
+import {
   resolvePlayerLoginEmail,
   syncPlayerAccessDirectoryEntry,
 } from "@/lib/player-login-directory";
@@ -21,6 +28,7 @@ interface PlayerSession {
   email: string;
   displayName: string;
   loginAt: string;
+  provider: "supabase" | "fallback";
 }
 
 interface AuthResult {
@@ -51,6 +59,7 @@ interface PlayerAuthContextValue {
 }
 
 const PlayerAuthContext = createContext<PlayerAuthContextValue | undefined>(undefined);
+const PLAYER_FALLBACK_SESSION_STORAGE_KEY = "gc_player_fallback_session";
 
 function buildPlayerSession(session: Session | null) {
   const user = session?.user;
@@ -75,14 +84,75 @@ function buildPlayerSession(session: Session | null) {
     email: user.email,
     displayName,
     loginAt: user.last_sign_in_at ?? user.created_at ?? new Date().toISOString(),
+    provider: "supabase",
   } satisfies PlayerSession;
 }
 
+function readStoredFallbackSession() {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const credentials = getPlayerFallbackCredentials();
+
+  if (!credentials) {
+    window.localStorage.removeItem(PLAYER_FALLBACK_SESSION_STORAGE_KEY);
+    return null;
+  }
+
+  try {
+    const rawValue = window.localStorage.getItem(PLAYER_FALLBACK_SESSION_STORAGE_KEY);
+
+    if (!rawValue) {
+      return null;
+    }
+
+    const parsed = JSON.parse(rawValue);
+
+    if (!isPlayerFallbackSession(parsed)) {
+      window.localStorage.removeItem(PLAYER_FALLBACK_SESSION_STORAGE_KEY);
+      return null;
+    }
+
+    const expectedSession = createPlayerFallbackSession(
+      credentials.login,
+      parsed.loginAt,
+    ) satisfies PlayerFallbackSession;
+
+    if (
+      parsed.id !== expectedSession.id ||
+      parsed.email !== expectedSession.email ||
+      parsed.displayName !== expectedSession.displayName
+    ) {
+      window.localStorage.removeItem(PLAYER_FALLBACK_SESSION_STORAGE_KEY);
+      return null;
+    }
+
+    return expectedSession satisfies PlayerSession;
+  } catch {
+    window.localStorage.removeItem(PLAYER_FALLBACK_SESSION_STORAGE_KEY);
+    return null;
+  }
+}
+
 export function PlayerAuthProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<PlayerSession | null>(null);
+  const [session, setSession] = useState<PlayerSession | null>(() => readStoredFallbackSession());
 
   useEffect(() => {
-    if (!isSupabaseConfigured || !supabase) {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    if (!session || session.provider !== "fallback") {
+      window.localStorage.removeItem(PLAYER_FALLBACK_SESSION_STORAGE_KEY);
+      return;
+    }
+
+    window.localStorage.setItem(PLAYER_FALLBACK_SESSION_STORAGE_KEY, JSON.stringify(session));
+  }, [session]);
+
+  useEffect(() => {
+    if (session?.provider === "fallback" || !isSupabaseConfigured || !supabase) {
       return;
     }
 
@@ -92,7 +162,10 @@ export function PlayerAuthProvider({ children }: { children: ReactNode }) {
       const { data } = await supabase.auth.getSession();
 
       if (active) {
-        setSession(buildPlayerSession(data.session));
+        setSession((current) => {
+          const nextSession = buildPlayerSession(data.session);
+          return nextSession ?? (current?.provider === "fallback" ? current : null);
+        });
       }
     };
 
@@ -101,14 +174,17 @@ export function PlayerAuthProvider({ children }: { children: ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      setSession(buildPlayerSession(nextSession));
+      setSession((current) => {
+        const nextPlayerSession = buildPlayerSession(nextSession);
+        return nextPlayerSession ?? (current?.provider === "fallback" ? current : null);
+      });
     });
 
     return () => {
       active = false;
       subscription.unsubscribe();
     };
-  }, []);
+  }, [session?.provider]);
 
   const register = async ({ name, email, password }: RegisterPayload): Promise<AuthResult> => {
     const normalizedName = name.trim();
@@ -184,6 +260,31 @@ export function PlayerAuthProvider({ children }: { children: ReactNode }) {
       };
     }
 
+    const fallbackAuth = await authenticatePlayerFallback(normalizedIdentifier, normalizedPassword);
+
+    if (fallbackAuth) {
+      if (!fallbackAuth.success) {
+        return {
+          success: false,
+          message: fallbackAuth.message,
+        };
+      }
+
+      setSession(fallbackAuth.session);
+
+      void syncPlayerAccessDirectoryEntry({
+        name: fallbackAuth.session.displayName,
+        email: fallbackAuth.session.email,
+        lastLoginAt: fallbackAuth.session.loginAt,
+        createdAt: fallbackAuth.session.loginAt,
+      });
+
+      return {
+        success: true,
+        playerName: fallbackAuth.playerName,
+      };
+    }
+
     if (!isSupabaseConfigured || !supabase) {
       return {
         success: false,
@@ -201,7 +302,7 @@ export function PlayerAuthProvider({ children }: { children: ReactNode }) {
           success: false,
           message:
             resolution.error ??
-            "Nao foi possivel localizar esse jogador agora. Tente entrar com o e-mail.",
+            "Não foi possível localizar esse jogador agora. Tente entrar com o e-mail.",
         };
       }
 
@@ -209,7 +310,7 @@ export function PlayerAuthProvider({ children }: { children: ReactNode }) {
     } catch {
       return {
         success: false,
-        message: "Nao foi possivel validar o nome do jogador agora. Tente entrar com o e-mail.",
+        message: "Não foi possível validar o nome do jogador agora. Tente entrar com o e-mail.",
       };
     }
 
@@ -323,7 +424,7 @@ export function PlayerAuthProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     setSession(null);
 
-    if (!supabase) {
+    if (session?.provider === "fallback" || !supabase) {
       return;
     }
 

@@ -9,11 +9,11 @@ import {
   Menu,
   Search,
   User,
-  UserPlus,
   UserRound,
   X,
 } from "lucide-react";
 import logoGC from "@/assets/logo-gc-fc26.png";
+import { SiteActionLink } from "@/components/SiteActionLink";
 import { usePlayerAuth } from "@/contexts/PlayerAuthContext";
 import {
   DropdownMenu,
@@ -54,83 +54,74 @@ export function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const LoginIcon = loginRoute.icon;
   const playerDisplayName = formatPlayerDisplayName(loginName);
+  const isItemActive = (path: string) =>
+    path === "/" ? location.pathname === path : location.pathname.startsWith(path);
 
   useEffect(() => {
     setMobileOpen(false);
   }, [location.pathname]);
 
   return (
-    <nav className="fixed left-0 right-0 top-0 z-50 border-b border-white/8 bg-background/72 backdrop-blur-xl">
-      <div className="container mx-auto flex h-20 items-center justify-between px-4">
-        <Link
-          to="/"
-          className="flex items-center gap-3 rounded-full panel-premium-soft px-3 py-2 transition-transform hover:-translate-y-0.5"
-        >
-          <span className="flex h-11 w-11 items-center justify-center rounded-full border border-primary/20 bg-black/30">
-            <img src={logoGC} alt="Grupo de Campeoes FC26" className="h-9 w-9" />
+    <nav className="fixed left-0 right-0 top-0 z-50 border-b border-white/8 bg-[#020304]/94 backdrop-blur-xl">
+      <div className="mx-auto flex h-24 max-w-[1860px] items-center justify-between gap-8 px-5 sm:px-8">
+        <Link to="/" className="flex items-center gap-3">
+          <span className="flex h-[70px] w-[70px] items-center justify-center overflow-hidden rounded-full border border-white/10 bg-black/30 shadow-[0_16px_36px_rgba(0,0,0,0.35)]">
+            <img src={logoGC} alt="Grupo de Campeões FC26" className="h-[58px] w-[58px] object-contain" />
           </span>
           <span className="hidden min-w-0 sm:block">
-            <span className="block font-heading text-sm font-bold gradient-gold-text">
-              GRUPO DE CAMPEOES
+            <span className="block font-heading text-xl font-semibold tracking-[0.08em] text-foreground">
+              Grupo de Campeões
             </span>
-            <span className="block text-[10px] uppercase tracking-[0.26em] text-muted-foreground">
-              X1 UT FC 26
+            <span className="mt-1 block text-sm tracking-[0.38em] text-muted-foreground">
+              FC 26 • X1 UT
             </span>
           </span>
         </Link>
 
-        <div className="hidden items-center gap-2 rounded-full panel-premium-soft px-2 py-2 lg:flex">
-          {navItems.map((item) => {
-            const active = location.pathname === item.path;
-
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                className={cn(
-                  "flex items-center gap-1.5 rounded-full px-4 py-2.5 text-xs font-medium transition-all duration-200",
-                  item.highlight && "font-bold text-primary text-glow-gold",
-                  active &&
-                    "bg-primary/12 text-primary shadow-[0_0_0_1px_hsl(51_100%_50%_/_0.18)]",
-                  !active &&
-                    !item.highlight &&
-                    "text-muted-foreground hover:bg-white/5 hover:text-foreground",
-                )}
-              >
-                <item.icon className="h-4 w-4" />
-                {item.label}
-                {item.highlight ? <span className="text-[10px]">X1</span> : null}
-              </Link>
-            );
-          })}
+        <div className="hidden flex-1 items-center justify-center gap-8 xl:flex">
+          {navItems.map((item) => (
+            <Link
+              key={item.path}
+              to={item.path}
+              className={cn(
+                "relative py-3 text-base font-medium tracking-[0.01em] transition-colors after:absolute after:-bottom-2 after:left-0 after:h-[2px] after:w-full after:origin-left after:scale-x-0 after:rounded-full after:bg-primary after:transition-transform",
+                isItemActive(item.path)
+                  ? "text-primary after:scale-x-100"
+                  : "text-foreground/86 hover:text-primary",
+                item.highlight && !isItemActive(item.path) && "text-primary hover:text-primary",
+              )}
+            >
+              {item.label}
+            </Link>
+          ))}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           {isPlayerAuthenticated ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  className="hidden h-12 items-center gap-2 rounded-full panel-premium px-3.5 text-[13px] font-heading font-bold text-foreground transition hover:-translate-y-0.5 hover:border-electric/45 sm:flex"
+                  className="hidden items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-foreground transition-colors hover:border-white/15 sm:inline-flex"
                 >
-                  <span className="flex h-6 w-6 items-center justify-center rounded-full border border-primary/25 bg-background/80 text-primary">
+                  <span className="flex h-7 w-7 items-center justify-center rounded-full border border-primary/20 bg-primary/10 text-primary">
                     <UserRound className="h-4 w-4" />
                   </span>
-                  <span className="text-sm">{playerDisplayName}</span>
-                  <ChevronDown className="h-4 w-4 text-electric" />
+                  <span className="font-medium">{playerDisplayName}</span>
+                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
                 </button>
               </DropdownMenuTrigger>
 
               <DropdownMenuContent
                 align="end"
-                sideOffset={8}
-                className="w-60 rounded-[24px] panel-premium p-1.5 text-foreground shadow-[0_24px_60px_hsl(0_0%_0%_/_0.5)]"
+                sideOffset={10}
+                className="w-60 rounded-[24px] site-card p-1.5 text-foreground shadow-[0_24px_60px_hsl(0_0%_0%_/_0.38)]"
               >
                 {playerMenuPrimaryItems.map((item) => (
                   <DropdownMenuItem
                     key={item.label}
                     asChild
-                    className="cursor-pointer rounded-2xl px-4 py-3 text-[14px] font-medium text-foreground focus:bg-electric/10 focus:text-electric"
+                    className="cursor-pointer rounded-2xl px-4 py-3 text-[14px] font-medium text-foreground focus:bg-white/5"
                   >
                     <Link to={item.path} className="flex items-center gap-2">
                       <item.icon className="h-4 w-4 text-primary" />
@@ -145,10 +136,10 @@ export function Navbar() {
                   <DropdownMenuItem
                     key={item.label}
                     asChild
-                    className="cursor-pointer rounded-2xl px-4 py-3 text-[14px] font-medium text-muted-foreground focus:bg-electric/10 focus:text-electric"
+                    className="cursor-pointer rounded-2xl px-4 py-3 text-[14px] font-medium text-muted-foreground focus:bg-white/5 focus:text-foreground"
                   >
                     <Link to={item.path} className="flex items-center gap-2">
-                      <item.icon className="h-4 w-4 text-electric" />
+                      <item.icon className="h-4 w-4 text-muted-foreground" />
                       {item.label}
                     </Link>
                   </DropdownMenuItem>
@@ -163,35 +154,38 @@ export function Navbar() {
                   }}
                   className="cursor-pointer rounded-2xl px-4 py-3 text-[14px] font-medium text-primary focus:bg-primary/10 focus:text-primary"
                 >
-                  <LogOut className="mr-2 h-4 w-4 text-primary" />
+                  <LogOut className="mr-2 h-4 w-4" />
                   Sair
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
             <>
-              <Link
+              <SiteActionLink
                 to="/criar-conta"
-                className="hidden items-center gap-1.5 rounded-full panel-premium-soft px-5 py-2.5 text-xs font-heading font-bold text-foreground transition-all hover:-translate-y-0.5 hover:bg-white/10 md:flex"
+                variant="ghost"
+                size="sm"
+                className="hidden text-base text-foreground/86 hover:text-primary lg:inline-flex"
               >
-                <UserPlus className="h-4 w-4" />
                 Criar conta
-              </Link>
-              <Link
+              </SiteActionLink>
+              <SiteActionLink
                 to={loginRoute.path}
-                className="hidden items-center gap-1.5 rounded-full border-glow-gold px-5 py-2.5 text-xs font-heading font-bold gradient-gold text-primary-foreground transition-all hover:-translate-y-0.5 hover:brightness-110 sm:flex"
+                variant="primary"
+                size="sm"
+                icon={LoginIcon}
+                className="hidden min-h-[58px] min-w-[150px] px-8 text-base shadow-[0_18px_36px_rgba(255,204,0,0.18)] sm:inline-flex"
               >
-                <LoginIcon className="h-4 w-4" />
                 {loginRoute.label}
-              </Link>
+              </SiteActionLink>
             </>
           )}
 
           <button
             onClick={() => setMobileOpen((current) => !current)}
-            className="rounded-full panel-premium-soft p-2.5 text-foreground lg:hidden"
+            className="rounded-full border border-white/10 bg-white/[0.04] p-2.5 text-foreground xl:hidden"
             aria-expanded={mobileOpen}
-            aria-label="Abrir navegacao publica"
+            aria-label="Abrir navegação pública"
           >
             {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
@@ -199,87 +193,79 @@ export function Navbar() {
       </div>
 
       {mobileOpen ? (
-        <div className="border-t border-white/8 bg-background/92 panel-premium animate-fade-in-up lg:hidden">
-          <div className="mx-3 mt-3 rounded-2xl border border-primary/15 bg-primary/8 px-5 py-4">
-            <p className="text-[10px] uppercase tracking-[0.28em] text-primary">Plataforma publica</p>
-            <p className="mt-2 text-sm text-foreground">
-              Campeonatos X1 UT, ranking, relampagos e painel do jogador.
-            </p>
-          </div>
-
-          {navItems.map((item) => (
-            <Link
-              key={item.path}
-              to={item.path}
-              className={cn(
-                "mx-3 mt-3 flex items-center gap-2 rounded-2xl px-6 py-3 text-sm transition-colors",
-                location.pathname === item.path && "bg-primary/12 text-primary",
-                item.highlight && "font-bold text-primary",
-                location.pathname !== item.path &&
-                  !item.highlight &&
-                  "text-muted-foreground hover:bg-white/5 hover:text-foreground",
-              )}
-            >
-              <item.icon className="h-4 w-4" />
-              {item.label}
-            </Link>
-          ))}
-
-          {isPlayerAuthenticated ? (
-            <>
-              <div className="mx-3 mt-3 flex items-center gap-2 rounded-2xl px-6 py-3 text-sm font-bold text-electric">
-                <UserRound className="h-4 w-4" />
-                {playerDisplayName}
+        <div className="border-t border-white/8 bg-background/92 xl:hidden">
+          <div className="container mx-auto px-4 py-4">
+            <div className="rounded-[24px] site-card p-3">
+              <div className="mb-2 px-3 py-2">
+                <p className="text-xs uppercase tracking-[0.22em] text-primary">Navegação</p>
               </div>
-              <Link
-                to="/perfil"
-                className="mx-3 mt-3 flex items-center gap-2 rounded-2xl px-6 py-3 text-sm text-foreground"
-              >
-                <User className="h-4 w-4" />
-                Perfil
-              </Link>
-              <Link
-                to="/perfil?aba=campeonatos"
-                className="mx-3 mt-3 flex items-center gap-2 rounded-2xl px-6 py-3 text-sm text-foreground"
-              >
-                <List className="h-4 w-4" />
-                Campeonatos
-              </Link>
-              <Link
-                to="/perfil?aba=rankings"
-                className="mx-3 mt-3 flex items-center gap-2 rounded-2xl px-6 py-3 text-sm text-foreground"
-              >
-                <BarChart3 className="h-4 w-4" />
-                Ranking
-              </Link>
-              <button
-                type="button"
-                onClick={logoutPlayer}
-                className="mx-3 flex w-[calc(100%-1.5rem)] items-center gap-2 rounded-2xl px-6 py-3 text-left text-sm font-bold text-primary"
-              >
-                <LogOut className="h-4 w-4" />
-                Sair da conta
-              </button>
-            </>
-          ) : (
-            <>
-              <Link
-                to="/criar-conta"
-                className="mx-3 mt-3 flex items-center gap-2 rounded-2xl px-6 py-3 text-sm font-bold text-foreground"
-              >
-                <UserPlus className="h-4 w-4" />
-                Criar conta
-              </Link>
-              <Link
-                to={loginRoute.path}
-                className="mx-3 mb-3 mt-3 flex items-center gap-2 rounded-2xl px-6 py-3 text-sm font-bold text-primary"
-              >
-                <LoginIcon className="h-4 w-4" />
-                {loginRoute.label}
-              </Link>
-            </>
-          )}
 
+              <div className="space-y-1">
+                {navItems.map((item) => (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    className={cn(
+                      "flex items-center gap-3 rounded-2xl px-4 py-3 text-sm transition-colors",
+                      isItemActive(item.path)
+                        ? "bg-white/6 text-foreground"
+                        : "text-muted-foreground hover:bg-white/5 hover:text-foreground",
+                    )}
+                  >
+                    <item.icon className="h-4 w-4" />
+                    {item.label}
+                  </Link>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-4 rounded-[24px] site-card-soft p-3">
+              {isPlayerAuthenticated ? (
+                <>
+                  <div className="flex items-center gap-3 rounded-2xl px-4 py-3 text-foreground">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-full border border-primary/20 bg-primary/10 text-primary">
+                      <UserRound className="h-4 w-4" />
+                    </span>
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                        Conta do jogador
+                      </p>
+                      <span className="mt-1 block font-medium">{playerDisplayName}</span>
+                    </div>
+                  </div>
+
+                  {[...playerMenuPrimaryItems, ...playerMenuSecondaryItems].map((item) => (
+                    <Link
+                      key={item.path}
+                      to={item.path}
+                      className="flex items-center gap-3 rounded-2xl px-4 py-3 text-sm text-muted-foreground transition-colors hover:bg-white/5 hover:text-foreground"
+                    >
+                      <item.icon className="h-4 w-4" />
+                      {item.label}
+                    </Link>
+                  ))}
+
+                  <button
+                    type="button"
+                    onClick={logoutPlayer}
+                    className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm text-primary transition-colors hover:bg-primary/10"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    Sair da conta
+                  </button>
+                </>
+              ) : (
+                <div className="flex flex-col gap-3 p-2">
+                  <SiteActionLink to={loginRoute.path} variant="primary" icon={LoginIcon}>
+                    {loginRoute.label}
+                  </SiteActionLink>
+                  <SiteActionLink to="/criar-conta" variant="secondary">
+                    Criar conta
+                  </SiteActionLink>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       ) : null}
     </nav>

@@ -112,7 +112,7 @@ function appendAuditLog(
 }
 
 export function AdminPanelProvider({ children }: { children: ReactNode }) {
-  const { displayName, session } = useAdminAuth();
+  const { displayName, isPrimaryAdmin, session } = useAdminAuth();
   const [state, setState] = useState<AdminPanelState>(() => createInitialAdminPanelState());
   const [isLoading, setIsLoading] = useState(getAdminPanelStorageMode() === "supabase");
   const [hasHydrated, setHasHydrated] = useState(false);
@@ -172,7 +172,19 @@ export function AdminPanelProvider({ children }: { children: ReactNode }) {
     };
   }, [hasHydrated, state]);
 
+  const ensurePrimaryAdminWriteAccess = () => {
+    if (!isPrimaryAdmin) {
+      return false;
+    }
+
+    return true;
+  };
+
   const upsertUser = (payload: UserUpsertPayload) => {
+    if (!ensurePrimaryAdminWriteAccess()) {
+      return;
+    }
+
     setState((current) => {
       const isAdminRole =
         payload.role === "super_admin" ||
@@ -211,6 +223,10 @@ export function AdminPanelProvider({ children }: { children: ReactNode }) {
   };
 
   const setUserStatus = (id: string, status: UserStatus) => {
+    if (!ensurePrimaryAdminWriteAccess()) {
+      return;
+    }
+
     setState((current) => {
       const target = current.users.find((item) => item.id === id);
 
@@ -245,6 +261,10 @@ export function AdminPanelProvider({ children }: { children: ReactNode }) {
   };
 
   const deleteUser = (id: string) => {
+    if (!ensurePrimaryAdminWriteAccess()) {
+      return;
+    }
+
     setState((current) => {
       const target = current.users.find((item) => item.id === id);
 
@@ -264,6 +284,10 @@ export function AdminPanelProvider({ children }: { children: ReactNode }) {
   };
 
   const upsertPlayer = (payload: PlayerUpsertPayload) => {
+    if (!ensurePrimaryAdminWriteAccess()) {
+      return;
+    }
+
     setState((current) => {
       const nextPlayer: PlayerRecord = {
         id: payload.id ?? createId("player"),
@@ -294,6 +318,10 @@ export function AdminPanelProvider({ children }: { children: ReactNode }) {
   };
 
   const setPlayerStatus = (id: string, status: PlayerStatus) => {
+    if (!ensurePrimaryAdminWriteAccess()) {
+      return;
+    }
+
     setState((current) => {
       const target = current.players.find((item) => item.id === id);
 
@@ -318,6 +346,10 @@ export function AdminPanelProvider({ children }: { children: ReactNode }) {
   };
 
   const upsertTeam = (payload: TeamUpsertPayload) => {
+    if (!ensurePrimaryAdminWriteAccess()) {
+      return;
+    }
+
     setState((current) => {
       const nextTeam: TeamRecord = {
         id: payload.id ?? createId("team"),
@@ -349,6 +381,10 @@ export function AdminPanelProvider({ children }: { children: ReactNode }) {
   };
 
   const setTeamStatus = (id: string, status: TeamStatus) => {
+    if (!ensurePrimaryAdminWriteAccess()) {
+      return;
+    }
+
     setState((current) => {
       const target = current.teams.find((item) => item.id === id);
 
@@ -371,6 +407,10 @@ export function AdminPanelProvider({ children }: { children: ReactNode }) {
   };
 
   const deleteTeam = (id: string) => {
+    if (!ensurePrimaryAdminWriteAccess()) {
+      return;
+    }
+
     setState((current) => {
       const target = current.teams.find((item) => item.id === id);
 
@@ -390,6 +430,10 @@ export function AdminPanelProvider({ children }: { children: ReactNode }) {
   };
 
   const upsertChampionship = (payload: ChampionshipUpsertPayload) => {
+    if (!ensurePrimaryAdminWriteAccess()) {
+      return;
+    }
+
     setState((current) => {
       const nextChampionship: ChampionshipRecord = {
         id: payload.id ?? createId("championship"),
@@ -423,6 +467,10 @@ export function AdminPanelProvider({ children }: { children: ReactNode }) {
   };
 
   const toggleChampionshipRegistration = (id: string) => {
+    if (!ensurePrimaryAdminWriteAccess()) {
+      return;
+    }
+
     setState((current) => {
       const target = current.championships.find((item) => item.id === id);
 
@@ -447,6 +495,10 @@ export function AdminPanelProvider({ children }: { children: ReactNode }) {
   };
 
   const deleteChampionship = (id: string) => {
+    if (!ensurePrimaryAdminWriteAccess()) {
+      return;
+    }
+
     setState((current) => {
       const target = current.championships.find((item) => item.id === id);
 
@@ -469,6 +521,10 @@ export function AdminPanelProvider({ children }: { children: ReactNode }) {
   };
 
   const moderateImageRequest = (id: string, status: ImageRequestStatus, reason?: string) => {
+    if (!ensurePrimaryAdminWriteAccess()) {
+      return;
+    }
+
     setState((current) => {
       const target = current.imageRequests.find((item) => item.id === id);
 
@@ -507,6 +563,10 @@ export function AdminPanelProvider({ children }: { children: ReactNode }) {
   };
 
   const upsertLanguage = (payload: LanguageUpsertPayload) => {
+    if (!ensurePrimaryAdminWriteAccess()) {
+      return;
+    }
+
     setState((current) => {
       const nextLanguage: LanguageRecord = {
         id: payload.id ?? createId("language"),
@@ -535,6 +595,10 @@ export function AdminPanelProvider({ children }: { children: ReactNode }) {
   };
 
   const toggleLanguageStatus = (id: string) => {
+    if (!ensurePrimaryAdminWriteAccess()) {
+      return;
+    }
+
     setState((current) => {
       const target = current.languages.find((item) => item.id === id);
 
@@ -561,6 +625,10 @@ export function AdminPanelProvider({ children }: { children: ReactNode }) {
   };
 
   const replyTicket = (id: string, message: string) => {
+    if (!ensurePrimaryAdminWriteAccess()) {
+      return;
+    }
+
     const trimmedMessage = message.trim();
 
     if (!trimmedMessage) {
@@ -610,6 +678,10 @@ export function AdminPanelProvider({ children }: { children: ReactNode }) {
     id: string,
     patch: Partial<Pick<SupportTicket, "status" | "priority" | "assignedTo">>,
   ) => {
+    if (!ensurePrimaryAdminWriteAccess()) {
+      return;
+    }
+
     setState((current) => {
       const target = current.tickets.find((item) => item.id === id);
 
@@ -634,6 +706,10 @@ export function AdminPanelProvider({ children }: { children: ReactNode }) {
   };
 
   const updateErrorStatus = (id: string, status: ErrorLog["status"]) => {
+    if (!ensurePrimaryAdminWriteAccess()) {
+      return;
+    }
+
     setState((current) => {
       const target = current.errorLogs.find((item) => item.id === id);
 
@@ -656,6 +732,10 @@ export function AdminPanelProvider({ children }: { children: ReactNode }) {
   };
 
   const updateSettings = (patch: Partial<SiteSettings>) => {
+    if (!ensurePrimaryAdminWriteAccess()) {
+      return;
+    }
+
     setState((current) =>
       appendAuditLog(
         {

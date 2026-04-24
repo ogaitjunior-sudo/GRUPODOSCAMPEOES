@@ -61,8 +61,8 @@
   body {
     @apply bg-background text-foreground font-body antialiased;
     background-image:
-      radial-gradient(circle at top, hsl(51 100% 50% / 0.08), transparent 28%),
-      radial-gradient(circle at 85% 14%, hsl(195 100% 50% / 0.08), transparent 22%),
+      radial-gradient(circle at top, hsl(51 100% 50% / 0.05), transparent 26%),
+      radial-gradient(circle at 85% 14%, hsl(195 100% 50% / 0.05), transparent 20%),
       linear-gradient(180deg, hsl(0 0% 5%), hsl(0 0% 4%));
     background-attachment: fixed;
     min-height: 100vh;
@@ -84,19 +84,19 @@
 
 @layer utilities {
   .text-glow-gold {
-    text-shadow: 0 0 20px hsl(51 100% 50% / 0.5), 0 0 40px hsl(51 100% 50% / 0.2);
+    text-shadow: 0 0 12px hsl(51 100% 50% / 0.22);
   }
 
   .text-glow-blue {
-    text-shadow: 0 0 20px hsl(195 100% 50% / 0.5), 0 0 40px hsl(195 100% 50% / 0.2);
+    text-shadow: 0 0 12px hsl(195 100% 50% / 0.2);
   }
 
   .border-glow-gold {
-    box-shadow: 0 0 15px hsl(51 100% 50% / 0.15), inset 0 0 15px hsl(51 100% 50% / 0.05);
+    box-shadow: 0 10px 26px hsl(51 100% 50% / 0.12);
   }
 
   .border-glow-blue {
-    box-shadow: 0 0 15px hsl(195 100% 50% / 0.2), inset 0 0 15px hsl(195 100% 50% / 0.05);
+    box-shadow: 0 10px 26px hsl(195 100% 50% / 0.12);
   }
 
   .gradient-gold {
@@ -116,26 +116,114 @@
   }
 
   .panel-premium {
-    background:
-      radial-gradient(circle at top left, hsl(51 100% 50% / 0.14), transparent 34%),
-      radial-gradient(circle at 100% 0%, hsl(195 100% 50% / 0.1), transparent 28%),
-      linear-gradient(160deg, hsl(0 0% 10% / 0.96), hsl(0 0% 6% / 0.98));
+    background: linear-gradient(180deg, hsl(0 0% 8% / 0.96), hsl(0 0% 6% / 0.98));
     border: 1px solid hsl(0 0% 100% / 0.08);
     box-shadow:
-      0 28px 70px hsl(0 0% 0% / 0.34),
-      inset 0 1px 0 hsl(0 0% 100% / 0.05);
+      0 22px 56px hsl(0 0% 0% / 0.26),
+      inset 0 1px 0 hsl(0 0% 100% / 0.04);
     backdrop-filter: blur(14px);
   }
 
   .panel-premium-soft {
-    background:
-      linear-gradient(160deg, hsl(0 0% 10% / 0.86), hsl(0 0% 7% / 0.86)),
-      radial-gradient(circle at top, hsl(51 100% 50% / 0.08), transparent 38%);
+    background: linear-gradient(180deg, hsl(0 0% 8% / 0.78), hsl(0 0% 7% / 0.82));
     border: 1px solid hsl(0 0% 100% / 0.07);
     box-shadow:
-      0 18px 48px hsl(0 0% 0% / 0.24),
+      0 16px 36px hsl(0 0% 0% / 0.2),
       inset 0 1px 0 hsl(0 0% 100% / 0.04);
     backdrop-filter: blur(12px);
+  }
+
+  .site-card {
+    background: linear-gradient(180deg, hsl(0 0% 8% / 0.94), hsl(0 0% 6% / 0.97));
+    border: 1px solid hsl(0 0% 100% / 0.08);
+    box-shadow:
+      0 18px 40px hsl(0 0% 0% / 0.24),
+      inset 0 1px 0 hsl(0 0% 100% / 0.04);
+    backdrop-filter: blur(14px);
+  }
+
+  .site-card-soft {
+    background: hsl(0 0% 100% / 0.03);
+    border: 1px solid hsl(0 0% 100% / 0.08);
+    box-shadow: 0 12px 28px hsl(0 0% 0% / 0.16);
+    backdrop-filter: blur(12px);
+  }
+
+  .site-card-subtle {
+    background: hsl(0 0% 100% / 0.02);
+    border: 1px solid hsl(0 0% 100% / 0.07);
+  }
+
+  .site-kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.65rem;
+    border-radius: 9999px;
+    border: 1px solid hsl(0 0% 100% / 0.08);
+    background: hsl(0 0% 100% / 0.03);
+    padding: 0.55rem 0.95rem;
+    font-size: 0.7rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: hsl(var(--primary));
+  }
+
+  .site-divider {
+    height: 1px;
+    width: 100%;
+    background: linear-gradient(90deg, transparent, hsl(0 0% 100% / 0.08), transparent);
+  }
+
+  .cta-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: 9999px;
+    background: linear-gradient(135deg, hsl(43 96% 44%), hsl(51 100% 50%));
+    padding: 0.85rem 1.4rem;
+    font-weight: 600;
+    color: hsl(var(--primary-foreground));
+    transition: transform 180ms ease, box-shadow 180ms ease, filter 180ms ease;
+    box-shadow: 0 14px 30px hsl(51 100% 50% / 0.14);
+  }
+
+  .cta-primary:hover {
+    transform: translateY(-1px);
+    filter: brightness(1.05);
+  }
+
+  .cta-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: 9999px;
+    border: 1px solid hsl(0 0% 100% / 0.1);
+    background: hsl(0 0% 100% / 0.03);
+    padding: 0.85rem 1.4rem;
+    font-weight: 500;
+    color: hsl(var(--foreground));
+    transition: transform 180ms ease, background-color 180ms ease, border-color 180ms ease;
+  }
+
+  .cta-secondary:hover {
+    transform: translateY(-1px);
+    border-color: hsl(0 0% 100% / 0.18);
+    background: hsl(0 0% 100% / 0.05);
+  }
+
+  .cta-ghost {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    color: hsl(var(--muted-foreground));
+    transition: color 180ms ease;
+  }
+
+  .cta-ghost:hover {
+    color: hsl(var(--foreground));
   }
 
   .site-section-shell {

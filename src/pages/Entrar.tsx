@@ -40,7 +40,7 @@ export default function Entrar() {
     const result = await login(form.identifier, form.password);
 
     if (!result.success) {
-      setErrorMessage(result.message ?? "Nao foi possivel entrar.");
+      setErrorMessage(result.message ?? "Não foi possível entrar.");
       setIsSubmitting(false);
       return;
     }
@@ -68,12 +68,12 @@ export default function Entrar() {
           <div className="mb-6 flex items-center gap-3">
             <img
               src={logoGC}
-              alt="Grupo de Campeoes FC26"
+              alt="Grupo de Campeões FC26"
               className="h-12 w-12 rounded-full border border-primary/20 bg-card/80 object-cover p-1"
             />
             <div>
               <p className="font-heading text-xs uppercase tracking-[0.35em] text-primary">
-                Area do jogador
+                Área do jogador
               </p>
               <p className="text-xs text-muted-foreground">
                 Acesse seu painel com o visual do portal
@@ -88,7 +88,7 @@ export default function Entrar() {
               </h1>
               <div className="mt-3 flex items-center gap-2 text-xs uppercase tracking-[0.22em] text-muted-foreground">
                 <ShieldCheck className="h-4 w-4 text-primary" />
-                Entrada oficial do Grupo de Campeoes
+                Entrada oficial do Grupo de Campeões
               </div>
             </div>
 

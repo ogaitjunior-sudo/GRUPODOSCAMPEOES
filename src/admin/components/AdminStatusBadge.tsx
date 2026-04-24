@@ -1,5 +1,36 @@
 import { cn } from "@/lib/utils";
 
+function formatAdminBadgeLabel(label: string) {
+  const normalized = label.trim().toLowerCase();
+  const dictionary: Record<string, string> = {
+    approved: "Aprovado",
+    pending: "Pendente",
+    blocked: "Bloqueado",
+    active: "Ativo",
+    inactive: "Inativo",
+    resolved: "Resolvido",
+    success: "Sucesso",
+    warning: "Atenção",
+    info: "Informação",
+    saudavel: "Saudável",
+    atencao: "Atenção",
+    "atencao operacional": "Atenção operacional",
+    manutencao: "Manutenção",
+    usuario: "Usuário",
+    usuarios: "Usuários",
+    configuracoes: "Configurações",
+    pendencias: "Pendências",
+    publica: "Pública",
+    publico: "Público",
+    critico: "Crítico",
+    criticos: "Críticos",
+    ativo: "Ativo",
+    inativo: "Inativo",
+  };
+
+  return dictionary[normalized] ?? label;
+}
+
 export function AdminStatusBadge({
   label,
   tone = "neutral",
@@ -25,7 +56,7 @@ export function AdminStatusBadge({
         className,
       )}
     >
-      {label}
+      {formatAdminBadgeLabel(label)}
     </span>
   );
 }

@@ -1,9 +1,9 @@
 export type ChampionshipStatus =
-  | "Inscricoes abertas"
-  | "Em andamento"
-  | "Em breve"
-  | "Finalizado"
-  | "Cancelado";
+  | "DRAFT"
+  | "REGISTRATION"
+  | "READY"
+  | "STARTED"
+  | "FINISHED";
 
 export type ChampionshipGame = "FC 26";
 
@@ -40,6 +40,7 @@ export interface ChampionshipPhaseLabels {
 export interface ChampionshipConfiguration {
   game: ChampionshipGame;
   rankingName: string;
+  isRankedGame: boolean;
   platform: ChampionshipPlatform;
   format: ChampionshipFormat;
   qualifiedPerGroup: number;

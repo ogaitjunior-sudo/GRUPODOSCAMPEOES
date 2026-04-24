@@ -18,13 +18,13 @@ export interface NavItem {
 }
 
 export const navItems: NavItem[] = [
-  { label: "Inicio", path: "/", icon: Trophy },
+  { label: "Início", path: "/", icon: Trophy },
   { label: "Campeonatos", path: "/campeonatos", icon: Trophy },
   { label: "Explorar", path: "/explorar", icon: Compass },
   { label: "Ranking", path: "/ranking", icon: BarChart3 },
-  { label: "Campeoes", path: "/campeoes", icon: Crown },
+  { label: "Campeões", path: "/campeoes", icon: Crown },
   { label: "Ligas", path: "/ligas", icon: Clock3 },
-  { label: "Relampago", path: "/relampago", icon: Zap, highlight: true },
+  { label: "Relâmpago", path: "/relampago", icon: Zap, highlight: true },
   { label: "Ajuda", path: "/ajuda", icon: HelpCircle },
 ];
 

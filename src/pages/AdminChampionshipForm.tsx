@@ -31,10 +31,10 @@ import {
   buildChampionshipRules,
   championshipFormatOptions,
   championshipGameOptions,
-  championshipPlatformOptions,
   championshipStatusOptions,
   createDefaultChampionshipConfiguration,
   getFormatOption,
+  getChampionshipStatusLabel,
   knockoutBracketModeOptions,
   knockoutSetupModeOptions,
   matchReportingModeOptions,
@@ -54,7 +54,7 @@ const steps = [
   {
     id: "tipo",
     label: "Tipo",
-    description: "Formato, plataforma e identidade do campeonato",
+    description: "Formato e identidade do campeonato",
     icon: Layers3,
   },
   {
@@ -81,7 +81,7 @@ const initialFormValues: ChampionshipFormValues = {
   endDate: "",
   teamCount: 16,
   rules: buildChampionshipRules(initialConfiguration),
-  status: "Em breve",
+  status: "REGISTRATION",
   configuration: initialConfiguration,
 };
 
@@ -380,6 +380,10 @@ export default function AdminChampionshipForm() {
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-1">
               <InfoRow label="Jogo" value={form.configuration.game} />
               <InfoRow label="Ranking" value={form.configuration.rankingName} />
+              <InfoRow
+                label="Jogo rankeado"
+                value={form.configuration.isRankedGame ? "Sim" : "Nao"}
+              />
               <InfoRow label="Formato" value={selectedFormat.label} />
               <InfoRow label="Participantes" value={form.teamCount} />
             </div>
@@ -398,7 +402,7 @@ export default function AdminChampionshipForm() {
       {currentStep.id === "tipo" ? (
         <AdminSectionCard
           title="Tipo do campeonato"
-          description="Defina a identidade esportiva primeiro: nome, ranking, formato e plataforma."
+          description="Defina a identidade esportiva primeiro: nome, ranking e formato."
         >
           <div className="grid gap-6 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
             <div className="space-y-5">
@@ -418,6 +422,22 @@ export default function AdminChampionshipForm() {
                   placeholder="Ex.: CAMPEOES"
                   className={inputClassName}
                 />
+              </Field>
+
+              <Field label="Jogo rankeado">
+                <Segmented
+                  value={form.configuration.isRankedGame ? "true" : "false"}
+                  onChange={(nextValue) =>
+                    updateConfiguration({ isRankedGame: nextValue === "true" })
+                  }
+                  options={[
+                    { value: "true", label: "Sim" },
+                    { value: "false", label: "Nao" },
+                  ]}
+                />
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                  Marque se esse campeonato deve contar como jogo rankeado no circuito.
+                </p>
               </Field>
 
               <div className="grid gap-5 md:grid-cols-2">
@@ -445,7 +465,7 @@ export default function AdminChampionshipForm() {
                       <SelectableChip
                         key={option}
                         active={form.status === option}
-                        label={option}
+                        label={getChampionshipStatusLabel(option)}
                         onClick={() => {
                           setForm((current) => ({ ...current, status: option }));
                           setErrorMessage("");
@@ -456,18 +476,6 @@ export default function AdminChampionshipForm() {
                 </Field>
               </div>
 
-              <Field label="Plataforma">
-                <div className="flex flex-wrap gap-2">
-                  {championshipPlatformOptions.map((option) => (
-                    <SelectableChip
-                      key={option}
-                      active={form.configuration.platform === option}
-                      label={option}
-                      onClick={() => updateConfiguration({ platform: option })}
-                    />
-                  ))}
-                </div>
-              </Field>
             </div>
 
             <div className="space-y-4">

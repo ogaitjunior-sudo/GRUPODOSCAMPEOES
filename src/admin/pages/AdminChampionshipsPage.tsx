@@ -21,6 +21,7 @@ import { useChampionships } from "@/contexts/ChampionshipContext";
 import {
   formatChampionshipDateRange,
   getFormatOption,
+  getChampionshipStatusLabel,
 } from "@/lib/championships";
 import { formatChampionshipStoreError } from "@/lib/championship-store";
 import { toast } from "@/hooks/use-toast";
@@ -38,10 +39,11 @@ const inputClassName =
   "h-11 rounded-xl border border-white/10 bg-white/5 px-4 text-sm text-white outline-none placeholder:text-muted-foreground";
 
 function getStatusTone(status: ChampionshipStatus) {
-  if (status === "Em andamento") return "info";
-  if (status === "Inscricoes abertas") return "success";
-  if (status === "Em breve") return "warning";
-  if (status === "Finalizado") return "neutral";
+  if (status === "STARTED") return "info";
+  if (status === "REGISTRATION") return "success";
+  if (status === "READY") return "warning";
+  if (status === "DRAFT") return "warning";
+  if (status === "FINISHED") return "neutral";
   return "danger";
 }
 
@@ -71,11 +73,11 @@ export default function AdminChampionshipsPage() {
 
     const nextStatus = searchParams.get("status");
     setStatusFilter(
-      nextStatus === "Inscricoes abertas" ||
-        nextStatus === "Em andamento" ||
-        nextStatus === "Em breve" ||
-        nextStatus === "Finalizado" ||
-        nextStatus === "Cancelado"
+      nextStatus === "DRAFT" ||
+      nextStatus === "REGISTRATION" ||
+      nextStatus === "READY" ||
+      nextStatus === "STARTED" ||
+      nextStatus === "FINISHED"
         ? nextStatus
         : "all",
     );
@@ -111,7 +113,7 @@ export default function AdminChampionshipsPage() {
           item.configuration.platform,
           item.configuration.rankingName,
           getFormatOption(item.configuration.format).label,
-          item.status,
+          getChampionshipStatusLabel(item.status),
         ]
           .join(" ")
           .toLocaleLowerCase("pt-BR")
@@ -125,8 +127,8 @@ export default function AdminChampionshipsPage() {
   }, [championships, platformFilter, query, statusFilter]);
 
   const metricPublished = championships.length;
-  const metricOpen = championships.filter((item) => item.status === "Inscricoes abertas").length;
-  const metricLive = championships.filter((item) => item.status === "Em andamento").length;
+  const metricOpen = championships.filter((item) => item.status === "REGISTRATION").length;
+  const metricLive = championships.filter((item) => item.status === "STARTED").length;
   const totalSlots = championships.reduce((total, item) => total + item.teamCount, 0);
   const bucketedChampionships: Array<{
     title: string;
@@ -136,17 +138,22 @@ export default function AdminChampionshipsPage() {
     {
       title: "Inscricoes abertas",
       helper: "Eventos prontos para entrada no fluxo publico.",
-      items: filteredChampionships.filter((item) => item.status === "Inscricoes abertas"),
+      items: filteredChampionships.filter((item) => item.status === "REGISTRATION"),
+    },
+    {
+      title: "Prontos para tabela",
+      helper: "Campeonatos lotados aguardando o ADM gerar a tabela.",
+      items: filteredChampionships.filter((item) => item.status === "READY"),
     },
     {
       title: "Em andamento",
       helper: "Campeonatos que pedem acompanhamento de rodada e bracket.",
-      items: filteredChampionships.filter((item) => item.status === "Em andamento"),
+      items: filteredChampionships.filter((item) => item.status === "STARTED"),
     },
     {
-      title: "Em breve",
+      title: "Rascunhos",
       helper: "Janelas futuras que ainda podem precisar de revisao.",
-      items: filteredChampionships.filter((item) => item.status === "Em breve"),
+      items: filteredChampionships.filter((item) => item.status === "DRAFT"),
     },
   ];
 
@@ -257,7 +264,7 @@ export default function AdminChampionshipsPage() {
       </div>
 
       {activeView === "fila" ? (
-        <div className="grid gap-6 xl:grid-cols-3">
+        <div className="grid gap-6 xl:grid-cols-4">
           {bucketedChampionships.map((bucket) => (
             <AdminTableCard
               key={bucket.title}
@@ -293,7 +300,10 @@ export default function AdminChampionshipsPage() {
                             {item.description}
                           </p>
                         </div>
-                        <AdminStatusBadge label={item.status} tone={getStatusTone(item.status)} />
+                        <AdminStatusBadge
+                          label={getChampionshipStatusLabel(item.status)}
+                          tone={getStatusTone(item.status)}
+                        />
                       </div>
 
                       <div className="mt-4 grid gap-3">
@@ -357,11 +367,11 @@ export default function AdminChampionshipsPage() {
               className={inputClassName}
             >
               <option value="all">Todos os status</option>
-              <option value="Inscricoes abertas">Inscricoes abertas</option>
-              <option value="Em andamento">Em andamento</option>
-              <option value="Em breve">Em breve</option>
-              <option value="Finalizado">Finalizado</option>
-              <option value="Cancelado">Cancelado</option>
+              <option value="DRAFT">Rascunho</option>
+              <option value="REGISTRATION">Inscricoes abertas</option>
+              <option value="READY">Pronto para tabela</option>
+              <option value="STARTED">Em andamento</option>
+              <option value="FINISHED">Finalizado</option>
             </select>
             <select
               value={platformFilter}
@@ -434,7 +444,10 @@ export default function AdminChampionshipsPage() {
                       </div>
                     </td>
                     <td className="px-4 py-4 align-top">
-                      <AdminStatusBadge label={item.status} tone={getStatusTone(item.status)} />
+                      <AdminStatusBadge
+                        label={getChampionshipStatusLabel(item.status)}
+                        tone={getStatusTone(item.status)}
+                      />
                     </td>
                     <td className="px-4 py-4 align-top">
                       <div className="flex justify-end gap-2">

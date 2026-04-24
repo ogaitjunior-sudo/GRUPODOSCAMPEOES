@@ -18,12 +18,74 @@ import type {
 } from "@/types/championship";
 
 export const championshipStatusOptions: ChampionshipStatus[] = [
-  "Inscricoes abertas",
-  "Em andamento",
-  "Em breve",
-  "Finalizado",
-  "Cancelado",
+  "DRAFT",
+  "REGISTRATION",
+  "READY",
+  "STARTED",
+  "FINISHED",
 ];
+
+export function normalizeChampionshipStatus(value: unknown): ChampionshipStatus {
+  if (
+    value === "DRAFT" ||
+    value === "REGISTRATION" ||
+    value === "READY" ||
+    value === "STARTED" ||
+    value === "FINISHED"
+  ) {
+    return value;
+  }
+
+  if (value === "Inscricoes abertas") {
+    return "REGISTRATION";
+  }
+
+  if (value === "Em andamento") {
+    return "STARTED";
+  }
+
+  if (value === "Finalizado" || value === "Cancelado") {
+    return "FINISHED";
+  }
+
+  return "DRAFT";
+}
+
+export function getChampionshipStatusLabel(status: ChampionshipStatus) {
+  if (status === "DRAFT") {
+    return "Rascunho";
+  }
+
+  if (status === "REGISTRATION") {
+    return "Inscricoes abertas";
+  }
+
+  if (status === "READY") {
+    return "Pronto para tabela";
+  }
+
+  if (status === "STARTED") {
+    return "Em andamento";
+  }
+
+  if (status === "FINISHED") {
+    return "Finalizado";
+  }
+
+  return "Finalizado";
+}
+
+export function isRegistrationOpenStatus(status: ChampionshipStatus) {
+  return status === "REGISTRATION";
+}
+
+export function isStartedStatus(status: ChampionshipStatus) {
+  return status === "STARTED";
+}
+
+export function isFinishedStatus(status: ChampionshipStatus) {
+  return status === "FINISHED";
+}
 
 export const championshipGameOptions: ChampionshipGame[] = ["FC 26"];
 
@@ -203,6 +265,7 @@ export function createDefaultChampionshipConfiguration(): ChampionshipConfigurat
   return {
     game: "FC 26",
     rankingName: "CAMPEOES",
+    isRankedGame: true,
     platform: "PlayStation 5",
     format: "points-league-knockout",
     qualifiedPerGroup: 8,
@@ -253,8 +316,9 @@ export function buildChampionshipDescription(configuration: ChampionshipConfigur
   const finalStageLabel = configuration.hasFinalStage
     ? `fase final ${configuration.knockoutSetupMode === "manual" ? "manual" : "automatica"}`
     : "sem fase final";
+  const rankedGameLabel = configuration.isRankedGame ? "jogo rankeado" : "jogo nao rankeado";
 
-  return `${formatOption.label} no ${configuration.game} para ${configuration.platform}, vinculado ao ranking ${configuration.rankingName} com ${registrationLabel} e ${finalStageLabel}.`;
+  return `${formatOption.label} no ${configuration.game} para ${configuration.platform}, vinculado ao ranking ${configuration.rankingName}, ${rankedGameLabel}, com ${registrationLabel} e ${finalStageLabel}.`;
 }
 
 export function buildChampionshipRules(configuration: ChampionshipConfiguration) {
@@ -280,6 +344,9 @@ export function buildChampionshipRules(configuration: ChampionshipConfiguration)
       : "Resultados somente pelo administrador";
   const registrationText =
     configuration.registrationMode === "public" ? "Inscricoes publicas" : "Inscricoes privadas";
+  const rankedGameText = configuration.isRankedGame
+    ? "Jogo rankeado: Sim"
+    : "Jogo rankeado: Nao";
   const teamChoiceText = configuration.playerChoosesTeamOnSignup
     ? "Jogador escolhe equipe na inscricao"
     : "Administrador define equipes para sorteio";
@@ -304,6 +371,7 @@ export function buildChampionshipRules(configuration: ChampionshipConfiguration)
     syncText,
     reportingText,
     registrationText,
+    rankedGameText,
     teamChoiceText,
     liveDrawText,
     thirdPlaceText,
@@ -372,6 +440,10 @@ export function normalizeChampionshipConfiguration(
     ...defaults,
     ...configuration,
     rankingName: String(configuration?.rankingName ?? defaults.rankingName).trim() || defaults.rankingName,
+    isRankedGame:
+      typeof configuration?.isRankedGame === "boolean"
+        ? configuration.isRankedGame
+        : defaults.isRankedGame,
     entryFee: String(configuration?.entryFee ?? defaults.entryFee).trim(),
     extraInformation: String(configuration?.extraInformation ?? defaults.extraInformation).trim(),
     qualifiedPerGroup: Math.max(1, Number(configuration?.qualifiedPerGroup ?? defaults.qualifiedPerGroup)),
@@ -398,7 +470,7 @@ export function normalizeChampionshipFormValues(values: ChampionshipFormValues):
     endDate: values.endDate,
     teamCount: Number(values.teamCount),
     rules: values.rules.trim() || buildChampionshipRules(configuration),
-    status: values.status,
+    status: normalizeChampionshipStatus(values.status),
     configuration,
   };
 }

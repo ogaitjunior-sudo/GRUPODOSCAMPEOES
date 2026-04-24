@@ -6,17 +6,22 @@ import { PageHeader } from "@/components/PageHeader";
 import { PageShell } from "@/components/PageShell";
 import { StatusBadge } from "@/components/StatusBadge";
 import { useChampionships } from "@/contexts/ChampionshipContext";
-import { formatChampionshipDateRange, getFormatOption } from "@/lib/championships";
+import {
+  formatChampionshipDateRange,
+  getChampionshipStatusLabel,
+  getFormatOption,
+} from "@/lib/championships";
 import type { ChampionshipPlatform, ChampionshipRecord, ChampionshipStatus } from "@/types/championship";
 
 type StatusFilter = "todos" | ChampionshipStatus;
 
 const statusFilters: Array<{ key: StatusFilter; label: string }> = [
   { key: "todos", label: "Todos" },
-  { key: "Inscricoes abertas", label: "Inscricoes abertas" },
-  { key: "Em andamento", label: "Em andamento" },
-  { key: "Em breve", label: "Em breve" },
-  { key: "Finalizado", label: "Finalizados" },
+  { key: "DRAFT", label: "Rascunho" },
+  { key: "REGISTRATION", label: "Inscricoes abertas" },
+  { key: "READY", label: "Pronto para tabela" },
+  { key: "STARTED", label: "Em andamento" },
+  { key: "FINISHED", label: "Finalizados" },
 ];
 
 function getRegistrationLabel(item: ChampionshipRecord) {
@@ -30,11 +35,11 @@ function getReportLabel(item: ChampionshipRecord) {
 }
 
 function getPrimaryActionLabel(item: ChampionshipRecord) {
-  if (item.status === "Inscricoes abertas") {
+  if (item.status === "REGISTRATION") {
     return "Participar";
   }
 
-  if (item.status === "Em andamento") {
+  if (item.status === "STARTED") {
     return "Acompanhar";
   }
 
@@ -83,6 +88,7 @@ const Campeonatos = () => {
             championship.description,
             championship.configuration.rankingName,
             championship.configuration.platform,
+            getChampionshipStatusLabel(championship.status),
           ]
             .join(" ")
             .toLocaleLowerCase("pt-BR")
@@ -91,9 +97,9 @@ const Campeonatos = () => {
     return matchesStatus && matchesPlatform && matchesSearch;
   });
 
-  const openCount = championships.filter((item) => item.status === "Inscricoes abertas").length;
-  const liveCount = championships.filter((item) => item.status === "Em andamento").length;
-  const upcomingCount = championships.filter((item) => item.status === "Em breve").length;
+  const openCount = championships.filter((item) => item.status === "REGISTRATION").length;
+  const liveCount = championships.filter((item) => item.status === "STARTED").length;
+  const upcomingCount = championships.filter((item) => item.status === "DRAFT" || item.status === "READY").length;
   const totalSlots = championships.reduce((total, item) => total + item.teamCount, 0);
 
   return (
@@ -277,7 +283,7 @@ const Campeonatos = () => {
                       {formatChampionshipCount(filteredChampionships.length)} no recorte atual.
                     </p>
                     <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-                      {formatChampionshipCount(openCount)} abertos, {formatChampionshipCount(liveCount)} ao vivo e {formatChampionshipCount(upcomingCount)} em breve
+                      {formatChampionshipCount(openCount)} abertos, {formatChampionshipCount(liveCount)} ao vivo e {formatChampionshipCount(upcomingCount)} em preparacao
                     </p>
                   </div>
 
@@ -330,7 +336,7 @@ const Campeonatos = () => {
 
                           <div className="mt-6 flex flex-wrap gap-3">
                             <Link
-                              to={`/campeonatos/${championship.id}${championship.status === "Inscricoes abertas" ? "?acao=participar" : ""}`}
+                              to={`/campeonatos/${championship.id}${championship.status === "REGISTRATION" ? "?acao=participar" : ""}`}
                               className="rounded-full border-glow-gold px-5 py-2.5 text-xs uppercase tracking-[0.18em] text-primary-foreground gradient-gold transition-all hover:-translate-y-0.5 hover:brightness-110"
                             >
                               {getPrimaryActionLabel(championship)}

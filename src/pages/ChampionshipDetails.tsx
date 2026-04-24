@@ -41,6 +41,10 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { generateBracket, updateBracketMatch, validateBracketGeneration } from "@/lib/championship-bracket";
 import {
+  hasChampionshipTable,
+  validateChampionshipTableGeneration,
+} from "@/lib/championship-table";
+import {
   computeGroupStandings,
   getChampionshipProgressSummary,
   getQualifiedTeams,
@@ -61,6 +65,7 @@ import {
   getChampionshipRegistrationByPlayer,
   getChampionshipRegistrationStatusLabel,
   buildChampionshipRules,
+  getChampionshipStatusLabel,
   getFormatOption,
 } from "@/lib/championships";
 import { toast } from "@/hooks/use-toast";
@@ -213,11 +218,11 @@ function getRegistrationActionLabel(
     return getChampionshipRegistrationStatusLabel(request.status);
   }
 
-  if (championship.status === "Inscricoes abertas") {
+  if (championship.status === "REGISTRATION") {
     return "Participar";
   }
 
-  if (championship.status === "Em andamento") {
+  if (championship.status === "STARTED") {
     return "Acompanhar disputa";
   }
 
@@ -289,6 +294,7 @@ export function ChampionshipWorkspacePage({
   const { displayName: adminDisplayName } = useAdminAuth();
   const {
     getChampionshipById,
+    generateChampionshipTable,
     reviewChampionshipRegistration,
     submitChampionshipRegistration,
     updateChampionship,
@@ -328,7 +334,7 @@ export function ChampionshipWorkspacePage({
   const shouldDisableRegistrationAction = Boolean(
     championship &&
       isPlayerAuthenticated &&
-      championship.status === "Inscricoes abertas" &&
+      championship.status === "REGISTRATION" &&
       playerRegistrationRequest,
   );
   const pendingRegistrationRequests = useMemo(
@@ -571,6 +577,30 @@ export function ChampionshipWorkspacePage({
     );
   };
 
+  const handleGenerateTable = async () => {
+    if (!championship) {
+      return;
+    }
+
+    setIsSaving(true);
+
+    try {
+      const result = await generateChampionshipTable(championship.id);
+      setWorkspace(result.workspace);
+      setErrorMessage(null);
+      toast({
+        title: "Tabela gerada",
+        description: "Grupos, rodadas e confrontos foram criados somente agora.",
+      });
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Nao foi possivel gerar a tabela.",
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const handleSaveGroupMatch = async (patch: GroupMatchUpdateInput) => {
     if (!editingGroupMatch) {
       return;
@@ -634,6 +664,12 @@ export function ChampionshipWorkspacePage({
     : null;
   const bracketValidationMessage =
     workspace && championship ? validateBracketGeneration(workspace, championship) : null;
+  const tableAlreadyGenerated = workspace ? hasChampionshipTable(workspace) : false;
+  const tableGenerationValidationMessage =
+    workspace && championship ? validateChampionshipTableGeneration(workspace, championship) : null;
+  const participantsProgressLabel = workspace
+    ? `${workspace.teams.length}/${championship.teamCount}`
+    : `0/${championship.teamCount}`;
   const championshipFormat = championship?.configuration.format ?? "groups-knockout";
   const isLeagueFormat =
     championshipFormat === "points-league" || championshipFormat === "points-league-knockout";
@@ -659,7 +695,7 @@ export function ChampionshipWorkspacePage({
       ? "Renomeie as equipes, acompanhe a tabela geral e navegue rodada por rodada."
       : "Renomeie as equipes, acompanhe a classificacao por grupo e edite os resultados por rodada.";
   const backPath = isAdmin ? "/admin/campeonatos" : "/campeonatos";
-  const canOpenRegistration = championship.status === "Inscricoes abertas";
+  const canOpenRegistration = championship.status === "REGISTRATION";
   const renderShell = (content: ReactNode) =>
     isAdmin ? <>{content}</> : <PageShell>{content}</PageShell>;
 
@@ -866,6 +902,7 @@ export function ChampionshipWorkspacePage({
             <div className="flex flex-wrap gap-3">
               <StatusBadge status={championship.status} />
               <Badge variant="secondary">{storageMode === "supabase" ? "Supabase" : "Base local"}</Badge>
+              <Badge variant="outline">Vagas {participantsProgressLabel}</Badge>
               <Badge variant="outline">{workspace.bracket.state.replaceAll("-", " ")}</Badge>
               <Badge variant="outline">{pendingRegistrationRequests.length} pendentes</Badge>
               <Badge variant="outline">{approvedRegistrationRequests.length} aprovados</Badge>
@@ -883,7 +920,7 @@ export function ChampionshipWorkspacePage({
 
           {isAdmin ? (
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              <MetricCard label="Times" value={String(summary?.totalTeams ?? 0)} icon={Users} />
+              <MetricCard label="Vagas" value={participantsProgressLabel} icon={Users} />
               <MetricCard
                 label="Jogos de grupos"
                 value={`${summary?.groupMatchesCompleted ?? 0}/${summary?.totalGroupMatches ?? 0}`}
@@ -1077,6 +1114,9 @@ export function ChampionshipWorkspacePage({
                     <Badge variant="secondary" className="border-white/10 bg-white/8 text-slate-200">
                       {storageMode === "supabase" ? "Supabase" : "Base local"}
                     </Badge>
+                    <Badge variant="outline" className="border-white/10 text-slate-200">
+                      Vagas {participantsProgressLabel}
+                    </Badge>
                     {playerRegistrationRequest ? (
                       <Badge
                         variant="outline"
@@ -1109,35 +1149,60 @@ export function ChampionshipWorkspacePage({
                           <Save className="mr-2 h-4 w-4" />
                           Salvar equipes
                         </Button>
-                        <Button variant="outline" onClick={handleRebuildGroups} disabled={isSaving}>
-                          <RefreshCcw className="mr-2 h-4 w-4" />
-                          Redistribuir grupos
-                        </Button>
+                        {!tableAlreadyGenerated ? (
+                          <Button
+                            onClick={handleGenerateTable}
+                            disabled={isSaving || Boolean(tableGenerationValidationMessage)}
+                          >
+                            <RefreshCcw className="mr-2 h-4 w-4" />
+                            Gerar Tabela
+                          </Button>
+                        ) : (
+                          <Button variant="outline" onClick={handleRebuildGroups} disabled={isSaving}>
+                            <RefreshCcw className="mr-2 h-4 w-4" />
+                            Redistribuir grupos
+                          </Button>
+                        )}
                       </div>
                     </CardHeader>
                     <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                      {workspace.teams.map((team) => (
-                        <label key={team.id} className="space-y-2">
-                          <span className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-                            Seed {team.seed}
-                          </span>
-                          <input
-                            value={teamNameDrafts[team.id] ?? team.name}
-                            onChange={(event) =>
-                              setTeamNameDrafts((current) => ({
-                                ...current,
-                                [team.id]: event.target.value,
-                              }))
-                            }
-                            disabled={!isAdmin}
-                            className={inputClassName}
-                          />
-                        </label>
-                      ))}
+                      {workspace.teams.length > 0 ? (
+                        workspace.teams.map((team) => (
+                          <label key={team.id} className="space-y-2">
+                            <span className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                              Seed {team.seed}
+                            </span>
+                            <input
+                              value={teamNameDrafts[team.id] ?? team.name}
+                              onChange={(event) =>
+                                setTeamNameDrafts((current) => ({
+                                  ...current,
+                                  [team.id]: event.target.value,
+                                }))
+                              }
+                              disabled={!isAdmin}
+                              className={inputClassName}
+                            />
+                          </label>
+                        ))
+                      ) : (
+                        <div className="rounded-2xl border border-border bg-muted/20 p-4 text-sm text-muted-foreground md:col-span-2 xl:col-span-4">
+                          Nenhum participante inscrito ainda. Aprove pedidos de participacao antes de gerar a tabela.
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
 
-                  {isKnockoutOnlyFormat ? (
+                  {!tableAlreadyGenerated ? (
+                    <EmptyStateCard
+                      icon={ListChecks}
+                      title="Tabela ainda nao gerada"
+                      description={
+                        tableGenerationValidationMessage ??
+                        "Participantes suficientes. O ADM pode clicar em Gerar Tabela para criar grupos, rodadas e confrontos."
+                      }
+                    />
+                  ) : isKnockoutOnlyFormat ? (
                     <Card>
                       <CardHeader>
                         <CardTitle>Entrada do chaveamento</CardTitle>
@@ -1294,7 +1359,47 @@ export function ChampionshipWorkspacePage({
                     </Card>
                   ) : null}
 
-                  {isKnockoutOnlyFormat ? (
+                  {!tableAlreadyGenerated ? (
+                    <Card className="border-white/8 bg-[linear-gradient(180deg,hsl(220_18%_12%_/_0.98),hsl(220_20%_10%_/_0.96))]">
+                      <CardHeader>
+                        <CardTitle>Participantes inscritos</CardTitle>
+                        <CardDescription>
+                          A tabela ainda nao foi gerada. Acompanhe as vagas enquanto o ADM prepara o inicio.
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
+                          <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
+                            Vagas preenchidas
+                          </p>
+                          <p className="mt-2 text-3xl font-semibold text-slate-100">
+                            {participantsProgressLabel}
+                          </p>
+                        </div>
+                        {workspace.teams.length > 0 ? (
+                          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                            {[...workspace.teams]
+                              .sort((left, right) => left.seed - right.seed)
+                              .map((team) => (
+                                <div key={team.id} className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
+                                  <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
+                                    Seed {team.seed}
+                                  </p>
+                                  <p className="mt-2 text-lg font-semibold text-slate-100">{team.name}</p>
+                                  <p className="mt-3 text-sm text-slate-400">
+                                    Aguardando geracao da tabela.
+                                  </p>
+                                </div>
+                              ))}
+                          </div>
+                        ) : (
+                          <p className="text-sm leading-7 text-slate-400">
+                            Nenhum participante foi aprovado ainda.
+                          </p>
+                        )}
+                      </CardContent>
+                    </Card>
+                  ) : isKnockoutOnlyFormat ? (
                     <Card className="border-white/8 bg-[linear-gradient(180deg,hsl(220_18%_12%_/_0.98),hsl(220_20%_10%_/_0.96))]">
                       <CardHeader>
                         <CardTitle>Entrada do chaveamento</CardTitle>
@@ -1611,7 +1716,7 @@ export function ChampionshipWorkspacePage({
                       O vencedor avanca automaticamente ate a final. Clique em um confronto para editar o resultado.
                     </CardDescription>
                   </div>
-                  {isAdmin ? (
+                  {isAdmin && tableAlreadyGenerated ? (
                     <div className="flex flex-wrap gap-3">
                       <Button
                         onClick={handleGenerateBracket}
@@ -1633,8 +1738,12 @@ export function ChampionshipWorkspacePage({
                   {!workspace.bracket.matches.length ? (
                     <EmptyStateCard
                       icon={Swords}
-                      title="Bracket ainda nao gerado"
-                      description="Assim que a classificacao estiver valida, use o botao acima para criar o mata-mata."
+                      title={tableAlreadyGenerated ? "Bracket ainda nao gerado" : "Tabela ainda nao gerada"}
+                      description={
+                        tableAlreadyGenerated
+                          ? "Assim que a classificacao estiver valida, use o botao acima para criar o mata-mata."
+                          : "O ADM precisa gerar a tabela antes de existir chaveamento, grupos ou rodadas."
+                      }
                     />
                   ) : (
                     <>
@@ -1985,7 +2094,7 @@ function ParticipationDialog({
   onSubmitRequest: () => Promise<void>;
   onClose: () => void;
 }) {
-  const canRegister = championship.status === "Inscricoes abertas";
+  const canRegister = championship.status === "REGISTRATION";
   const isPublicRegistration = championship.configuration.registrationMode === "public";
   const statusLabel = registrationRequest
     ? getChampionshipRegistrationStatusLabel(registrationRequest.status)
@@ -2007,11 +2116,11 @@ function ParticipationDialog({
 
   if (!canRegister) {
     title =
-      championship.status === "Em andamento"
+      championship.status === "STARTED"
         ? "Inscricoes fechadas, campeonato em disputa"
         : "Janela de entrada indisponivel";
     description =
-      championship.status === "Em andamento"
+      championship.status === "STARTED"
         ? "A entrada nao esta aberta agora. Use esta pagina para acompanhar tabela, rodadas e mata-mata."
         : "O campeonato ainda nao esta pronto para entrada publica. Acompanhe o status e volte quando a janela abrir.";
   } else if (!isPlayerAuthenticated) {
@@ -2044,7 +2153,7 @@ function ParticipationDialog({
         </DialogHeader>
 
         <div className="grid gap-4 md:grid-cols-2">
-          <InfoRow label="Status" value={championship.status} />
+          <InfoRow label="Status" value={getChampionshipStatusLabel(championship.status)} />
           <InfoRow label="Plataforma" value={championship.configuration.platform} />
           <InfoRow label="Formato" value={getFormatOption(championship.configuration.format).label} />
           <InfoRow label="Taxa" value={entryFeeLabel} />

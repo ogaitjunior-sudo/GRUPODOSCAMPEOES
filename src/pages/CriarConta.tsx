@@ -62,7 +62,7 @@ export default function CriarConta() {
 
     if (!result.success) {
       toast({
-        title: "Nao foi possivel criar a conta",
+        title: "Não foi possível criar a conta",
         description: result.message,
       });
       return;
@@ -71,8 +71,7 @@ export default function CriarConta() {
     toast({
       title: result.requiresEmailConfirmation ? "Conta criada" : "Cadastro liberado",
       description:
-        result.message ??
-        "Sua conta foi criada com sucesso e ja esta pronta para entrar no portal.",
+        result.message ?? "Sua conta foi criada com sucesso e já está pronta para entrar no portal.",
     });
 
     setForm({
@@ -86,45 +85,49 @@ export default function CriarConta() {
   return (
     <PageShell className="bg-background">
       <section className="relative flex min-h-[calc(100vh-4rem)] items-center justify-center overflow-hidden px-4 py-16">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,hsl(51_100%_50%_/_0.12),transparent_32%),radial-gradient(circle_at_80%_20%,hsl(195_100%_50%_/_0.16),transparent_24%),linear-gradient(180deg,hsl(0_0%_6%),hsl(0_0%_4%))]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,hsl(51_100%_50%_/_0.12),transparent_32%),radial-gradient(circle_at_80%_20%,hsl(195_100%_50%_/_0.14),transparent_24%),linear-gradient(180deg,hsl(0_0%_6%),hsl(0_0%_4%))]" />
         <DecorativeParticles
           count={20}
-          className="opacity-25"
-          particleClassName="bg-electric/35"
+          className="opacity-18"
+          particleClassName="bg-electric/30"
           durationRange={[2.5, 5.5]}
         />
 
-        <div className="relative z-10 w-full max-w-lg">
+        <div className="relative z-10 w-full max-w-xl">
           <div className="mb-6 flex items-center gap-3">
             <img
               src={logoGC}
-              alt="Grupo de Campeoes FC26"
-              className="h-12 w-12 rounded-full border border-primary/20 bg-card/80 object-cover p-1"
+              alt="Grupo de Campeões FC26"
+              className="h-12 w-12 rounded-full site-card-soft object-cover p-1"
             />
             <div>
-              <p className="font-heading text-xs uppercase tracking-[0.35em] text-primary">
+              <p className="font-heading text-xs uppercase tracking-[0.32em] text-primary">
                 Novo cadastro
               </p>
-              <p className="text-xs text-muted-foreground">
-                Crie seu acesso com a identidade do portal
+              <p className="text-sm text-muted-foreground">
+                Crie seu acesso com o visual limpo do portal.
               </p>
             </div>
           </div>
 
-          <div className="rounded-[28px] border border-primary/20 bg-metallic-card p-7 shadow-[0_20px_80px_hsl(0_0%_0%_/_0.45)] border-glow-gold backdrop-blur-sm">
+          <div className="rounded-[32px] site-card p-7 md:p-8">
             <div className="mb-8">
-              <h1 className="font-heading text-4xl font-normal tracking-[0.16em] text-primary text-glow-gold">
-                CRIAR CONTA
-              </h1>
-              <div className="mt-3 flex items-center gap-2 text-xs uppercase tracking-[0.22em] text-muted-foreground">
+              <div className="site-kicker">
                 <ShieldPlus className="h-4 w-4 text-electric" />
-                Cadastro oficial do Grupo de Campeoes
+                Cadastro oficial
               </div>
+              <h1 className="mt-5 font-heading text-3xl font-semibold tracking-[0.08em] text-foreground md:text-4xl">
+                Criar conta
+              </h1>
+              <p className="mt-3 max-w-md text-sm leading-7 text-muted-foreground">
+                Seu nome de jogador fica vinculado ao acesso para facilitar inscrições e próximos
+                passos.
+              </p>
             </div>
 
-            <form onSubmit={handleSubmit}>
+            <form onSubmit={handleSubmit} className="space-y-5">
               {!isAuthConfigured && (
-                <div className="mb-5 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+                <div className="rounded-2xl site-card-subtle px-4 py-3 text-sm text-muted-foreground">
                   {authConfigurationMessage}
                 </div>
               )}
@@ -132,7 +135,7 @@ export default function CriarConta() {
               <div className="grid gap-4 sm:grid-cols-2">
                 <label className="block sm:col-span-2">
                   <span className="sr-only">Nome de jogador</span>
-                  <div className="group flex items-center rounded-xl border border-border bg-background/75 px-4 transition-colors focus-within:border-primary/60">
+                  <div className="group flex items-center rounded-2xl border border-border bg-background/60 px-4 transition-colors focus-within:border-primary/40">
                     <UserRound className="mr-3 h-5 w-5 text-muted-foreground transition-colors group-focus-within:text-primary" />
                     <input
                       type="text"
@@ -141,15 +144,15 @@ export default function CriarConta() {
                       onChange={updateField("name")}
                       placeholder="Nome de jogador"
                       autoComplete="nickname"
-                      className="w-full bg-transparent py-3.5 text-lg text-foreground outline-none placeholder:text-muted-foreground"
+                      className="w-full bg-transparent py-3.5 text-base text-foreground outline-none placeholder:text-muted-foreground"
                     />
                   </div>
                 </label>
 
                 <label className="block sm:col-span-2">
                   <span className="sr-only">E-mail</span>
-                  <div className="group flex items-center rounded-xl border border-border bg-background/75 px-4 transition-colors focus-within:border-electric/60">
-                    <AtSign className="mr-3 h-5 w-5 text-muted-foreground transition-colors group-focus-within:text-electric" />
+                  <div className="group flex items-center rounded-2xl border border-border bg-background/60 px-4 transition-colors focus-within:border-primary/40">
+                    <AtSign className="mr-3 h-5 w-5 text-muted-foreground transition-colors group-focus-within:text-primary" />
                     <input
                       type="email"
                       aria-label="E-mail"
@@ -157,15 +160,15 @@ export default function CriarConta() {
                       onChange={updateField("email")}
                       placeholder="E-mail"
                       autoComplete="email"
-                      className="w-full bg-transparent py-3.5 text-lg text-foreground outline-none placeholder:text-muted-foreground"
+                      className="w-full bg-transparent py-3.5 text-base text-foreground outline-none placeholder:text-muted-foreground"
                     />
                   </div>
                 </label>
 
                 <label className="block">
                   <span className="sr-only">Senha</span>
-                  <div className="group flex items-center rounded-xl border border-border bg-background/75 px-4 transition-colors focus-within:border-electric/60">
-                    <LockKeyhole className="mr-3 h-5 w-5 text-muted-foreground transition-colors group-focus-within:text-electric" />
+                  <div className="group flex items-center rounded-2xl border border-border bg-background/60 px-4 transition-colors focus-within:border-primary/40">
+                    <LockKeyhole className="mr-3 h-5 w-5 text-muted-foreground transition-colors group-focus-within:text-primary" />
                     <input
                       type="password"
                       aria-label="Senha"
@@ -173,15 +176,15 @@ export default function CriarConta() {
                       onChange={updateField("password")}
                       placeholder="Senha"
                       autoComplete="new-password"
-                      className="w-full bg-transparent py-3.5 text-lg text-foreground outline-none placeholder:text-muted-foreground"
+                      className="w-full bg-transparent py-3.5 text-base text-foreground outline-none placeholder:text-muted-foreground"
                     />
                   </div>
                 </label>
 
                 <label className="block">
                   <span className="sr-only">Confirmar senha</span>
-                  <div className="group flex items-center rounded-xl border border-border bg-background/75 px-4 transition-colors focus-within:border-electric/60">
-                    <LockKeyhole className="mr-3 h-5 w-5 text-muted-foreground transition-colors group-focus-within:text-electric" />
+                  <div className="group flex items-center rounded-2xl border border-border bg-background/60 px-4 transition-colors focus-within:border-primary/40">
+                    <LockKeyhole className="mr-3 h-5 w-5 text-muted-foreground transition-colors group-focus-within:text-primary" />
                     <input
                       type="password"
                       aria-label="Confirmar senha"
@@ -189,7 +192,7 @@ export default function CriarConta() {
                       onChange={updateField("confirmPassword")}
                       placeholder="Confirmar senha"
                       autoComplete="new-password"
-                      className="w-full bg-transparent py-3.5 text-lg text-foreground outline-none placeholder:text-muted-foreground"
+                      className="w-full bg-transparent py-3.5 text-base text-foreground outline-none placeholder:text-muted-foreground"
                     />
                   </div>
                 </label>
@@ -198,28 +201,23 @@ export default function CriarConta() {
               <button
                 type="submit"
                 disabled={isSubmitting || !isAuthConfigured}
-                className="mt-5 w-full rounded-xl bg-primary px-4 py-3 text-center font-heading text-2xl font-normal tracking-[0.08em] text-primary-foreground transition hover:brightness-110"
+                className="cta-primary w-full rounded-2xl px-4 py-3.5 text-base disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {isSubmitting ? "Criando..." : "Criar conta"}
+                {isSubmitting ? "Criando conta..." : "Criar conta"}
               </button>
 
-              <div className="mt-5 rounded-xl border border-border bg-black/50 px-6 py-5 text-left shadow-[0_12px_30px_hsl(0_0%_0%_/_0.35)]">
-                <h2 className="text-base font-medium text-foreground">
-                  Cadastro conectado ao Supabase Auth
-                </h2>
-                <p className="mt-2 max-w-md text-sm leading-7 text-muted-foreground">
-                  O nome do jogador e salvo junto da conta e o acesso passa a usar o mesmo fluxo real do portal.
-                </p>
-                <p className="mt-2 max-w-md text-sm leading-7 text-muted-foreground">
-                  Depois do cadastro, voce pode entrar com o e-mail ou com o nome do jogador.
+              <div className="rounded-[24px] site-card-soft px-5 py-5">
+                <h2 className="text-base font-semibold text-foreground">Acesso simples e direto</h2>
+                <p className="mt-2 text-sm leading-7 text-muted-foreground">
+                  Depois do cadastro, você pode entrar com o e-mail ou com o nome do jogador.
                 </p>
               </div>
 
-              <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
-                <p className="text-sm text-muted-foreground">Ja tem acesso?</p>
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/8 pt-2">
+                <p className="text-sm text-muted-foreground">Já tem acesso?</p>
                 <Link
                   to={`/entrar${redirectTo !== "/" ? `?redirect=${encodeURIComponent(redirectTo)}` : ""}`}
-                  className="rounded-md border border-electric px-3 py-1.5 text-sm text-electric transition hover:bg-electric/10"
+                  className="cta-ghost px-1 py-2 text-sm"
                 >
                   Voltar para entrar
                 </Link>

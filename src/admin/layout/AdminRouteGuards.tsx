@@ -5,9 +5,9 @@ import { useAdminAuth } from "@/contexts/AdminAuthContext";
 
 export function RequireAdminAccess({ children }: { children: ReactNode }) {
   const location = useLocation();
-  const { isAdmin } = useAdminAuth();
+  const { isPrimaryAdmin } = useAdminAuth();
 
-  if (!isAdmin) {
+  if (!isPrimaryAdmin) {
     const redirectPath = `${location.pathname}${location.search}`;
     return <Navigate replace to={`/admin/login?redirect=${encodeURIComponent(redirectPath)}`} />;
   }
@@ -23,9 +23,9 @@ export function RequireAdminPermission({
   children: ReactNode;
 }) {
   const location = useLocation();
-  const { hasPermission, isAdmin } = useAdminAuth();
+  const { hasPermission, isPrimaryAdmin } = useAdminAuth();
 
-  if (!isAdmin) {
+  if (!isPrimaryAdmin) {
     const redirectPath = `${location.pathname}${location.search}`;
     return <Navigate replace to={`/admin/login?redirect=${encodeURIComponent(redirectPath)}`} />;
   }

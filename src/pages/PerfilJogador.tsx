@@ -252,9 +252,9 @@ export default function PerfilJogador() {
   }
 
   const playerName = formatDisplayName(loginName);
-  const openChampionships = championships.filter((item) => item.status === "Inscricoes abertas");
-  const liveChampionships = championships.filter((item) => item.status === "Em andamento");
-  const upcomingChampionships = championships.filter((item) => item.status === "Em breve");
+  const openChampionships = championships.filter((item) => item.status === "REGISTRATION");
+  const liveChampionships = championships.filter((item) => item.status === "STARTED");
+  const upcomingChampionships = championships.filter((item) => item.status === "DRAFT" || item.status === "READY");
   const rankingMonitors = buildRankingMonitors(championships);
   const historicalTitles = champions.reduce((total, item) => total + item.titles, 0);
   const tabButtons: Array<{
@@ -505,7 +505,7 @@ export default function PerfilJogador() {
                             tone: "text-electric",
                           },
                           {
-                            title: "Em breve",
+                            title: "Preparando tabela",
                             value: upcomingChampionships.length,
                             helper: "Janelas programadas no calendario",
                             tone: "text-muted-foreground",
@@ -552,7 +552,7 @@ export default function PerfilJogador() {
                   <div className="mt-8 grid gap-4 md:grid-cols-3">
                     <ProfileInfoCard label="Inscricoes abertas" value={String(openChampionships.length)} />
                     <ProfileInfoCard label="Eventos ao vivo" value={String(liveChampionships.length)} />
-                    <ProfileInfoCard label="Em breve" value={String(upcomingChampionships.length)} />
+                    <ProfileInfoCard label="Preparando tabela" value={String(upcomingChampionships.length)} />
                   </div>
 
                   <div className="mt-8">
@@ -600,10 +600,10 @@ export default function PerfilJogador() {
                       <div className="space-y-4">
                         {rankingMonitors.map((monitor) => {
                           const liveCount = monitor.championships.filter(
-                            (item) => item.status === "Em andamento",
+                            (item) => item.status === "STARTED",
                           ).length;
                           const openCount = monitor.championships.filter(
-                            (item) => item.status === "Inscricoes abertas",
+                            (item) => item.status === "REGISTRATION",
                           ).length;
 
                           return (
