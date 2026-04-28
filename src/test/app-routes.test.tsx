@@ -20,95 +20,95 @@ describe("app routes", () => {
     expect(screen.getByRole("button", { name: /pesquisar/i })).toBeInTheDocument();
   });
 
-  it("renders the explore page", () => {
+  it("renders the explore page", async () => {
     window.history.pushState({}, "", "/explorar");
 
     render(<App />);
 
-    expect(screen.getByRole("heading", { level: 1, name: /explorar/i })).toBeInTheDocument();
-    expect(screen.getByLabelText(/busca global/i)).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: /explorar/i })).toBeInTheDocument();
+    expect(await screen.findByLabelText(/busca global/i)).toBeInTheDocument();
   });
 
-  it("renders the lightning tournaments page", () => {
+  it("renders the lightning tournaments page", async () => {
     window.history.pushState({}, "", "/relampago");
 
     render(<App />);
 
-    expect(screen.getByRole("heading", { level: 1, name: /rel/i })).toBeInTheDocument();
-    expect(screen.getByText(/nenhum torneio/i)).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: /rel/i })).toBeInTheDocument();
+    expect(await screen.findByText(/nenhum torneio/i)).toBeInTheDocument();
   });
 
-  it("renders the champions hall without duplicate headings or names", () => {
+  it("renders the champions hall without duplicate headings or names", async () => {
     window.history.pushState({}, "", "/campeoes");
 
     render(<App />);
 
-    expect(screen.getByRole("heading", { level: 1, name: /hall da fama/i })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: /hall da fama/i })).toBeInTheDocument();
     expect(screen.getAllByText(/^hall da fama$/i)).toHaveLength(1);
     expect(screen.getAllByText(/^Alan$/i)).toHaveLength(1);
     expect(screen.getByText(/^Wendel$/i)).toBeInTheDocument();
   });
 
-  it("renders the about content on the help page", () => {
+  it("renders the about content on the help page", async () => {
     window.history.pushState({}, "", "/ajuda");
 
     render(<App />);
 
-    expect(screen.getByRole("heading", { level: 2, name: /uma comunidade criada entre amigos/i })).toBeInTheDocument();
-    expect(screen.getByText(/Idson, Alan e Lucas/i)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /chamar no whatsapp/i })).toHaveAttribute(
+    expect(await screen.findByRole("heading", { level: 2, name: /uma comunidade criada entre amigos/i })).toBeInTheDocument();
+    expect(await screen.findByText(/Idson, Alan e Lucas/i)).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: /chamar no whatsapp/i })).toHaveAttribute(
       "href",
       "https://wa.me/557192630851?text=Ol%C3%A1%2C%20preciso%20de%20atendimento.",
     );
   });
 
-  it("renders the login preview", () => {
+  it("renders the login preview", async () => {
     window.history.pushState({}, "", "/entrar");
 
     render(<App />);
 
-    expect(screen.getByRole("heading", { level: 1, name: /bem-vindo/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /^entrar$/i })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: /bem-vindo/i })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /^entrar$/i })).toBeInTheDocument();
   });
 
-  it("renders the access implementation page", () => {
+  it("renders the access implementation page", async () => {
     window.history.pushState({}, "", "/acesso-implantacao");
 
     render(<App />);
 
     expect(
-      screen.getByRole("heading", { level: 1, name: /acesso em implanta/i }),
+      await screen.findByRole("heading", { level: 1, name: /acesso em implanta/i }),
     ).toBeInTheDocument();
-    expect(screen.getByText(/oficial em prepara/i)).toBeInTheDocument();
+    expect(await screen.findByText(/oficial em prepara/i)).toBeInTheDocument();
   });
 
-  it("renders the player profile gate when logged out", () => {
+  it("renders the player profile gate when logged out", async () => {
     window.history.pushState({}, "", "/perfil");
 
     render(<App />);
 
-    expect(screen.getByText(/entre para abrir o perfil/i)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /abrir login/i })).toBeInTheDocument();
+    expect(await screen.findByText(/entre para abrir o perfil/i)).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: /abrir login/i })).toBeInTheDocument();
   });
 
-  it("renders the create account page", () => {
+  it("renders the create account page", async () => {
     window.history.pushState({}, "", "/criar-conta");
 
     render(<App />);
 
-    expect(screen.getByRole("heading", { level: 1, name: /criar conta/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /criar conta/i })).toBeInTheDocument();
-    expect(screen.getByLabelText(/nome de jogador/i)).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: /criar conta/i })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /criar conta/i })).toBeInTheDocument();
+    expect(await screen.findByLabelText(/nome de jogador/i)).toBeInTheDocument();
   });
 
-  it("renders the password recovery page", () => {
+  it("renders the password recovery page", async () => {
     window.history.pushState({}, "", "/recuperar-senha");
 
     render(<App />);
 
-    expect(screen.getByRole("heading", { level: 1, name: /recuperar senha/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /recuperar/i })).toBeInTheDocument();
-    expect(screen.getByLabelText(/e-mail/i)).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: /recuperar senha/i })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /recuperar/i })).toBeInTheDocument();
+    expect(await screen.findByLabelText(/e-mail/i)).toBeInTheDocument();
   });
 
   it("renders the championship management page", async () => {
