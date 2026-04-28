@@ -117,10 +117,10 @@ export function FeaturedChampionships() {
             className="mx-auto mt-10 max-w-3xl"
           />
         ) : (
-          <div className="mt-10 grid gap-6 lg:grid-cols-[minmax(0,1.3fr)_320px]">
-            <div className="grid gap-4 xl:grid-cols-3">
+          <div className="mt-10 grid gap-6 lg:grid-cols-[minmax(0,1.3fr)_320px] lg:items-start">
+            <div className="grid gap-4 items-start xl:grid-cols-3">
               {buckets.map((bucket) => (
-                <section key={bucket.title} className="rounded-[30px] site-card p-6">
+                <section key={bucket.title} className="self-start rounded-[30px] site-card p-6">
                   <div className="mb-5 flex items-center gap-3">
                     <span className="flex h-11 w-11 items-center justify-center rounded-2xl border border-primary/18 bg-primary/10 text-primary">
                       <bucket.icon className="h-5 w-5" />
@@ -138,7 +138,7 @@ export function FeaturedChampionships() {
               ))}
             </div>
 
-            <aside className="space-y-4">
+            <aside className="space-y-4 self-start">
               <section className="rounded-[30px] site-card p-6">
                 <div className="flex items-center gap-3">
                   <span className="flex h-11 w-11 items-center justify-center rounded-2xl border border-primary/18 bg-primary/10 text-primary">

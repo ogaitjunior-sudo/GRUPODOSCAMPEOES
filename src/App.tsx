@@ -20,6 +20,7 @@ import { Footer } from "@/components/Footer";
 import { Navbar } from "@/components/Navbar";
 import { AdminAuthProvider } from "@/contexts/AdminAuthContext";
 import { ChampionshipProvider } from "@/contexts/ChampionshipContext";
+import { FriendlyChallengesProvider } from "@/contexts/FriendlyChallengesContext";
 import { PlayerAuthProvider } from "@/contexts/PlayerAuthContext";
 import Ajuda from "./pages/Ajuda.tsx";
 import AcessoImplantacao from "./pages/AcessoImplantacao.tsx";
@@ -205,13 +206,15 @@ function AppRoutes() {
 const App = () => (
   <AdminAuthProvider>
     <PlayerAuthProvider>
-      <ChampionshipProvider>
-        <AdminPanelProvider>
-          <BrowserRouter>
-            <AppRoutes />
-          </BrowserRouter>
-        </AdminPanelProvider>
-      </ChampionshipProvider>
+      <FriendlyChallengesProvider>
+        <ChampionshipProvider>
+          <AdminPanelProvider>
+            <BrowserRouter>
+              <AppRoutes />
+            </BrowserRouter>
+          </AdminPanelProvider>
+        </ChampionshipProvider>
+      </FriendlyChallengesProvider>
     </PlayerAuthProvider>
   </AdminAuthProvider>
 );

@@ -41,7 +41,7 @@ const ADMIN_SESSION_STORAGE_KEY = "gc_admin_session";
 const ADMIN_USERNAME = (import.meta.env.VITE_ADMIN_USERNAME ?? "ADMIN").trim();
 const ADMIN_PASSWORD_HASH =
   (import.meta.env.VITE_ADMIN_PASSWORD_HASH ??
-    "ce1a850a19682e82f96266c7dc27893ffb08fc53f37d60f7a233c712f7a7e29f").trim();
+    "835d6dc88b708bc646d6db82c853ef4182fabbd4a8de59c213f2b5ab3ae7d9be").trim();
 
 const AdminAuthContext = createContext<AdminAuthContextValue | undefined>(undefined);
 

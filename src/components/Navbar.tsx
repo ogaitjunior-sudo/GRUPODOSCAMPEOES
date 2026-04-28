@@ -9,12 +9,13 @@ import {
   Menu,
   Search,
   User,
-  UserRound,
   X,
 } from "lucide-react";
 import logoGC from "@/assets/logo-gc-fc26.png";
+import { PlayerAvatar } from "@/components/profile/PlayerAvatar";
 import { SiteActionLink } from "@/components/SiteActionLink";
 import { usePlayerAuth } from "@/contexts/PlayerAuthContext";
+import { readStoredPlayerAvatar } from "@/lib/player-profile-store";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -48,12 +49,15 @@ export function Navbar() {
   const location = useLocation();
   const {
     isAuthenticated: isPlayerAuthenticated,
+    avatarUrl,
     loginName,
+    playerEmail,
     logout: logoutPlayer,
   } = usePlayerAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const LoginIcon = loginRoute.icon;
   const playerDisplayName = formatPlayerDisplayName(loginName);
+  const resolvedPlayerAvatarUrl = avatarUrl ?? readStoredPlayerAvatar(playerEmail);
   const isItemActive = (path: string) =>
     path === "/" ? location.pathname === path : location.pathname.startsWith(path);
 
@@ -104,9 +108,12 @@ export function Navbar() {
                   type="button"
                   className="hidden items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-foreground transition-colors hover:border-white/15 sm:inline-flex"
                 >
-                  <span className="flex h-7 w-7 items-center justify-center rounded-full border border-primary/20 bg-primary/10 text-primary">
-                    <UserRound className="h-4 w-4" />
-                  </span>
+                  <PlayerAvatar
+                    name={playerDisplayName || "Jogador"}
+                    avatarUrl={resolvedPlayerAvatarUrl}
+                    size="sm"
+                    className="h-7 w-7 border-primary/20"
+                  />
                   <span className="font-medium">{playerDisplayName}</span>
                   <ChevronDown className="h-4 w-4 text-muted-foreground" />
                 </button>
@@ -222,10 +229,13 @@ export function Navbar() {
             <div className="mt-4 rounded-[24px] site-card-soft p-3">
               {isPlayerAuthenticated ? (
                 <>
-                  <div className="flex items-center gap-3 rounded-2xl px-4 py-3 text-foreground">
-                    <span className="flex h-9 w-9 items-center justify-center rounded-full border border-primary/20 bg-primary/10 text-primary">
-                      <UserRound className="h-4 w-4" />
-                    </span>
+                <div className="flex items-center gap-3 rounded-2xl px-4 py-3 text-foreground">
+                    <PlayerAvatar
+                      name={playerDisplayName || "Jogador"}
+                      avatarUrl={resolvedPlayerAvatarUrl}
+                      size="md"
+                      className="h-9 w-9 border-primary/20"
+                    />
                     <div>
                       <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
                         Conta do jogador

@@ -64,6 +64,7 @@ export interface TeamRecord {
   members: string[];
   championships: number;
   summary: string;
+  flagUrl?: string;
   createdAt: string;
 }
 

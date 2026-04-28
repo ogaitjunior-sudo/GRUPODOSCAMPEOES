@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import {
   CalendarClock,
@@ -22,6 +22,16 @@ import { PageShell } from "@/components/PageShell";
 import { StatusBadge } from "@/components/StatusBadge";
 import { AdminPageHeader } from "@/admin/components/AdminPageHeader";
 import {
+  TeamCrest,
+  TeamFlagBadge,
+} from "@/components/championship/TeamIdentity";
+import {
+  ChallengeModal,
+} from "@/components/championship/ChallengeModal";
+import {
+  TeamProfileDialog,
+} from "@/components/championship/TeamProfileDialog";
+import {
   UltimateTeamChampionshipShell,
   UltimateTeamGroupDashboard,
   type UltimateTeamMatchEntry,
@@ -40,6 +50,11 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { generateBracket, updateBracketMatch, validateBracketGeneration } from "@/lib/championship-bracket";
+import { buildChampionshipTeamProfileLookup } from "@/lib/championship-team-profile";
+import { findPendingFriendlyChallenge } from "@/lib/friendly-challenges";
+import {
+  readStoredPlayerTeamPhoto,
+} from "@/lib/player-profile-store";
 import {
   hasChampionshipTable,
   validateChampionshipTableGeneration,
@@ -53,11 +68,13 @@ import {
   updateGroupMatch,
   updateScoringSettings,
   updateTeamAdjustment,
+  updateTeamProfile,
 } from "@/lib/championship-runtime";
 import {
   formatChampionshipWorkspaceStoreError,
   getChampionshipWorkspaceStorageMode,
   loadChampionshipWorkspaceRecord,
+  readStoredChampionshipWorkspaceRecord,
   saveChampionshipWorkspaceRecord,
 } from "@/lib/championship-workspace-store";
 import {
@@ -65,12 +82,14 @@ import {
   getChampionshipRegistrationByPlayer,
   getChampionshipRegistrationStatusLabel,
   buildChampionshipRules,
+  formatChampionshipDateRange,
   getChampionshipStatusLabel,
   getFormatOption,
 } from "@/lib/championships";
 import { toast } from "@/hooks/use-toast";
 import { useAdminAuth } from "@/contexts/AdminAuthContext";
 import { useChampionships } from "@/contexts/ChampionshipContext";
+import { useFriendlyChallenges } from "@/contexts/FriendlyChallengesContext";
 import { usePlayerAuth } from "@/contexts/PlayerAuthContext";
 import type {
   ChampionshipConfiguration,
@@ -85,6 +104,7 @@ import type {
   ChampionshipGroup,
   ChampionshipGroupMatch,
   ChampionshipTeam,
+  ChampionshipTeamProfile,
   ChampionshipWorkspaceRecord,
   GroupMatchUpdateInput,
 } from "@/types/championship-runtime";
@@ -152,38 +172,6 @@ function getTeamName(teams: ChampionshipTeam[], teamId: string | null) {
   }
 
   return teams.find((team) => team.id === teamId)?.name ?? "A definir";
-}
-
-function hashTeamName(value: string) {
-  return value.split("").reduce((total, char) => total + char.charCodeAt(0), 0);
-}
-
-function getTeamInitials(name: string) {
-  const parts = name
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean);
-
-  if (parts.length === 0) {
-    return "EQ";
-  }
-
-  if (parts.length === 1) {
-    return parts[0].slice(0, 2).toUpperCase();
-  }
-
-  return `${parts[0][0] ?? ""}${parts[1][0] ?? ""}`.toUpperCase();
-}
-
-function getTeamMarkStyle(name: string) {
-  const seed = hashTeamName(name);
-  const hueA = seed % 360;
-  const hueB = (seed * 1.7 + 55) % 360;
-
-  return {
-    background: `linear-gradient(145deg, hsl(${hueA} 72% 58%), hsl(${hueB} 68% 42%))`,
-    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.18), 0 8px 20px rgba(0,0,0,0.18)",
-  } satisfies CSSProperties;
 }
 
 function getRegistrationBadgeClassName(status: ChampionshipRegistrationStatus) {
@@ -256,25 +244,43 @@ function buildPublicTeamMetaMap(
   teams: ChampionshipTeam[],
   registrationRequests: ChampionshipRegistrationRequest[],
 ) {
-  const approvedRequests = registrationRequests
-    .filter((request) => request.status === "approved")
-    .sort(
-      (left, right) =>
-        new Date(left.requestedAt).getTime() - new Date(right.requestedAt).getTime(),
-    );
-  const canBindApprovedUsers = approvedRequests.length === teams.length && teams.length > 0;
+  const approvedRequests = registrationRequests.filter((request) => request.status === "approved");
+  const requestsByPlayerId = new Map(
+    approvedRequests
+      .filter((request) => request.playerId)
+      .map((request) => [request.playerId, request] as const),
+  );
+  const requestsByEmail = new Map(
+    approvedRequests
+      .filter((request) => request.playerEmail.trim())
+      .map((request) => [request.playerEmail.trim().toLowerCase(), request] as const),
+  );
 
   return new Map(
     [...teams]
       .sort((left, right) => left.seed - right.seed)
-      .map((team, index) => {
-        const approvedRequest = canBindApprovedUsers ? approvedRequests[index] ?? null : null;
+      .map((team) => {
+        const approvedRequest =
+          (team.playerId ? requestsByPlayerId.get(team.playerId) : null) ??
+          (team.playerEmail ? requestsByEmail.get(team.playerEmail.trim().toLowerCase()) : null) ??
+          null;
+        const captainName = team.captainName?.trim() || approvedRequest?.playerName?.trim() || null;
+        const roster = team.roster.length > 0 ? team.roster : captainName ? [captainName] : [];
 
         return [
           team.id,
           {
-            handle: formatCoachHandle(approvedRequest, team.seed),
+            handle: approvedRequest
+              ? formatCoachHandle(approvedRequest, team.seed)
+              : captainName ?? `Tecnico seed ${String(team.seed).padStart(2, "0")}`,
             crestLabel: team.name,
+            captainName,
+            captainEmail: team.playerEmail ?? approvedRequest?.playerEmail ?? null,
+            flagUrl: team.flagUrl,
+            teamPhotoUrl: readStoredPlayerTeamPhoto(
+              team.playerEmail ?? approvedRequest?.playerEmail ?? null,
+            ),
+            roster,
           },
         ] as const;
       }),
@@ -306,23 +312,35 @@ export function ChampionshipWorkspacePage({
     session: playerSession,
   } = usePlayerAuth();
   const championship = championshipId ? getChampionshipById(championshipId) : undefined;
-  const [workspace, setWorkspace] = useState<ChampionshipWorkspaceRecord | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const initialCachedWorkspace = championship ? readStoredChampionshipWorkspaceRecord(championship) : null;
+  const [workspace, setWorkspace] = useState<ChampionshipWorkspaceRecord | null>(initialCachedWorkspace);
+  const [isLoading, setIsLoading] = useState(Boolean(championship && !initialCachedWorkspace));
   const [isSaving, setIsSaving] = useState(false);
   const [isSubmittingParticipation, setIsSubmittingParticipation] = useState(false);
   const [reviewingRequestId, setReviewingRequestId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [workspaceReloadToken, setWorkspaceReloadToken] = useState(0);
   const [teamNameDrafts, setTeamNameDrafts] = useState<Record<string, string>>({});
   const [adjustmentDrafts, setAdjustmentDrafts] = useState<Record<string, number>>({});
   const [scoringDraft, setScoringDraft] = useState({ winPoints: 3, drawPoints: 1, lossPoints: 0 });
-  const [finalConfigDraft, setFinalConfigDraft] = useState<ChampionshipConfiguration | null>(null);
+  const [finalConfigDraft, setFinalConfigDraft] = useState<ChampionshipConfiguration | null>(
+    championship?.configuration ?? null,
+  );
   const [editingGroupMatch, setEditingGroupMatch] = useState<ChampionshipGroupMatch | null>(null);
   const [editingBracketMatch, setEditingBracketMatch] = useState<ChampionshipBracketMatch | null>(null);
   const [selectedGroupRounds, setSelectedGroupRounds] = useState<Record<string, number>>({});
   const [selectedPublicGroupId, setSelectedPublicGroupId] = useState<string | null>(null);
+  const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
+  const [isChallengeModalOpen, setIsChallengeModalOpen] = useState(false);
+  const [isSubmittingChallenge, setIsSubmittingChallenge] = useState(false);
   const [isParticipationDialogOpen, setIsParticipationDialogOpen] = useState(
     () => searchParams.get("acao") === "participar",
   );
+  const {
+    challenges: friendlyChallenges,
+    createChallenge,
+    isLoading: isLoadingFriendlyChallenges,
+  } = useFriendlyChallenges();
   const storageMode = getChampionshipWorkspaceStorageMode();
   const playerRegistrationRequest = useMemo(
     () => getChampionshipRegistrationByPlayer(championship ?? { registrationRequests: [] }, playerSession?.id),
@@ -354,15 +372,21 @@ export function ChampionshipWorkspacePage({
 
   useEffect(() => {
     if (!championship) {
+      setWorkspace(null);
+      setErrorMessage(null);
       setIsLoading(false);
       return;
     }
 
+    const cachedWorkspace = readStoredChampionshipWorkspaceRecord(championship);
+
+    setWorkspace(cachedWorkspace);
+    setErrorMessage(null);
+    setIsLoading(!cachedWorkspace);
+
     let isActive = true;
 
     const loadWorkspace = async () => {
-      setIsLoading(true);
-
       try {
         const nextWorkspace = await loadChampionshipWorkspaceRecord(championship);
 
@@ -375,6 +399,10 @@ export function ChampionshipWorkspacePage({
       } catch (error) {
         if (!isActive) {
           return;
+        }
+
+        if (!cachedWorkspace) {
+          setWorkspace(null);
         }
 
         setErrorMessage(formatChampionshipWorkspaceStoreError(error));
@@ -390,7 +418,7 @@ export function ChampionshipWorkspacePage({
     return () => {
       isActive = false;
     };
-  }, [championship]);
+  }, [championship, workspaceReloadToken]);
 
   useEffect(() => {
     if (!workspace) {
@@ -407,11 +435,7 @@ export function ChampionshipWorkspacePage({
   }, [workspace]);
 
   useEffect(() => {
-    if (!championship) {
-      return;
-    }
-
-    setFinalConfigDraft(championship.configuration);
+    setFinalConfigDraft(championship?.configuration ?? null);
   }, [championship]);
 
   useEffect(() => {
@@ -440,9 +464,9 @@ export function ChampionshipWorkspacePage({
     [championship, workspace],
   );
 
-  const saveWorkspace = async (nextWorkspace: ChampionshipWorkspaceRecord, successDescription: string) => {
+  const persistWorkspace = async (nextWorkspace: ChampionshipWorkspaceRecord) => {
     if (!championship) {
-      return;
+      throw new Error("Campeonato nao encontrado.");
     }
 
     setIsSaving(true);
@@ -451,14 +475,25 @@ export function ChampionshipWorkspacePage({
       const savedWorkspace = await saveChampionshipWorkspaceRecord(championship, nextWorkspace);
       setWorkspace(savedWorkspace);
       setErrorMessage(null);
+      return savedWorkspace;
+    } catch (error) {
+      const nextErrorMessage = formatChampionshipWorkspaceStoreError(error);
+      setErrorMessage(nextErrorMessage);
+      throw new Error(nextErrorMessage);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const saveWorkspace = async (nextWorkspace: ChampionshipWorkspaceRecord, successDescription: string) => {
+    try {
+      await persistWorkspace(nextWorkspace);
       toast({
         title: "Campeonato atualizado",
         description: successDescription,
       });
-    } catch (error) {
-      setErrorMessage(formatChampionshipWorkspaceStoreError(error));
-    } finally {
-      setIsSaving(false);
+    } catch {
+      // O estado de erro ja foi atualizado dentro de persistWorkspace.
     }
   };
 
@@ -632,6 +667,91 @@ export function ChampionshipWorkspacePage({
     setEditingBracketMatch(null);
   };
 
+  const handleSaveTeamProfile = async (payload: {
+    teamId: string;
+    captainName: string | null;
+    roster: string[];
+    flagUrl: string | null;
+  }) => {
+    if (!workspace) {
+      throw new Error("Workspace do campeonato indisponivel.");
+    }
+
+    if (!selectedTeamCanEdit || (ownedTeamId && !isAdmin && payload.teamId !== ownedTeamId)) {
+      throw new Error("Voce nao tem permissao para editar este time.");
+    }
+
+    const nextWorkspace = updateTeamProfile(workspace, payload.teamId, {
+      captainName: payload.captainName,
+      roster: payload.roster,
+      flagUrl: payload.flagUrl,
+    });
+
+    await persistWorkspace(nextWorkspace);
+    toast({
+      title: "Perfil atualizado",
+      description: "As informacoes do time foram salvas com sucesso.",
+    });
+  };
+
+  const handleSubmitFriendlyChallenge = async (payload: {
+    date: string;
+    time: string;
+    message: string | null;
+  }) => {
+    if (!championship || !workspace) {
+      throw new Error("Campeonato indisponivel para criar o amistoso.");
+    }
+
+    if (!selectedTeamProfile) {
+      throw new Error("Selecione um adversario valido para enviar o desafio.");
+    }
+
+    const fromTeam = ownedTeamId ? workspace.teams.find((team) => team.id === ownedTeamId) ?? null : null;
+
+    if (!fromTeam) {
+      throw new Error("Seu time precisa estar vinculado a este campeonato para enviar amistosos.");
+    }
+
+    setIsSubmittingChallenge(true);
+
+    try {
+      await createChallenge({
+        championshipId: championship.id,
+        championshipName: championship.name,
+        fromTeamId: fromTeam.id,
+        toTeamId: selectedTeamProfile.team.id,
+        fromPlayerId: fromTeam.playerId,
+        fromPlayerEmail: fromTeam.playerEmail,
+        toPlayerId: selectedTeamProfile.team.playerId,
+        toPlayerEmail: selectedTeamProfile.team.playerEmail,
+        fromTeamName: fromTeam.name,
+        toTeamName: selectedTeamProfile.team.name,
+        fromFlagUrl: fromTeam.flagUrl,
+        toFlagUrl: selectedTeamProfile.team.flagUrl,
+        date: payload.date,
+        time: payload.time,
+        message: payload.message,
+      });
+      toast({
+        title: "Desafio enviado com sucesso",
+        description: `${fromTeam.name} desafiou ${selectedTeamProfile.team.name} para um amistoso.`,
+      });
+      setIsChallengeModalOpen(false);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Nao foi possivel enviar o desafio agora.";
+
+      toast({
+        title: "Nao foi possivel enviar o desafio",
+        description: message,
+      });
+      throw new Error(message);
+    } finally {
+      setIsSubmittingChallenge(false);
+    }
+  };
+
   const groupMatchesByGroup = useMemo(
     () =>
       workspace
@@ -740,13 +860,179 @@ export function ChampionshipWorkspacePage({
     );
   }, [groupMatchesByGroup]);
 
+  useEffect(() => {
+    if (!workspace || !selectedTeamId) {
+      return;
+    }
+
+    if (!workspace.teams.some((team) => team.id === selectedTeamId)) {
+      setSelectedTeamId(null);
+    }
+  }, [selectedTeamId, workspace]);
+
+  useEffect(() => {
+    if (!selectedTeamId) {
+      setIsChallengeModalOpen(false);
+    }
+  }, [selectedTeamId]);
+
   const publicTeamMetaById = useMemo(
     () =>
       championship && workspace
         ? buildPublicTeamMetaMap(workspace.teams, championship.registrationRequests)
-        : new Map<string, { handle: string; crestLabel: string }>(),
+        : new Map<
+            string,
+            {
+              handle: string;
+              crestLabel: string;
+              captainName: string | null;
+              captainEmail: string | null;
+              flagUrl: string | null;
+              teamPhotoUrl: string | null;
+              roster: string[];
+            }
+          >(),
     [championship, workspace],
   );
+  const teamsById = useMemo(
+    () => new Map((workspace?.teams ?? []).map((team) => [team.id, team] as const)),
+    [workspace?.teams],
+  );
+  const ownedTeamId = useMemo(() => {
+    if (!workspace) {
+      return null;
+    }
+
+    const normalizedPlayerEmail = playerEmail?.trim().toLowerCase() ?? null;
+
+    return (
+      workspace.teams.find(
+        (team) =>
+          (playerSession?.id && team.playerId === playerSession.id) ||
+          (normalizedPlayerEmail && team.playerEmail?.trim().toLowerCase() === normalizedPlayerEmail),
+      )?.id ?? null
+    );
+  }, [playerEmail, playerSession?.id, workspace]);
+  const ownedTeam = ownedTeamId ? teamsById.get(ownedTeamId) ?? null : null;
+  const teamProfilesById = useMemo(() => {
+    if (!workspace) {
+      return new Map<string, ChampionshipTeamProfile>();
+    }
+
+    const baseProfiles = buildChampionshipTeamProfileLookup(workspace);
+
+    return new Map(
+      Array.from(baseProfiles.entries()).map(([teamId, profile]) => {
+        const meta = publicTeamMetaById.get(teamId);
+
+        return [
+          teamId,
+          {
+            ...profile,
+            captainName: profile.captainName ?? meta?.captainName ?? null,
+            roster: profile.roster.length > 0 ? profile.roster : meta?.roster ?? [],
+          } satisfies ChampionshipTeamProfile,
+        ] as const;
+      }),
+    );
+  }, [publicTeamMetaById, workspace]);
+  const selectedTeamProfile = selectedTeamId ? teamProfilesById.get(selectedTeamId) ?? null : null;
+  const selectedTeamCanEdit = Boolean(isAdmin || (selectedTeamId && selectedTeamId === ownedTeamId));
+  const selectedPendingFriendlyChallenge = useMemo(() => {
+    if (!championship || !selectedTeamProfile || !ownedTeam) {
+      return null;
+    }
+
+    return findPendingFriendlyChallenge(friendlyChallenges, {
+      championshipId: championship.id,
+      teamAId: ownedTeam.id,
+      teamBId: selectedTeamProfile.team.id,
+    });
+  }, [championship, friendlyChallenges, ownedTeam, selectedTeamProfile]);
+  const selectedTeamChallengeAction = useMemo(() => {
+    if (isAdmin || !selectedTeamProfile || selectedTeamProfile.team.id === ownedTeamId) {
+      return null;
+    }
+
+    if (!isPlayerAuthenticated) {
+      return {
+        visible: true,
+        disabled: true,
+        isLoading: false,
+        isPending: false,
+        helperText: "Entre com sua conta para desafiar este time para um amistoso.",
+        onOpen: () => {
+          toast({
+            title: "Entre para desafiar",
+            description: "Apenas usuarios logados podem enviar desafios amistosos.",
+          });
+        },
+      };
+    }
+
+    if (!ownedTeam) {
+      return {
+        visible: true,
+        disabled: true,
+        isLoading: false,
+        isPending: false,
+        helperText: "Seu time precisa estar vinculado a este campeonato para enviar amistosos.",
+        onOpen: () => {
+          toast({
+            title: "Time nao encontrado",
+            description:
+              "Seu time precisa estar vinculado a este campeonato para enviar amistosos.",
+          });
+        },
+      };
+    }
+
+    if (isLoadingFriendlyChallenges) {
+      return {
+        visible: true,
+        disabled: true,
+        isLoading: true,
+        isPending: false,
+        helperText: "Verificando se ja existe um amistoso pendente com este adversario.",
+        onOpen: () => undefined,
+      };
+    }
+
+    if (selectedPendingFriendlyChallenge) {
+      return {
+        visible: true,
+        disabled: true,
+        isLoading: false,
+        isPending: true,
+        helperText: "Ja existe um desafio pendente com este time.",
+        onOpen: () => undefined,
+      };
+    }
+
+    return {
+      visible: true,
+      disabled: false,
+      isLoading: false,
+      isPending: false,
+      helperText: "Envie uma proposta rapida com data, horario e uma mensagem opcional.",
+      onOpen: () => setIsChallengeModalOpen(true),
+    };
+  }, [
+    isAdmin,
+    isLoadingFriendlyChallenges,
+    isPlayerAuthenticated,
+    ownedTeam,
+    ownedTeamId,
+    selectedPendingFriendlyChallenge,
+    selectedTeamProfile,
+  ]);
+  const openTeamProfile = (teamId: string | null) => {
+    if (!teamId) {
+      return;
+    }
+
+    setSelectedTeamId(teamId);
+  };
   const selectedPublicGroupEntry = useMemo(() => {
     if (isLeagueFormat || isKnockoutOnlyFormat) {
       return groupMatchesByGroup[0] ?? null;
@@ -778,6 +1064,8 @@ export function ChampionshipWorkspacePage({
             publicTeamMetaById.get(row.teamId)?.handle ??
             `Tecnico seed ${String(teamSeed).padStart(2, "0")}`,
           crestLabel: publicTeamMetaById.get(row.teamId)?.crestLabel ?? row.teamName,
+          flagUrl: publicTeamMetaById.get(row.teamId)?.flagUrl ?? teamsById.get(row.teamId)?.flagUrl ?? null,
+          teamPhotoUrl: publicTeamMetaById.get(row.teamId)?.teamPhotoUrl ?? null,
         },
         points: row.points,
         played: row.played,
@@ -790,7 +1078,7 @@ export function ChampionshipWorkspacePage({
         efficiency: calculateEfficiency(row.points, row.played),
       };
     });
-  }, [groupMatchesByGroup, publicTeamMetaById, selectedPublicGroupEntry, standings, workspace?.teams]);
+  }, [groupMatchesByGroup, publicTeamMetaById, selectedPublicGroupEntry, standings, teamsById, workspace?.teams]);
   const publicRoundMatches = useMemo<UltimateTeamMatchEntry[]>(() => {
     if (!selectedPublicGroupEntry) {
       return [];
@@ -817,12 +1105,16 @@ export function ChampionshipWorkspacePage({
           name: getTeamName(workspace?.teams ?? [], match.homeTeamId),
           meta: homeMeta?.handle,
           crestLabel: homeMeta?.crestLabel,
+          flagUrl: homeMeta?.flagUrl ?? teamsById.get(match.homeTeamId)?.flagUrl ?? null,
+          teamPhotoUrl: homeMeta?.teamPhotoUrl ?? null,
         },
         away: {
           id: match.awayTeamId,
           name: getTeamName(workspace?.teams ?? [], match.awayTeamId),
           meta: awayMeta?.handle,
           crestLabel: awayMeta?.crestLabel,
+          flagUrl: awayMeta?.flagUrl ?? teamsById.get(match.awayTeamId)?.flagUrl ?? null,
+          teamPhotoUrl: awayMeta?.teamPhotoUrl ?? null,
         },
         scoreHome: match.scoreHome,
         scoreAway: match.scoreAway,
@@ -830,7 +1122,7 @@ export function ChampionshipWorkspacePage({
         metaLabel: formatMatchDateTime(match.playedAt),
       };
     });
-  }, [publicTeamMetaById, selectedGroupRounds, selectedPublicGroupEntry, workspace?.teams]);
+  }, [publicTeamMetaById, selectedGroupRounds, selectedPublicGroupEntry, teamsById, workspace?.teams]);
   const publicRoundLabel = useMemo(() => {
     if (!selectedPublicGroupEntry) {
       return "RODADA 1";
@@ -861,7 +1153,7 @@ export function ChampionshipWorkspacePage({
     );
   }
 
-  if (isLoading || !workspace || !finalConfigDraft) {
+  if ((isLoading && !workspace) || !finalConfigDraft) {
     return renderShell(
         <section className="py-16">
           <div className="container mx-auto px-4">
@@ -869,6 +1161,26 @@ export function ChampionshipWorkspacePage({
               icon={Trophy}
               title="Carregando painel do campeonato"
               description="Sincronizando grupos, finais e estatisticas mais recentes."
+              className="mx-auto max-w-3xl"
+            />
+          </div>
+        </section>
+    );
+  }
+
+  if (!workspace) {
+    return renderShell(
+        <section className="py-16">
+          <div className="container mx-auto px-4">
+            <EmptyStateCard
+              icon={ShieldAlert}
+              title="Nao foi possivel abrir o campeonato"
+              description={
+                errorMessage ??
+                "O painel nao conseguiu carregar grupos, confrontos e estatisticas agora."
+              }
+              actionLabel="Tentar novamente"
+              actionOnClick={() => setWorkspaceReloadToken((current) => current + 1)}
               className="mx-auto max-w-3xl"
             />
           </div>
@@ -1218,7 +1530,9 @@ export function ChampionshipWorkspacePage({
                               <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
                                 Seed {team.seed}
                               </p>
-                              <p className="mt-2 text-lg font-semibold text-foreground">{team.name}</p>
+                              <div className="mt-2">
+                                <TeamNameBlock team={team} onOpenTeamProfile={openTeamProfile} />
+                              </div>
                               <p className="mt-3 text-sm text-muted-foreground">
                                 {team.pointsAdjustment !== 0
                                   ? `Ajuste ativo: ${team.pointsAdjustment > 0 ? "+" : ""}${team.pointsAdjustment} pontos.`
@@ -1255,6 +1569,8 @@ export function ChampionshipWorkspacePage({
                             description="Todos se enfrentam no mesmo quadro classificatorio, com leitura unica de pontos, saldo, gols e campanha."
                             rows={standings[0]?.rows ?? []}
                             qualifiedCount={finalConfigDraft.hasFinalStage ? finalConfigDraft.qualifiedPerGroup : 0}
+                            teamsById={teamsById}
+                            onOpenTeamProfile={openTeamProfile}
                           />
 
                           <RoundMatchesBoard
@@ -1269,7 +1585,8 @@ export function ChampionshipWorkspacePage({
                                 [leagueGroup.group.id]: roundNumber,
                               }))
                             }
-                            teams={workspace.teams}
+                            teamsById={teamsById}
+                            onOpenTeamProfile={openTeamProfile}
                             isAdmin={isAdmin}
                             onEditMatch={setEditingGroupMatch}
                           />
@@ -1284,6 +1601,8 @@ export function ChampionshipWorkspacePage({
                           description="Classificacao atual com desempate por pontos, saldo, gols marcados e vitorias."
                           rows={standings[groupIndex]?.rows ?? []}
                           qualifiedCount={finalConfigDraft.hasFinalStage ? finalConfigDraft.qualifiedPerGroup : 0}
+                          teamsById={teamsById}
+                          onOpenTeamProfile={openTeamProfile}
                         />
 
                         <RoundMatchesBoard
@@ -1291,7 +1610,7 @@ export function ChampionshipWorkspacePage({
                           description={
                             isCrossBracketFormat
                               ? "Cada chave navega por uma rodada de cada vez para evitar uma coluna longa demais."
-                              : "Clique em um confronto para editar placar, data, horario e local."
+                              : "Use o botao da partida para editar placar, data, horario e local."
                           }
                           groupLabel={group.name}
                           rounds={rounds}
@@ -1302,7 +1621,8 @@ export function ChampionshipWorkspacePage({
                               [group.id]: roundNumber,
                             }))
                           }
-                          teams={workspace.teams}
+                          teamsById={teamsById}
+                          onOpenTeamProfile={openTeamProfile}
                           isAdmin={isAdmin}
                           onEditMatch={setEditingGroupMatch}
                         />
@@ -1385,7 +1705,9 @@ export function ChampionshipWorkspacePage({
                                   <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
                                     Seed {team.seed}
                                   </p>
-                                  <p className="mt-2 text-lg font-semibold text-slate-100">{team.name}</p>
+                                  <div className="mt-2">
+                                    <TeamNameBlock team={team} onOpenTeamProfile={openTeamProfile} />
+                                  </div>
                                   <p className="mt-3 text-sm text-slate-400">
                                     Aguardando geracao da tabela.
                                   </p>
@@ -1415,7 +1737,9 @@ export function ChampionshipWorkspacePage({
                               <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
                                 Seed {team.seed}
                               </p>
-                              <p className="mt-2 text-lg font-semibold text-slate-100">{team.name}</p>
+                              <div className="mt-2">
+                                <TeamNameBlock team={team} onOpenTeamProfile={openTeamProfile} />
+                              </div>
                               <p className="mt-3 text-sm text-slate-400">
                                 {publicTeamMetaById.get(team.id)?.handle ?? `Tecnico seed ${String(team.seed).padStart(2, "0")}`}
                               </p>
@@ -1435,6 +1759,7 @@ export function ChampionshipWorkspacePage({
                       roundTitle={publicRoundLabel}
                       standings={publicStandingsEntries}
                       matches={publicRoundMatches}
+                      onTeamSelect={openTeamProfile}
                       groupSwitcher={
                         !isLeagueFormat && groupMatchesByGroup.length > 1 ? (
                           <div className="flex flex-wrap gap-2">
@@ -1713,7 +2038,7 @@ export function ChampionshipWorkspacePage({
                   <div>
                     <CardTitle>Chaveamento visual</CardTitle>
                     <CardDescription>
-                      O vencedor avanca automaticamente ate a final. Clique em um confronto para editar o resultado.
+                      O vencedor avanca automaticamente ate a final. Use o botao do confronto para editar o resultado.
                     </CardDescription>
                   </div>
                   {isAdmin && tableAlreadyGenerated ? (
@@ -1784,6 +2109,9 @@ export function ChampionshipWorkspacePage({
                                       winnerTeamId={match.winnerTeamId}
                                       homeTeamId={match.homeTeamId}
                                       awayTeamId={match.awayTeamId}
+                                      homeFlagUrl={teamsById.get(match.homeTeamId ?? "")?.flagUrl ?? null}
+                                      awayFlagUrl={teamsById.get(match.awayTeamId ?? "")?.flagUrl ?? null}
+                                      onOpenTeamProfile={openTeamProfile}
                                       onClick={
                                         isAdmin ? () => setEditingBracketMatch(match) : undefined
                                       }
@@ -1831,6 +2159,9 @@ export function ChampionshipWorkspacePage({
                             winnerTeamId={thirdPlaceMatch.winnerTeamId}
                             homeTeamId={thirdPlaceMatch.homeTeamId}
                             awayTeamId={thirdPlaceMatch.awayTeamId}
+                            homeFlagUrl={teamsById.get(thirdPlaceMatch.homeTeamId ?? "")?.flagUrl ?? null}
+                            awayFlagUrl={teamsById.get(thirdPlaceMatch.awayTeamId ?? "")?.flagUrl ?? null}
+                            onOpenTeamProfile={openTeamProfile}
                             onClick={isAdmin ? () => setEditingBracketMatch(thirdPlaceMatch) : undefined}
                           />
                         </div>
@@ -1853,7 +2184,10 @@ export function ChampionshipWorkspacePage({
                   <CardContent className="space-y-3 text-sm text-muted-foreground">
                     <InfoRow label="Descricao" value={championship.description} />
                     <InfoRow label="Regras" value={championship.rules} />
-                    <InfoRow label="Periodo" value={`${championship.startDate} ate ${championship.endDate}`} />
+                    <InfoRow
+                      label="Periodo"
+                      value={formatChampionshipDateRange(championship.startDate, championship.endDate)}
+                    />
                     <InfoRow label="Times previstos" value={String(championship.teamCount)} />
                     <InfoRow label="Fase atual" value={workspace.bracket.state.replaceAll("-", " ")} />
                   </CardContent>
@@ -1911,9 +2245,14 @@ export function ChampionshipWorkspacePage({
                       {standings.map((group) => (
                         <div key={group.groupId} className="flex items-center justify-between text-sm">
                           <span>{group.groupName}</span>
-                          <span className="font-medium text-foreground">
-                            {group.rows[0]?.teamName ?? "Sem lider"}
-                          </span>
+                          <div className="max-w-[65%]">
+                            <TeamNameBlock
+                              team={group.rows[0] ? teamsById.get(group.rows[0].teamId) ?? null : null}
+                              fallbackName={group.rows[0]?.teamName ?? "Sem lider"}
+                              size="sm"
+                              onOpenTeamProfile={openTeamProfile}
+                            />
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -1925,7 +2264,14 @@ export function ChampionshipWorkspacePage({
                     <div className="mt-3 space-y-3 text-sm">
                       {qualifiedTeams.map((team) => (
                         <div key={`${team.teamId}-${team.sourceLabel}`} className="flex items-center justify-between">
-                          <span>{team.teamName}</span>
+                          <div className="max-w-[65%]">
+                            <TeamNameBlock
+                              team={teamsById.get(team.teamId) ?? null}
+                              fallbackName={team.teamName}
+                              size="sm"
+                              onOpenTeamProfile={openTeamProfile}
+                            />
+                          </div>
                           <span className="text-muted-foreground">{team.sourceLabel}</span>
                         </div>
                       ))}
@@ -2054,6 +2400,29 @@ export function ChampionshipWorkspacePage({
         qualifiedTeams={qualifiedTeams}
         onClose={() => setEditingBracketMatch(null)}
         onSave={handleSaveBracketMatch}
+      />
+      <TeamProfileDialog
+        open={Boolean(selectedTeamId)}
+        profile={selectedTeamProfile}
+        canEdit={selectedTeamCanEdit}
+        isOwnTeam={Boolean(selectedTeamId && selectedTeamId === ownedTeamId)}
+        isSaving={isSaving}
+        challengeAction={selectedTeamChallengeAction}
+        onClose={() => setSelectedTeamId(null)}
+        onSaveProfile={handleSaveTeamProfile}
+      />
+      <ChallengeModal
+        open={isChallengeModalOpen}
+        championshipName={championship?.name ?? null}
+        fromTeam={ownedTeam ? { name: ownedTeam.name, flagUrl: ownedTeam.flagUrl } : null}
+        toTeam={
+          selectedTeamProfile
+            ? { name: selectedTeamProfile.team.name, flagUrl: selectedTeamProfile.team.flagUrl }
+            : null
+        }
+        isSubmitting={isSubmittingChallenge}
+        onClose={() => setIsChallengeModalOpen(false)}
+        onSubmit={handleSubmitFriendlyChallenge}
       />
       {!isAdmin ? (
         <ParticipationDialog
@@ -2353,24 +2722,64 @@ function SelectField({
   );
 }
 
-function TeamMark({
-  name,
+type TeamSummary = Pick<ChampionshipTeam, "id" | "name" | "flagUrl">;
+
+function TeamNameBlock({
+  team,
+  fallbackName = "A definir",
+  align = "left",
   size = "md",
+  highlighted = false,
+  onOpenTeamProfile,
 }: {
-  name: string;
+  team: TeamSummary | null;
+  fallbackName?: string;
+  align?: "left" | "right";
   size?: "sm" | "md";
+  highlighted?: boolean;
+  onOpenTeamProfile?: (teamId: string | null) => void;
 }) {
-  const initials = getTeamInitials(name);
-  const sizeClassName = size === "sm" ? "h-7 w-7 text-[10px]" : "h-9 w-9 text-xs";
+  const label = team?.name ?? fallbackName;
+  const canOpenProfile = Boolean(team?.id && onOpenTeamProfile);
+  const flagSize = size === "sm" ? "sm" : "md";
 
   return (
-    <span
-      className={`inline-flex shrink-0 items-center justify-center rounded-[10px] border border-white/15 font-heading font-bold uppercase tracking-[0.12em] text-white ${sizeClassName}`}
-      style={getTeamMarkStyle(name)}
-      aria-hidden="true"
+    <div
+      className={`flex min-w-0 items-center gap-3 ${
+        align === "right" ? "justify-end text-right" : "justify-start text-left"
+      }`}
     >
-      {initials}
-    </span>
+      {align === "left" ? <TeamCrest name={label} size={size === "sm" ? "sm" : "md"} /> : null}
+      <div className="min-w-0">
+        <div
+          className={`flex items-center gap-2 ${
+            align === "right" ? "justify-end" : "justify-start"
+          }`}
+        >
+          {canOpenProfile ? (
+            <button
+              type="button"
+              onClick={() => onOpenTeamProfile?.(team?.id ?? null)}
+              className={`truncate transition hover:text-primary ${
+                highlighted ? "font-semibold text-foreground" : "text-foreground"
+              } ${size === "sm" ? "text-base" : "font-medium"}`}
+            >
+              {label}
+            </button>
+          ) : (
+            <p
+              className={`truncate ${
+                highlighted ? "font-semibold text-foreground" : "text-foreground"
+              } ${size === "sm" ? "text-base" : "font-medium"}`}
+            >
+              {label}
+            </p>
+          )}
+          <TeamFlagBadge teamName={label} flagUrl={team?.flagUrl ?? null} size={flagSize} />
+        </div>
+      </div>
+      {align === "right" ? <TeamCrest name={label} size={size === "sm" ? "sm" : "md"} /> : null}
+    </div>
   );
 }
 
@@ -2379,11 +2788,15 @@ function StandingsBoard({
   description,
   rows,
   qualifiedCount,
+  teamsById,
+  onOpenTeamProfile,
 }: {
   title: string;
   description: string;
   rows: ReturnType<typeof computeGroupStandings>[number]["rows"];
   qualifiedCount: number;
+  teamsById: Map<string, ChampionshipTeam>;
+  onOpenTeamProfile?: (teamId: string | null) => void;
 }) {
   return (
     <section className="border-t border-border/70 pt-4">
@@ -2411,6 +2824,7 @@ function StandingsBoard({
           <tbody>
             {rows.map((row) => {
               const isQualified = qualifiedCount > 0 && row.position <= qualifiedCount;
+              const team = teamsById.get(row.teamId) ?? null;
 
               return (
                 <tr key={row.teamId} className="border-b border-border/50">
@@ -2422,17 +2836,14 @@ function StandingsBoard({
                     {row.position}
                   </td>
                   <td className="py-3 pr-3">
-                    <div className="flex items-center gap-3">
-                      <TeamMark name={row.teamName} />
-                      <div className="min-w-0">
-                        <div className="truncate font-medium text-foreground">{row.teamName}</div>
-                        {row.pointsAdjustment !== 0 ? (
-                          <div className="mt-1 text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
-                            Ajuste {row.pointsAdjustment > 0 ? "+" : ""}
-                            {row.pointsAdjustment}
-                          </div>
-                        ) : null}
-                      </div>
+                    <div className="space-y-1">
+                      <TeamNameBlock team={team} fallbackName={row.teamName} onOpenTeamProfile={onOpenTeamProfile} />
+                      {row.pointsAdjustment !== 0 ? (
+                        <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+                          Ajuste {row.pointsAdjustment > 0 ? "+" : ""}
+                          {row.pointsAdjustment}
+                        </div>
+                      ) : null}
                     </div>
                   </td>
                   <td className="py-3 pr-3 text-center font-semibold text-foreground">{row.points}</td>
@@ -2460,7 +2871,8 @@ function RoundMatchesBoard({
   rounds,
   selectedRoundNumber,
   onSelectRound,
-  teams,
+  teamsById,
+  onOpenTeamProfile,
   isAdmin,
   onEditMatch,
 }: {
@@ -2470,7 +2882,8 @@ function RoundMatchesBoard({
   rounds: Array<[number, ChampionshipGroupMatch[]]>;
   selectedRoundNumber: number;
   onSelectRound: (roundNumber: number) => void;
-  teams: ChampionshipTeam[];
+  teamsById: Map<string, ChampionshipTeam>;
+  onOpenTeamProfile?: (teamId: string | null) => void;
   isAdmin: boolean;
   onEditMatch: (match: ChampionshipGroupMatch) => void;
 }) {
@@ -2551,14 +2964,15 @@ function RoundMatchesBoard({
               {currentMatches.map((match) => (
                 <RoundMatchRow
                   key={match.id}
-                  homeLabel={getTeamName(teams, match.homeTeamId)}
-                  awayLabel={getTeamName(teams, match.awayTeamId)}
+                  homeTeam={teamsById.get(match.homeTeamId) ?? null}
+                  awayTeam={teamsById.get(match.awayTeamId) ?? null}
                   scoreHome={match.scoreHome}
                   scoreAway={match.scoreAway}
                   statusLabel={match.status === "completed" ? "Encerrada" : "Pendente"}
                   metaLabel={formatMatchDateTime(match.playedAt)}
                   secondaryMeta={match.venue || "Local a definir"}
-                  onClick={isAdmin ? () => onEditMatch(match) : undefined}
+                  onOpenTeamProfile={onOpenTeamProfile}
+                  onEditMatch={isAdmin ? () => onEditMatch(match) : undefined}
                 />
               ))}
             </div>
@@ -2574,6 +2988,71 @@ function RoundMatchesBoard({
 }
 
 function RoundMatchRow({
+  homeTeam,
+  awayTeam,
+  scoreHome,
+  scoreAway,
+  statusLabel,
+  metaLabel,
+  secondaryMeta,
+  winnerTeamId,
+  onOpenTeamProfile,
+  onEditMatch,
+}: {
+  homeTeam: TeamSummary | null;
+  awayTeam: TeamSummary | null;
+  scoreHome: number | null;
+  scoreAway: number | null;
+  statusLabel: string;
+  metaLabel: string;
+  secondaryMeta: string;
+  winnerTeamId?: string | null;
+  onOpenTeamProfile?: (teamId: string | null) => void;
+  onEditMatch?: () => void;
+}) {
+  return (
+    <article className="w-full border-b border-border/50 pb-4 text-left last:border-b-0">
+      <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-4">
+        <TeamNameBlock
+          team={homeTeam}
+          align="right"
+          size="sm"
+          highlighted={Boolean(winnerTeamId && winnerTeamId === homeTeam?.id)}
+          onOpenTeamProfile={onOpenTeamProfile}
+        />
+
+        <div className="flex items-center gap-1">
+          <ScoreBox score={scoreHome} highlighted={Boolean(winnerTeamId && winnerTeamId === homeTeam?.id)} />
+          <ScoreBox score={scoreAway} highlighted={Boolean(winnerTeamId && winnerTeamId === awayTeam?.id)} />
+        </div>
+
+        <TeamNameBlock
+          team={awayTeam}
+          align="left"
+          size="sm"
+          highlighted={Boolean(winnerTeamId && winnerTeamId === awayTeam?.id)}
+          onOpenTeamProfile={onOpenTeamProfile}
+        />
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+        <span>{metaLabel}</span>
+        <span>{secondaryMeta}</span>
+        <span>{statusLabel}</span>
+      </div>
+      {onEditMatch ? (
+        <div className="mt-3 flex justify-end">
+          <Button variant="outline" size="sm" onClick={onEditMatch}>
+            Editar partida
+          </Button>
+        </div>
+      ) : null}
+    </article>
+  );
+}
+
+function MatchCard({
+  title,
   homeLabel,
   awayLabel,
   scoreHome,
@@ -2584,8 +3063,12 @@ function RoundMatchRow({
   winnerTeamId,
   homeTeamId,
   awayTeamId,
+  homeFlagUrl,
+  awayFlagUrl,
   onClick,
+  onOpenTeamProfile,
 }: {
+  title: string;
   homeLabel: string;
   awayLabel: string;
   scoreHome: number | null;
@@ -2596,49 +3079,58 @@ function RoundMatchRow({
   winnerTeamId?: string | null;
   homeTeamId?: string | null;
   awayTeamId?: string | null;
+  homeFlagUrl?: string | null;
+  awayFlagUrl?: string | null;
   onClick?: () => void;
+  onOpenTeamProfile?: (teamId: string | null) => void;
 }) {
-  const Wrapper = onClick ? "button" : "div";
+  const homeTeam = homeTeamId ? { id: homeTeamId, name: homeLabel, flagUrl: homeFlagUrl ?? null } : null;
+  const awayTeam = awayTeamId ? { id: awayTeamId, name: awayLabel, flagUrl: awayFlagUrl ?? null } : null;
 
   return (
-    <Wrapper
-      type={onClick ? "button" : undefined}
-      onClick={onClick}
-      className={`w-full border-b border-border/50 pb-4 text-left last:border-b-0 ${
-        onClick ? "transition hover:border-primary/40 hover:bg-primary/5" : ""
-      }`}
-    >
-      <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-4">
-        <div className="flex min-w-0 items-center justify-end gap-3 text-right">
-          <div className="min-w-0">
-            <p className={`truncate text-base ${winnerTeamId && winnerTeamId === homeTeamId ? "font-semibold text-foreground" : "text-foreground"}`}>
-              {homeLabel}
-            </p>
+    <article className="rounded-2xl border border-border bg-muted/20 p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">{title}</p>
+          <div className="mt-4 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-4">
+            <TeamNameBlock
+              team={homeTeam}
+              fallbackName={homeLabel}
+              align="right"
+              size="sm"
+              highlighted={Boolean(winnerTeamId && winnerTeamId === homeTeamId)}
+              onOpenTeamProfile={onOpenTeamProfile}
+            />
+
+            <div className="flex items-center gap-1">
+              <ScoreBox score={scoreHome} highlighted={Boolean(winnerTeamId && winnerTeamId === homeTeamId)} />
+              <ScoreBox score={scoreAway} highlighted={Boolean(winnerTeamId && winnerTeamId === awayTeamId)} />
+            </div>
+
+            <TeamNameBlock
+              team={awayTeam}
+              fallbackName={awayLabel}
+              align="left"
+              size="sm"
+              highlighted={Boolean(winnerTeamId && winnerTeamId === awayTeamId)}
+              onOpenTeamProfile={onOpenTeamProfile}
+            />
           </div>
-          <TeamMark name={homeLabel} size="sm" />
         </div>
 
-        <div className="flex items-center gap-1">
-          <ScoreBox score={scoreHome} highlighted={Boolean(winnerTeamId && winnerTeamId === homeTeamId)} />
-          <ScoreBox score={scoreAway} highlighted={Boolean(winnerTeamId && winnerTeamId === awayTeamId)} />
-        </div>
-
-        <div className="flex min-w-0 items-center gap-3">
-          <TeamMark name={awayLabel} size="sm" />
-          <div className="min-w-0">
-            <p className={`truncate text-base ${winnerTeamId && winnerTeamId === awayTeamId ? "font-semibold text-foreground" : "text-foreground"}`}>
-              {awayLabel}
-            </p>
-          </div>
-        </div>
+        {onClick ? (
+          <Button variant="outline" size="sm" onClick={onClick}>
+            Editar confronto
+          </Button>
+        ) : null}
       </div>
 
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
         <span>{metaLabel}</span>
         <span>{secondaryMeta}</span>
         <span>{statusLabel}</span>
       </div>
-    </Wrapper>
+    </article>
   );
 }
 

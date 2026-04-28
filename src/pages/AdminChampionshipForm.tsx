@@ -110,11 +110,11 @@ function validateStep(step: StepId, form: ChampionshipFormValues) {
   }
 
   if (step === "configuracoes") {
-    if (!form.startDate || !form.endDate) {
-      return "Preencha a data de inicio e a data de fim.";
+    if (!form.startDate) {
+      return "Preencha a data de inicio.";
     }
 
-    if (new Date(form.endDate) < new Date(form.startDate)) {
+    if (form.endDate && new Date(form.endDate) < new Date(form.startDate)) {
       return "A data de fim nao pode ser anterior a data de inicio.";
     }
   }
@@ -692,7 +692,7 @@ export default function AdminChampionshipForm() {
                   </div>
                 </Field>
 
-                <Field label="Data de fim">
+                <Field label="Data de fim (opcional)">
                   <div className="relative">
                     <CalendarRange className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-electric" />
                     <input
@@ -913,9 +913,11 @@ export default function AdminChampionshipForm() {
                   <InfoRow
                     label="Calendario"
                     value={
-                      form.startDate && form.endDate
-                        ? `${form.startDate} ate ${form.endDate}`
-                        : "Defina as datas para concluir"
+                      form.startDate
+                        ? form.endDate
+                          ? `${form.startDate} ate ${form.endDate}`
+                          : form.startDate
+                        : "Defina a data de inicio para concluir"
                     }
                   />
                 </div>

@@ -60,6 +60,12 @@ enum ParticipantStatus {
   CHAMPION
 }
 
+enum FriendlyChallengeStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
 enum ImageRequestType {
   USER
   PLAYER
@@ -182,6 +188,7 @@ model Team {
   platform         PlatformName
   status           TeamStatus                  @default(PENDING)
   summary          String?
+  flagUrl          String?                     @map("flag_url")
   championshipsWon Int                         @default(0)
   createdAt        DateTime                    @default(now())
   updatedAt        DateTime                    @updatedAt
@@ -226,6 +233,7 @@ model Championship {
   stages            ChampionshipStage[]
   participants      ChampionshipParticipant[]
   workspace         ChampionshipWorkspace?
+  friendlyChallenges FriendlyChallenge[]
 
   @@index([status, registrationOpen])
   @@index([startsAt])
@@ -276,6 +284,38 @@ model ChampionshipWorkspace {
   championship    Championship  @relation(fields: [championshipId], references: [id], onDelete: Cascade)
 
   @@map("championship_workspaces")
+}
+
+model FriendlyChallenge {
+  id               String                  @id @default(uuid()) @db.Uuid
+  championshipId   String?                 @map("championship_id")
+  championshipName String?                 @map("championship_name")
+  fromTeamId       String                  @map("from_team_id")
+  toTeamId         String                  @map("to_team_id")
+  fromPlayerId     String?                 @map("from_player_id")
+  fromPlayerEmail  String?                 @map("from_player_email")
+  toPlayerId       String?                 @map("to_player_id")
+  toPlayerEmail    String?                 @map("to_player_email")
+  fromTeamName     String                  @map("from_team_name")
+  toTeamName       String                  @map("to_team_name")
+  fromFlagUrl      String?                 @map("from_flag_url")
+  toFlagUrl        String?                 @map("to_flag_url")
+  date             String
+  time             String
+  message          String?
+  status           FriendlyChallengeStatus @default(PENDING)
+  createdAt        DateTime                @default(now()) @map("created_at")
+  updatedAt        DateTime                @updatedAt @map("updated_at")
+  championship     Championship?           @relation(fields: [championshipId], references: [id], onDelete: SetNull)
+
+  @@index([championshipId])
+  @@index([status, createdAt])
+  @@index([fromTeamId, toTeamId, status])
+  @@index([fromPlayerId])
+  @@index([toPlayerId])
+  @@index([fromPlayerEmail])
+  @@index([toPlayerEmail])
+  @@map("friendly_challenges")
 }
 
 model ImageRequest {

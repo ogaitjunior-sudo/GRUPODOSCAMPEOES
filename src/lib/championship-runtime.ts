@@ -108,6 +108,25 @@ function normalizeTeams(teams: ChampionshipTeam[] | undefined) {
       seed: Math.max(1, Number(team.seed ?? index + 1)),
       groupId: typeof team.groupId === "string" && team.groupId ? team.groupId : null,
       pointsAdjustment: Number(team.pointsAdjustment ?? 0),
+      flagUrl: typeof team.flagUrl === "string" && team.flagUrl.trim() ? team.flagUrl.trim() : null,
+      captainName:
+        typeof team.captainName === "string" && team.captainName.trim()
+          ? team.captainName.trim()
+          : null,
+      roster: Array.isArray(team.roster)
+        ? team.roster
+            .map((player) => String(player ?? "").trim())
+            .filter(Boolean)
+        : [],
+    }))
+    .map((team) => ({
+      ...team,
+      roster:
+        team.roster.length > 0
+          ? Array.from(new Set(team.roster))
+          : team.captainName
+            ? [team.captainName]
+            : [],
     }))
     .sort((left, right) => left.seed - right.seed);
 }
@@ -702,6 +721,47 @@ export function renameTeam(workspace: ChampionshipWorkspaceRecord, teamId: strin
     teams: workspace.teams.map((team) =>
       team.id === teamId ? { ...team, name: name.trim() || team.name } : team,
     ),
+    updatedAt: nowIso(),
+  };
+}
+
+export function updateTeamProfile(
+  workspace: ChampionshipWorkspaceRecord,
+  teamId: string,
+  patch: Partial<Pick<ChampionshipTeam, "captainName" | "flagUrl" | "roster">>,
+) {
+  return {
+    ...workspace,
+    teams: workspace.teams.map((team) => {
+      if (team.id !== teamId) {
+        return team;
+      }
+
+      const captainName =
+        patch.captainName === undefined
+          ? team.captainName
+          : patch.captainName?.trim()
+            ? patch.captainName.trim()
+            : null;
+      const roster =
+        patch.roster === undefined
+          ? team.roster
+          : Array.from(
+              new Set(
+                patch.roster
+                  .map((player) => String(player ?? "").trim())
+                  .filter(Boolean),
+              ),
+            );
+
+      return {
+        ...team,
+        captainName,
+        flagUrl:
+          patch.flagUrl === undefined ? team.flagUrl : patch.flagUrl?.trim() ? patch.flagUrl.trim() : null,
+        roster: roster.length > 0 ? roster : captainName ? [captainName] : [],
+      };
+    }),
     updatedAt: nowIso(),
   };
 }

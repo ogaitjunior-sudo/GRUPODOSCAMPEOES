@@ -105,14 +105,18 @@ export function addParticipantToChampionshipWorkspace(
 
   const nextSeed =
     workspace.teams.reduce((highestSeed, team) => Math.max(highestSeed, team.seed), 0) + 1;
+  const captainName = request.playerName.trim() || null;
   const nextTeam: ChampionshipTeam = {
     id: createRuntimeId("team"),
-    name: request.playerName.trim() || `Participante ${nextSeed}`,
+    name: captainName ?? `Participante ${nextSeed}`,
     playerId: request.playerId,
     playerEmail: request.playerEmail.trim().toLowerCase() || null,
     seed: nextSeed,
     groupId: null,
     pointsAdjustment: 0,
+    flagUrl: null,
+    captainName,
+    roster: captainName ? [captainName] : [],
   };
 
   return normalizeChampionshipWorkspace(

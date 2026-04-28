@@ -96,9 +96,7 @@ export function HeroSection() {
             </div>
 
             <h1 className="mt-8 max-w-4xl text-balance font-heading text-5xl font-semibold leading-[1.02] text-white drop-shadow-[0_12px_28px_rgba(0,0,0,0.55)] md:text-7xl">
-              Sem esforço não tem história.
-              <br />
-              <span className="text-primary">Sem história não tem campeão.</span>
+              <span className="text-primary">Disciplina gera campeões.</span>
             </h1>
 
             <p className="mt-6 max-w-2xl text-lg leading-8 text-white/78 md:text-xl">

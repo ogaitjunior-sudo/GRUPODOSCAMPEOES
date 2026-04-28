@@ -19,6 +19,9 @@ export interface ChampionshipTeam {
   seed: number;
   groupId: string | null;
   pointsAdjustment: number;
+  flagUrl: string | null;
+  captainName: string | null;
+  roster: string[];
 }
 
 export interface ChampionshipGroup {
@@ -148,6 +151,41 @@ export interface ChampionshipWorkspaceRecord {
   scoring: ChampionshipScoringSettings;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ChampionshipTeamStats {
+  played: number;
+  wins: number;
+  draws: number;
+  losses: number;
+  goalsFor: number;
+  goalsAgainst: number;
+  goalDifference: number;
+}
+
+export type ChampionshipTeamRecentMatchResult = "win" | "draw" | "loss";
+
+export interface ChampionshipTeamRecentMatch {
+  id: string;
+  phaseLabel: string;
+  opponentTeamId: string | null;
+  opponentName: string;
+  opponentFlagUrl: string | null;
+  scoreFor: number;
+  scoreAgainst: number;
+  result: ChampionshipTeamRecentMatchResult;
+  playedAt: string | null;
+  venue: string;
+  resolutionLabel: string | null;
+}
+
+export interface ChampionshipTeamProfile {
+  team: ChampionshipTeam;
+  groupName: string | null;
+  captainName: string | null;
+  roster: string[];
+  stats: ChampionshipTeamStats;
+  recentMatches: ChampionshipTeamRecentMatch[];
 }
 
 export interface GroupMatchUpdateInput {

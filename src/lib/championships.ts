@@ -383,6 +383,11 @@ export function buildChampionshipRules(configuration: ChampionshipConfiguration)
     .join(" | ");
 }
 
+export function resolveChampionshipEndDate(startDate: string, endDate: string) {
+  void startDate;
+  return typeof endDate === "string" ? endDate.trim() : "";
+}
+
 export function formatChampionshipDateRange(startDate: string, endDate: string) {
   const formatter = new Intl.DateTimeFormat("pt-BR", {
     day: "2-digit",
@@ -390,7 +395,24 @@ export function formatChampionshipDateRange(startDate: string, endDate: string) 
     year: "numeric",
   });
 
-  return `${formatter.format(new Date(startDate))} - ${formatter.format(new Date(endDate))}`;
+  const normalizedEndDate = resolveChampionshipEndDate(startDate, endDate);
+  const start = new Date(startDate);
+
+  if (Number.isNaN(start.getTime())) {
+    return "Data a definir";
+  }
+
+  if (!normalizedEndDate) {
+    return formatter.format(start);
+  }
+
+  const end = new Date(normalizedEndDate);
+
+  if (Number.isNaN(end.getTime()) || start.getTime() === end.getTime()) {
+    return formatter.format(start);
+  }
+
+  return `${formatter.format(start)} - ${formatter.format(end)}`;
 }
 
 export function createChampionshipId() {
@@ -467,7 +489,7 @@ export function normalizeChampionshipFormValues(values: ChampionshipFormValues):
     name: values.name.trim(),
     description: values.description.trim() || buildChampionshipDescription(configuration),
     startDate: values.startDate,
-    endDate: values.endDate,
+    endDate: resolveChampionshipEndDate(values.startDate, values.endDate),
     teamCount: Number(values.teamCount),
     rules: values.rules.trim() || buildChampionshipRules(configuration),
     status: normalizeChampionshipStatus(values.status),

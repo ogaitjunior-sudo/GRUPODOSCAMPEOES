@@ -97,6 +97,16 @@ function getLocalWorkspace(championshipId: string) {
   return readStoredWorkspaces().find((item) => item.championshipId === championshipId);
 }
 
+export function readStoredChampionshipWorkspaceRecord(championship: ChampionshipRecord) {
+  const localWorkspace = getLocalWorkspace(championship.id);
+
+  if (!localWorkspace) {
+    return null;
+  }
+
+  return normalizeChampionshipWorkspace(localWorkspace, championship);
+}
+
 function isWorkspaceTableUnavailable(error: unknown) {
   const postgrestError = error as Partial<PostgrestError> | null;
   const errorCode = postgrestError?.code?.toUpperCase();
@@ -111,11 +121,38 @@ function isWorkspaceTableUnavailable(error: unknown) {
   );
 }
 
+function getErrorMessage(error: unknown) {
+  const postgrestError = error as Partial<PostgrestError> | null;
+
+  if (typeof postgrestError?.message === "string" && postgrestError.message.trim()) {
+    return postgrestError.message.trim();
+  }
+
+  if (error instanceof Error && error.message.trim()) {
+    return error.message.trim();
+  }
+
+  return "";
+}
+
+function isSupabaseNetworkError(error: unknown) {
+  const errorMessage = getErrorMessage(error).toLowerCase();
+
+  return (
+    errorMessage.includes("failed to fetch") ||
+    errorMessage.includes("fetch failed") ||
+    errorMessage.includes("load failed") ||
+    errorMessage.includes("network error") ||
+    errorMessage.includes("networkerror") ||
+    errorMessage.includes("network request failed")
+  );
+}
+
 function shouldFallbackToLocal(error: unknown) {
   const postgrestError = error as Partial<PostgrestError> | null;
   const errorCode = postgrestError?.code?.toUpperCase();
 
-  return isWorkspaceTableUnavailable(error) || errorCode === "42501";
+  return isWorkspaceTableUnavailable(error) || errorCode === "42501" || isSupabaseNetworkError(error);
 }
 
 function pickNewestRecord(
@@ -199,6 +236,10 @@ export function formatChampionshipWorkspaceStoreError(error: unknown) {
   const postgrestError = error as Partial<PostgrestError> | null;
   const errorCode = postgrestError?.code?.toUpperCase();
   const errorMessage = postgrestError?.message;
+
+  if (isSupabaseNetworkError(error)) {
+    return "Nao foi possivel conectar ao Supabase agora. O painel vai tentar usar a base local e voce pode tentar novamente em instantes.";
+  }
 
   if (errorCode === "42501") {
     return "O Supabase bloqueou a escrita do workspace do campeonato com RLS. O portal vai continuar usando a base local ate a permissao ser ajustada.";

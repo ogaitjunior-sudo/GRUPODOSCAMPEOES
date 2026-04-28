@@ -1,4 +1,5 @@
 import type { LucideIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { SiteActionLink } from "@/components/SiteActionLink";
 import { cn } from "@/lib/utils";
 
@@ -8,6 +9,7 @@ interface EmptyStateCardProps {
   description: string;
   actionLabel?: string;
   actionTo?: string;
+  actionOnClick?: (() => void) | undefined;
   className?: string;
 }
 
@@ -17,6 +19,7 @@ export function EmptyStateCard({
   description,
   actionLabel,
   actionTo,
+  actionOnClick,
   className,
 }: EmptyStateCardProps) {
   return (
@@ -35,7 +38,7 @@ export function EmptyStateCard({
       <p className="mx-auto max-w-2xl text-sm leading-7 text-muted-foreground">
         {description}
       </p>
-      {actionLabel && actionTo && (
+      {actionLabel && actionTo ? (
         <SiteActionLink
           to={actionTo}
           variant="secondary"
@@ -44,7 +47,18 @@ export function EmptyStateCard({
         >
           {actionLabel}
         </SiteActionLink>
-      )}
+      ) : null}
+      {actionLabel && actionOnClick ? (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="mt-6"
+          onClick={actionOnClick}
+        >
+          {actionLabel}
+        </Button>
+      ) : null}
     </div>
   );
 }

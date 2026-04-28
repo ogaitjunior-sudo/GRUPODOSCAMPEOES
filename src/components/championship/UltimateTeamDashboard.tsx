@@ -1,5 +1,7 @@
 import { Filter } from "lucide-react";
 import type { ReactNode } from "react";
+import { TeamCrest, TeamFlagBadge } from "@/components/championship/TeamIdentity";
+import { TeamPhotoBadge } from "@/components/profile/TeamPhotoBadge";
 import { cn } from "@/lib/utils";
 
 export interface UltimateTeamEntryIdentity {
@@ -7,6 +9,8 @@ export interface UltimateTeamEntryIdentity {
   name: string;
   meta?: string;
   crestLabel?: string;
+  flagUrl?: string | null;
+  teamPhotoUrl?: string | null;
 }
 
 export interface UltimateTeamStandingsEntry {
@@ -48,6 +52,7 @@ interface UltimateTeamGroupDashboardProps {
   roundTitle: string;
   standings: UltimateTeamStandingsEntry[];
   matches: UltimateTeamMatchEntry[];
+  onTeamSelect?: (teamId: string) => void;
   filterLabel?: string;
   emptyStandingsMessage?: string;
   emptyMatchesMessage?: string;
@@ -99,6 +104,7 @@ export function UltimateTeamGroupDashboard({
   roundTitle,
   standings,
   matches,
+  onTeamSelect,
   filterLabel = "equipes",
   emptyStandingsMessage = "Nenhuma classificacao disponivel para este recorte.",
   emptyMatchesMessage = "Nenhuma partida encontrada para esta rodada.",
@@ -146,6 +152,7 @@ export function UltimateTeamGroupDashboard({
                   <UltimateTeamStandingsRow
                     key={row.id}
                     row={row}
+                    onTeamSelect={onTeamSelect}
                     isLeader={row.position === 1}
                     isStriped={index % 2 === 0}
                   />
@@ -167,7 +174,9 @@ export function UltimateTeamGroupDashboard({
 
         <div className="space-y-3 px-4 py-4 md:px-5">
           {matches.length > 0 ? (
-            matches.map((match) => <UltimateTeamMatchCard key={match.id} match={match} />)
+            matches.map((match) => (
+              <UltimateTeamMatchCard key={match.id} match={match} onTeamSelect={onTeamSelect} />
+            ))
           ) : (
             <div className="rounded-[18px] border border-white/8 bg-white/[0.03] px-4 py-6 text-sm text-slate-400">
               {emptyMatchesMessage}
@@ -181,10 +190,12 @@ export function UltimateTeamGroupDashboard({
 
 function UltimateTeamStandingsRow({
   row,
+  onTeamSelect,
   isLeader,
   isStriped,
 }: {
   row: UltimateTeamStandingsEntry;
+  onTeamSelect?: (teamId: string) => void;
   isLeader: boolean;
   isStriped: boolean;
 }) {
@@ -206,12 +217,30 @@ function UltimateTeamStandingsRow({
       </StandingsCell>
       <StandingsCell>
         <div className="flex min-w-[220px] items-center gap-3">
-          <UltimateTeamCrest label={row.team.crestLabel ?? row.team.name} />
+          <TeamIdentityMark
+            teamName={row.team.crestLabel ?? row.team.name}
+            teamPhotoUrl={row.team.teamPhotoUrl}
+          />
           <div className="min-w-0">
-            <p className="truncate font-medium text-slate-100 transition-colors group-hover:text-electric">
-              {row.team.name}
+            <div className="flex items-center gap-2">
+              {onTeamSelect ? (
+                <button
+                  type="button"
+                  onClick={() => onTeamSelect(row.team.id)}
+                  className="truncate font-medium text-slate-100 transition-colors hover:text-electric"
+                >
+                  {row.team.name}
+                </button>
+              ) : (
+                <p className="truncate font-medium text-slate-100 transition-colors group-hover:text-electric">
+                  {row.team.name}
+                </p>
+              )}
+              <TeamFlagBadge teamName={row.team.name} flagUrl={row.team.flagUrl} size="sm" />
+            </div>
+            <p className="mt-1 truncate text-xs text-slate-400">
+              {row.team.meta ?? "Tecnico nao vinculado"}
             </p>
-            <p className="mt-1 truncate text-xs text-slate-400">{row.team.meta ?? "Tecnico nao vinculado"}</p>
           </div>
         </div>
       </StandingsCell>
@@ -230,16 +259,22 @@ function UltimateTeamStandingsRow({
   );
 }
 
-function UltimateTeamMatchCard({ match }: { match: UltimateTeamMatchEntry }) {
+function UltimateTeamMatchCard({
+  match,
+  onTeamSelect,
+}: {
+  match: UltimateTeamMatchEntry;
+  onTeamSelect?: (teamId: string) => void;
+}) {
   return (
     <article className="rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,hsl(220_22%_14%_/_0.95),hsl(220_18%_12%_/_0.92))] px-4 py-4 shadow-[0_16px_32px_hsl(222_45%_4%_/_0.22)] transition-all hover:-translate-y-0.5 hover:border-electric/25 hover:shadow-[0_20px_38px_hsl(196_100%_15%_/_0.18)]">
       <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3">
-        <UltimateTeamMatchSide team={match.home} align="right" />
+        <UltimateTeamMatchSide team={match.home} align="right" onTeamSelect={onTeamSelect} />
         <div className="flex items-center gap-1.5">
           <UltimateTeamScore score={match.scoreHome} />
           <UltimateTeamScore score={match.scoreAway} />
         </div>
-        <UltimateTeamMatchSide team={match.away} align="left" />
+        <UltimateTeamMatchSide team={match.away} align="left" onTeamSelect={onTeamSelect} />
       </div>
 
       {(match.statusLabel || match.metaLabel) ? (
@@ -255,9 +290,11 @@ function UltimateTeamMatchCard({ match }: { match: UltimateTeamMatchEntry }) {
 function UltimateTeamMatchSide({
   team,
   align,
+  onTeamSelect,
 }: {
   team: UltimateTeamEntryIdentity;
   align: "left" | "right";
+  onTeamSelect?: (teamId: string) => void;
 }) {
   return (
     <div
@@ -266,12 +303,62 @@ function UltimateTeamMatchSide({
         align === "right" ? "justify-end text-right" : "justify-start text-left",
       )}
     >
-      {align === "left" ? <UltimateTeamCrest label={team.crestLabel ?? team.name} /> : null}
+      {align === "left" ? (
+        <TeamIdentityMark
+          teamName={team.crestLabel ?? team.name}
+          teamPhotoUrl={team.teamPhotoUrl}
+        />
+      ) : null}
       <div className="min-w-0">
-        <p className="truncate text-sm font-medium text-slate-100 md:text-[15px]">{team.name}</p>
+        <div
+          className={cn(
+            "flex items-center gap-2",
+            align === "right" ? "justify-end" : "justify-start",
+          )}
+        >
+          {onTeamSelect ? (
+            <button
+              type="button"
+              onClick={() => onTeamSelect(team.id)}
+              className="truncate text-sm font-medium text-slate-100 transition-colors hover:text-electric md:text-[15px]"
+            >
+              {team.name}
+            </button>
+          ) : (
+            <p className="truncate text-sm font-medium text-slate-100 md:text-[15px]">{team.name}</p>
+          )}
+          <TeamFlagBadge teamName={team.name} flagUrl={team.flagUrl} size="sm" />
+        </div>
         <p className="mt-1 truncate text-xs text-slate-400">{team.meta ?? "Jogador nao vinculado"}</p>
       </div>
-      {align === "right" ? <UltimateTeamCrest label={team.crestLabel ?? team.name} /> : null}
+      {align === "right" ? (
+        <TeamIdentityMark
+          teamName={team.crestLabel ?? team.name}
+          teamPhotoUrl={team.teamPhotoUrl}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function TeamIdentityMark({
+  teamName,
+  teamPhotoUrl,
+}: {
+  teamName: string;
+  teamPhotoUrl?: string | null;
+}) {
+  return (
+    <div className="relative shrink-0">
+      <TeamCrest name={teamName} />
+      {teamPhotoUrl ? (
+        <TeamPhotoBadge
+          name={teamName}
+          photoUrl={teamPhotoUrl}
+          size="sm"
+          className="absolute -bottom-1 -right-2 h-5 w-5 border-[1.5px] border-[hsl(220_18%_12%)] shadow-[0_8px_18px_hsl(0_0%_0%_/_0.28)]"
+        />
+      ) : null}
     </div>
   );
 }
@@ -280,23 +367,6 @@ function UltimateTeamScore({ score }: { score: number | null }) {
   return (
     <span className="inline-flex h-11 min-w-[2.75rem] items-center justify-center rounded-[10px] border border-white/8 bg-white/[0.04] px-3 text-lg font-semibold text-slate-50 shadow-[inset_0_1px_0_hsl(0_0%_100%_/_0.03)]">
       {score ?? "-"}
-    </span>
-  );
-}
-
-function UltimateTeamCrest({ label }: { label: string }) {
-  const crestLabel = buildInitials(label);
-  const hue = buildHue(label);
-
-  return (
-    <span
-      className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border border-white/12 text-[11px] font-semibold uppercase tracking-[0.14em] text-white shadow-[inset_0_1px_0_hsl(0_0%_100%_/_0.12)]"
-      style={{
-        background: `linear-gradient(145deg, hsl(${hue} 76% 56%), hsl(${(hue + 42) % 360} 68% 42%))`,
-      }}
-      aria-hidden="true"
-    >
-      {crestLabel}
     </span>
   );
 }
@@ -328,25 +398,4 @@ function StandingsCell({
       {children}
     </td>
   );
-}
-
-function buildInitials(value: string) {
-  const parts = value
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean);
-
-  if (parts.length === 0) {
-    return "UT";
-  }
-
-  if (parts.length === 1) {
-    return parts[0].slice(0, 2).toUpperCase();
-  }
-
-  return `${parts[0][0] ?? ""}${parts[1][0] ?? ""}`.toUpperCase();
-}
-
-function buildHue(value: string) {
-  return value.split("").reduce((total, char) => total + char.charCodeAt(0), 0) % 360;
 }

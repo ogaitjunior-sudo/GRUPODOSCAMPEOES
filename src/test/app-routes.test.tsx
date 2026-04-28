@@ -15,7 +15,7 @@ describe("app routes", () => {
     render(<App />);
 
     expect(
-      screen.getByRole("heading", { level: 1, name: /menos.*mais campeonato/i }),
+      screen.getByRole("heading", { level: 1, name: /disciplina gera campe/i }),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /pesquisar/i })).toBeInTheDocument();
   });

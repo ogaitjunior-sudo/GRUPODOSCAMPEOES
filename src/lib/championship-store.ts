@@ -39,6 +39,7 @@ type ChampionshipConfigurationPayload = {
 };
 
 export type ChampionshipStorageMode = "local" | "supabase";
+const isChampionshipStoreTestMode = import.meta.env.MODE === "test";
 
 function isChampionshipRecord(value: unknown): value is ChampionshipRecord {
   return (
@@ -129,11 +130,38 @@ function isChampionshipTableUnavailable(error: unknown) {
   );
 }
 
+function getErrorMessage(error: unknown) {
+  const postgrestError = error as Partial<PostgrestError> | null;
+
+  if (typeof postgrestError?.message === "string" && postgrestError.message.trim()) {
+    return postgrestError.message.trim();
+  }
+
+  if (error instanceof Error && error.message.trim()) {
+    return error.message.trim();
+  }
+
+  return "";
+}
+
+function isSupabaseNetworkError(error: unknown) {
+  const errorMessage = getErrorMessage(error).toLowerCase();
+
+  return (
+    errorMessage.includes("failed to fetch") ||
+    errorMessage.includes("fetch failed") ||
+    errorMessage.includes("load failed") ||
+    errorMessage.includes("network error") ||
+    errorMessage.includes("networkerror") ||
+    errorMessage.includes("network request failed")
+  );
+}
+
 function shouldFallbackToLocal(error: unknown) {
   const postgrestError = error as Partial<PostgrestError> | null;
   const errorCode = postgrestError?.code?.toUpperCase();
 
-  return isChampionshipTableUnavailable(error) || errorCode === "42501";
+  return isChampionshipTableUnavailable(error) || errorCode === "42501" || isSupabaseNetworkError(error);
 }
 
 function mergeChampionshipCollections(...collections: ChampionshipRecord[][]) {
@@ -169,7 +197,7 @@ function removeChampionshipLocally(id: string) {
 }
 
 export function getChampionshipStorageMode(): ChampionshipStorageMode {
-  return isSupabaseConfigured ? "supabase" : "local";
+  return !isChampionshipStoreTestMode && isSupabaseConfigured ? "supabase" : "local";
 }
 
 export function readStoredChampionships(): ChampionshipRecord[] {
@@ -256,9 +284,11 @@ export function writeStoredChampionships(championships: ChampionshipRecord[]) {
 }
 
 export async function listChampionships() {
-  if (!supabase) {
+  if (isChampionshipStoreTestMode || !supabase) {
     return readStoredChampionships();
   }
+
+  const localChampionships = readStoredChampionships();
 
   const { data, error } = await supabase
     .from(CHAMPIONSHIPS_TABLE)
@@ -268,7 +298,11 @@ export async function listChampionships() {
 
   if (error) {
     if (shouldFallbackToLocal(error)) {
-      return readStoredChampionships();
+      if (isSupabaseNetworkError(error) && localChampionships.length === 0) {
+        throw new Error(formatChampionshipStoreError(error));
+      }
+
+      return localChampionships;
     }
 
     throw error;
@@ -276,7 +310,7 @@ export async function listChampionships() {
 
   return mergeChampionshipCollections(
     (data ?? []).map((row) => mapRowToRecord(row as ChampionshipRow)),
-    readStoredChampionships(),
+    localChampionships,
   );
 }
 
@@ -313,7 +347,7 @@ export async function saveChampionshipRecord(
 ) {
   const mode = options.mode ?? "update";
 
-  if (!supabase) {
+  if (isChampionshipStoreTestMode || !supabase) {
     persistChampionshipLocally(record);
     return record;
   }
@@ -340,7 +374,7 @@ export async function saveChampionshipRecord(
 }
 
 export async function deleteChampionshipRecord(id: string) {
-  if (!supabase) {
+  if (isChampionshipStoreTestMode || !supabase) {
     removeChampionshipLocally(id);
     return;
   }
@@ -362,7 +396,7 @@ export async function deleteChampionshipRecord(id: string) {
 export function formatChampionshipStoreError(error: unknown) {
   const postgrestError = error as Partial<PostgrestError> | null;
   const errorCode = postgrestError?.code?.toUpperCase();
-  const errorMessage = postgrestError?.message;
+  const errorMessage = getErrorMessage(error);
 
   if (errorCode === "42501") {
     return "O Supabase bloqueou a escrita com RLS. O portal vai continuar usando a base local ate a permissao ser ajustada.";
@@ -376,12 +410,12 @@ export function formatChampionshipStoreError(error: unknown) {
     return "A tabela public.championships ainda nao foi publicada no schema cache do Supabase. Rode a migration e atualize o schema.";
   }
 
-  if (typeof errorMessage === "string" && errorMessage.trim()) {
-    return errorMessage;
+  if (isSupabaseNetworkError(error)) {
+    return "Nao foi possivel conectar ao Supabase agora. Verifique sua conexao e tente novamente em alguns instantes.";
   }
 
-  if (error instanceof Error && error.message.trim()) {
-    return error.message;
+  if (typeof errorMessage === "string" && errorMessage.trim()) {
+    return errorMessage;
   }
 
   return "Nao foi possivel sincronizar os campeonatos com o banco.";

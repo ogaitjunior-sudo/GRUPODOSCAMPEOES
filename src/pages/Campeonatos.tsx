@@ -60,12 +60,14 @@ function InfoChip({ label, value }: { label: string; value: string }) {
 }
 
 const Campeonatos = () => {
-  const { championships, isLoading, storageMode, syncError } = useChampionships();
+  const { championships, isLoading, storageMode, syncError, refreshChampionships } = useChampionships();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("todos");
   const [platformFilter, setPlatformFilter] = useState<"Todas" | ChampionshipPlatform>("Todas");
   const deferredSearch = useDeferredValue(searchTerm);
   const hasChampionships = championships.length > 0;
+  const hasSyncWarning = storageMode === "supabase" && Boolean(syncError) && hasChampionships;
+  const hasBlockingSyncError = storageMode === "supabase" && Boolean(syncError) && !hasChampionships;
 
   const platformFilters: Array<"Todas" | ChampionshipPlatform> = [
     "Todas",
@@ -259,13 +261,38 @@ const Campeonatos = () => {
               </aside>
             </div>
 
-            {storageMode === "supabase" && syncError ? (
+            {hasSyncWarning ? (
+              <div className="mt-10 rounded-[28px] border border-amber-500/25 bg-amber-500/8 px-5 py-4 text-sm text-amber-50 shadow-[0_18px_40px_hsl(0_0%_0%_/_0.18)]">
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.22em] text-amber-200">
+                      Modo de contingencia
+                    </p>
+                    <p className="mt-2 leading-7">
+                      {syncError}
+                    </p>
+                    <p className="mt-1 text-xs uppercase tracking-[0.18em] text-amber-100/80">
+                      O catalogo segue exibindo os dados locais mais recentes.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void refreshChampionships()}
+                    className="inline-flex shrink-0 items-center justify-center rounded-full border border-amber-300/25 bg-background/40 px-4 py-2 text-xs uppercase tracking-[0.18em] text-amber-50 transition-all hover:border-amber-200/40 hover:bg-background/60"
+                  >
+                    Tentar novamente
+                  </button>
+                </div>
+              </div>
+            ) : null}
+
+            {hasBlockingSyncError ? (
               <EmptyStateCard
                 icon={Trophy}
-                title="Falha ao consultar o Supabase"
-                description={syncError}
-                actionLabel="Reabrir o catalogo"
-                actionTo="/campeonatos"
+                title="Nao foi possivel abrir o catalogo agora"
+                description={syncError ?? "Tente novamente em alguns instantes."}
+                actionLabel="Tentar novamente"
+                actionOnClick={() => void refreshChampionships()}
                 className="mx-auto mt-10 max-w-3xl"
               />
             ) : isLoading ? (
