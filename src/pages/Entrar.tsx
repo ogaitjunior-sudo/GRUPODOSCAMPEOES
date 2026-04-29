@@ -1,4 +1,4 @@
-import { startTransition, useEffect, useState, type ChangeEvent, type FormEvent } from "react";
+import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { LockKeyhole, ShieldCheck, UserRound } from "lucide-react";
 import logoGC from "@/assets/logo-gc-fc26.png";
@@ -111,9 +111,7 @@ export default function Entrar() {
       description: `Bem-vindo ao portal, ${result.playerName ?? loginName ?? form.identifier.trim()}.`,
     });
 
-    startTransition(() => {
-      navigate(redirectTo, { replace: true });
-    });
+    navigate(redirectTo, { replace: true });
   };
 
   return (

@@ -159,6 +159,10 @@ function readStoredAdminPanelState() {
   }
 }
 
+export function readCachedAdminPanelState() {
+  return readStoredAdminPanelState();
+}
+
 function writeStoredAdminPanelState(state: AdminPanelState) {
   if (typeof window === "undefined") {
     return;
@@ -176,7 +180,7 @@ export function getAdminPanelStorageMode(): AdminPanelStorageMode {
 
 export async function loadAdminPanelState() {
   if (!supabase) {
-    return readStoredAdminPanelState();
+    return readCachedAdminPanelState();
   }
 
   const { data, error } = await supabase
@@ -187,7 +191,7 @@ export async function loadAdminPanelState() {
 
   if (error) {
     if (shouldFallbackToLocal(error)) {
-      return readStoredAdminPanelState();
+      return readCachedAdminPanelState();
     }
 
     throw error;
@@ -195,7 +199,7 @@ export async function loadAdminPanelState() {
 
   const nextState = data
     ? mapRowToState(data as AdminPanelRow)
-    : readStoredAdminPanelState();
+    : readCachedAdminPanelState();
 
   writeStoredAdminPanelState(nextState);
   return nextState;

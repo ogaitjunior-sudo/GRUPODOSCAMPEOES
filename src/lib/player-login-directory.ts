@@ -1,5 +1,9 @@
 import type { AdminPanelState } from "@/admin/types";
-import { loadAdminPanelState, saveAdminPanelState } from "@/lib/admin-panel-store";
+import {
+  loadAdminPanelState,
+  readCachedAdminPanelState,
+  saveAdminPanelState,
+} from "@/lib/admin-panel-store";
 
 interface PlayerLoginResolution {
   email: string | null;
@@ -117,6 +121,15 @@ export async function resolvePlayerLoginEmail(identifier: string) {
 
   if (isEmailIdentifier(trimmedIdentifier)) {
     return { email: normalizeEmail(trimmedIdentifier) } satisfies PlayerLoginResolution;
+  }
+
+  const cachedResolution = resolvePlayerLoginEmailFromState(
+    trimmedIdentifier,
+    readCachedAdminPanelState(),
+  );
+
+  if (cachedResolution.email) {
+    return cachedResolution;
   }
 
   const state = await loadAdminPanelState();
