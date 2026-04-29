@@ -2,6 +2,7 @@ import {
   createContext,
   useContext,
   useEffect,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -97,19 +98,6 @@ function getAuthErrorMessage(error: unknown) {
   }
 
   return "";
-}
-
-function isSupabaseNetworkError(error: unknown) {
-  const errorMessage = getAuthErrorMessage(error).toLowerCase();
-
-  return (
-    errorMessage.includes("failed to fetch") ||
-    errorMessage.includes("fetch failed") ||
-    errorMessage.includes("load failed") ||
-    errorMessage.includes("network error") ||
-    errorMessage.includes("networkerror") ||
-    errorMessage.includes("network request failed")
-  );
 }
 
 function resolveUserAvatar(
@@ -218,6 +206,12 @@ function readStoredFallbackSession() {
 export function PlayerAuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<PlayerSession | null>(() => readStoredFallbackSession());
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
+  const sessionRef = useRef<PlayerSession | null>(session);
+  const profileMediaSyncQueueRef = useRef(Promise.resolve());
+
+  useEffect(() => {
+    sessionRef.current = session;
+  }, [session]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -542,10 +536,12 @@ export function PlayerAuthProvider({ children }: { children: ReactNode }) {
     kind,
     value,
     usedLocalFallback = false,
+    backgroundSync = false,
   }: {
     kind: "avatar" | "team-photo";
     value: string | null;
     usedLocalFallback?: boolean;
+    backgroundSync?: boolean;
   }) => {
     const successMessage =
       kind === "avatar"
@@ -558,7 +554,65 @@ export function PlayerAuthProvider({ children }: { children: ReactNode }) {
 
     return usedLocalFallback
       ? `${successMessage} O portal salvou a alteracao localmente e sincroniza de novo quando a conexao voltar.`
+      : backgroundSync
+        ? `${successMessage} A sincronizacao da conta continua em segundo plano.`
       : successMessage;
+  };
+
+  const getCurrentSupabaseUserMetadata = async () => {
+    if (!supabase) {
+      return {
+        metadata: {} as Record<string, unknown>,
+        error: null,
+      };
+    }
+
+    const { data, error } = await supabase.auth.getSession();
+
+    if (error) {
+      return {
+        metadata: null,
+        error,
+      };
+    }
+
+    return {
+      metadata:
+        data.session?.user.user_metadata && typeof data.session.user.user_metadata === "object"
+          ? data.session.user.user_metadata
+          : {},
+      error: null,
+    };
+  };
+
+  const queueProfileMediaSync = () => {
+    if (!supabase) {
+      return;
+    }
+
+    profileMediaSyncQueueRef.current = profileMediaSyncQueueRef.current
+      .catch(() => undefined)
+      .then(async () => {
+        const currentSession = sessionRef.current;
+
+        if (!currentSession || currentSession.provider !== "supabase") {
+          return;
+        }
+
+        const { metadata } = await getCurrentSupabaseUserMetadata();
+
+        if (!metadata) {
+          return;
+        }
+
+        await supabase.auth.updateUser({
+          data: {
+            ...metadata,
+            avatar_url: normalizeAvatarUrl(currentSession.avatarUrl),
+            team_photo_url: normalizeAvatarUrl(currentSession.teamPhotoUrl),
+          },
+        });
+      });
   };
 
   const updateProfileAvatar = async (avatarUrl: string | null): Promise<AuthResult> => {
@@ -570,85 +624,11 @@ export function PlayerAuthProvider({ children }: { children: ReactNode }) {
     }
 
     const normalizedAvatarUrl = normalizeAvatarUrl(avatarUrl);
-    setIsUpdatingProfile(true);
+    persistProfileMediaLocally({
+      avatarUrl: normalizedAvatarUrl,
+    });
 
-    try {
-      if (session.provider === "fallback" || !isSupabaseConfigured || !supabase) {
-        persistProfileMediaLocally({
-          avatarUrl: normalizedAvatarUrl,
-        });
-
-        return {
-          success: true,
-          message: buildProfileMediaSuccessMessage({
-            kind: "avatar",
-            value: normalizedAvatarUrl,
-          }),
-        };
-      }
-
-      const { data: userData, error: getUserError } = await supabase.auth.getUser();
-
-      if (getUserError) {
-        if (isSupabaseNetworkError(getUserError)) {
-          persistProfileMediaLocally({
-            avatarUrl: normalizedAvatarUrl,
-          });
-
-          return {
-            success: true,
-            message: buildProfileMediaSuccessMessage({
-              kind: "avatar",
-              value: normalizedAvatarUrl,
-              usedLocalFallback: true,
-            }),
-          };
-        }
-
-        return {
-          success: false,
-          message: getAuthErrorMessage(getUserError) || "Nao foi possivel atualizar a foto do perfil.",
-        };
-      }
-
-      const currentMetadata =
-        userData.user?.user_metadata && typeof userData.user.user_metadata === "object"
-          ? userData.user.user_metadata
-          : {};
-      const nextMetadata = {
-        ...currentMetadata,
-        avatar_url: normalizedAvatarUrl,
-      };
-      const { error } = await supabase.auth.updateUser({
-        data: nextMetadata,
-      });
-
-      if (error) {
-        if (isSupabaseNetworkError(error)) {
-          persistProfileMediaLocally({
-            avatarUrl: normalizedAvatarUrl,
-          });
-
-          return {
-            success: true,
-            message: buildProfileMediaSuccessMessage({
-              kind: "avatar",
-              value: normalizedAvatarUrl,
-              usedLocalFallback: true,
-            }),
-          };
-        }
-
-        return {
-          success: false,
-          message: getAuthErrorMessage(error) || "Nao foi possivel atualizar a foto do perfil.",
-        };
-      }
-
-      persistProfileMediaLocally({
-        avatarUrl: normalizedAvatarUrl,
-      });
-
+    if (session.provider === "fallback" || !isSupabaseConfigured || !supabase) {
       return {
         success: true,
         message: buildProfileMediaSuccessMessage({
@@ -656,9 +636,20 @@ export function PlayerAuthProvider({ children }: { children: ReactNode }) {
           value: normalizedAvatarUrl,
         }),
       };
-    } finally {
-      setIsUpdatingProfile(false);
     }
+
+    setIsUpdatingProfile(true);
+    queueProfileMediaSync();
+    setIsUpdatingProfile(false);
+
+    return {
+      success: true,
+      message: buildProfileMediaSuccessMessage({
+        kind: "avatar",
+        value: normalizedAvatarUrl,
+        backgroundSync: true,
+      }),
+    };
   };
 
   const updateTeamPhoto = async (teamPhotoUrl: string | null): Promise<AuthResult> => {
@@ -670,85 +661,11 @@ export function PlayerAuthProvider({ children }: { children: ReactNode }) {
     }
 
     const normalizedTeamPhotoUrl = normalizeAvatarUrl(teamPhotoUrl);
-    setIsUpdatingProfile(true);
+    persistProfileMediaLocally({
+      teamPhotoUrl: normalizedTeamPhotoUrl,
+    });
 
-    try {
-      if (session.provider === "fallback" || !isSupabaseConfigured || !supabase) {
-        persistProfileMediaLocally({
-          teamPhotoUrl: normalizedTeamPhotoUrl,
-        });
-
-        return {
-          success: true,
-          message: buildProfileMediaSuccessMessage({
-            kind: "team-photo",
-            value: normalizedTeamPhotoUrl,
-          }),
-        };
-      }
-
-      const { data: userData, error: getUserError } = await supabase.auth.getUser();
-
-      if (getUserError) {
-        if (isSupabaseNetworkError(getUserError)) {
-          persistProfileMediaLocally({
-            teamPhotoUrl: normalizedTeamPhotoUrl,
-          });
-
-          return {
-            success: true,
-            message: buildProfileMediaSuccessMessage({
-              kind: "team-photo",
-              value: normalizedTeamPhotoUrl,
-              usedLocalFallback: true,
-            }),
-          };
-        }
-
-        return {
-          success: false,
-          message: getAuthErrorMessage(getUserError) || "Nao foi possivel atualizar a foto da equipe.",
-        };
-      }
-
-      const currentMetadata =
-        userData.user?.user_metadata && typeof userData.user.user_metadata === "object"
-          ? userData.user.user_metadata
-          : {};
-      const nextMetadata = {
-        ...currentMetadata,
-        team_photo_url: normalizedTeamPhotoUrl,
-      };
-      const { error } = await supabase.auth.updateUser({
-        data: nextMetadata,
-      });
-
-      if (error) {
-        if (isSupabaseNetworkError(error)) {
-          persistProfileMediaLocally({
-            teamPhotoUrl: normalizedTeamPhotoUrl,
-          });
-
-          return {
-            success: true,
-            message: buildProfileMediaSuccessMessage({
-              kind: "team-photo",
-              value: normalizedTeamPhotoUrl,
-              usedLocalFallback: true,
-            }),
-          };
-        }
-
-        return {
-          success: false,
-          message: getAuthErrorMessage(error) || "Nao foi possivel atualizar a foto da equipe.",
-        };
-      }
-
-      persistProfileMediaLocally({
-        teamPhotoUrl: normalizedTeamPhotoUrl,
-      });
-
+    if (session.provider === "fallback" || !isSupabaseConfigured || !supabase) {
       return {
         success: true,
         message: buildProfileMediaSuccessMessage({
@@ -756,9 +673,20 @@ export function PlayerAuthProvider({ children }: { children: ReactNode }) {
           value: normalizedTeamPhotoUrl,
         }),
       };
-    } finally {
-      setIsUpdatingProfile(false);
     }
+
+    setIsUpdatingProfile(true);
+    queueProfileMediaSync();
+    setIsUpdatingProfile(false);
+
+    return {
+      success: true,
+      message: buildProfileMediaSuccessMessage({
+        kind: "team-photo",
+        value: normalizedTeamPhotoUrl,
+        backgroundSync: true,
+      }),
+    };
   };
 
   const logout = () => {

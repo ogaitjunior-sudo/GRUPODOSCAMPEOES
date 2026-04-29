@@ -1030,7 +1030,8 @@ export default function PerfilJogador() {
                                   return;
                                 }
 
-                                void handleSaveAvatar(null);
+                                setAvatarDraft(null);
+                                setAvatarError(null);
                               }}
                               disabled={
                                 isReadingAvatar ||
@@ -1201,7 +1202,8 @@ export default function PerfilJogador() {
                                   return;
                                 }
 
-                                void handleSaveTeamPhoto(null);
+                                setTeamPhotoDraft(null);
+                                setTeamPhotoError(null);
                               }}
                               disabled={
                                 isReadingTeamPhoto ||
