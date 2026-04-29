@@ -87,14 +87,16 @@ function AppRoutes() {
           <Route path="/recuperar-senha" element={<RecuperarSenha />} />
 
           <Route path="/admin/login" element={<AdminLogin />} />
-          <Route
-            path="/admin"
-            element={
-              <RequireAdminAccess>
+        <Route
+          path="/admin"
+          element={
+            <RequireAdminAccess>
+              <AdminPanelProvider>
                 <AdminLayout />
-              </RequireAdminAccess>
-            }
-          >
+              </AdminPanelProvider>
+            </RequireAdminAccess>
+          }
+        >
             <Route
               index
               element={
@@ -230,11 +232,9 @@ const App = () => (
     <PlayerAuthProvider>
       <FriendlyChallengesProvider>
         <ChampionshipProvider>
-          <AdminPanelProvider>
-            <BrowserRouter>
-              <AppRoutes />
-            </BrowserRouter>
-          </AdminPanelProvider>
+          <BrowserRouter>
+            <AppRoutes />
+          </BrowserRouter>
         </ChampionshipProvider>
       </FriendlyChallengesProvider>
     </PlayerAuthProvider>

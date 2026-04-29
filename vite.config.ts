@@ -19,41 +19,4 @@ export default defineConfig(({ mode }) => ({
     },
     dedupe: ["react", "react-dom", "react/jsx-runtime", "react/jsx-dev-runtime", "@tanstack/react-query", "@tanstack/query-core"],
   },
-  build: {
-    rollupOptions: {
-      output: {
-        manualChunks(id) {
-          if (!id.includes("node_modules")) {
-            return undefined;
-          }
-
-          if (id.includes("react-router-dom") || id.includes("@remix-run") || id.includes("react-dom") || id.includes("\\react\\") || id.includes("/react/")) {
-            return "vendor-react";
-          }
-
-          if (id.includes("@supabase")) {
-            return "vendor-supabase";
-          }
-
-          if (id.includes("lucide-react")) {
-            return "vendor-icons";
-          }
-
-          if (id.includes("@radix-ui")) {
-            return "vendor-radix";
-          }
-
-          if (id.includes("recharts")) {
-            return "vendor-charts";
-          }
-
-          if (id.includes("react-hook-form") || id.includes("@hookform") || id.includes("zod")) {
-            return "vendor-forms";
-          }
-
-          return "vendor";
-        },
-      },
-    },
-  },
 }));
