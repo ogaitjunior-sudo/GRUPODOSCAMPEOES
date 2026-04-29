@@ -1,4 +1,4 @@
-import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
+import { startTransition, useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { LockKeyhole, ShieldCheck, UserRound } from "lucide-react";
 import logoGC from "@/assets/logo-gc-fc26.png";
@@ -12,6 +12,62 @@ interface LoginForm {
   password: string;
 }
 
+const DEFAULT_LOGIN_REDIRECT = "/perfil";
+
+function normalizeRedirectTarget(value: string | null) {
+  if (!value || !value.startsWith("/") || value.startsWith("//")) {
+    return DEFAULT_LOGIN_REDIRECT;
+  }
+
+  return value;
+}
+
+function preloadRedirectTarget(target: string) {
+  const pathname = target.split("?")[0];
+
+  if (pathname === "/" || pathname === "") {
+    return import("./Index.tsx");
+  }
+
+  if (pathname.startsWith("/perfil")) {
+    return import("./PerfilJogador.tsx");
+  }
+
+  if (pathname.startsWith("/explorar") || pathname.startsWith("/pesquisar")) {
+    return import("./Pesquisar.tsx");
+  }
+
+  if (pathname.startsWith("/ranking")) {
+    return import("./Ranking.tsx");
+  }
+
+  if (pathname.startsWith("/campeonatos/")) {
+    return import("./ChampionshipDetails.tsx");
+  }
+
+  if (pathname.startsWith("/campeonatos")) {
+    return import("./Campeonatos.tsx");
+  }
+
+  if (pathname.startsWith("/relampago")) {
+    return import("./Relampago.tsx");
+  }
+
+  if (pathname.startsWith("/campeoes")) {
+    return import("./Champions.tsx");
+  }
+
+  if (pathname.startsWith("/ligas")) {
+    return import("./Ligas.tsx");
+  }
+
+  if (pathname.startsWith("/ajuda")) {
+    return import("./Ajuda.tsx");
+  }
+
+  return Promise.resolve();
+}
+
 export default function Entrar() {
   const [searchParams] = useSearchParams();
   const [form, setForm] = useState<LoginForm>({ identifier: "", password: "" });
@@ -20,13 +76,17 @@ export default function Entrar() {
   const navigate = useNavigate();
   const { authConfigurationMessage, isAuthConfigured, isAuthenticated, login, loginName } =
     usePlayerAuth();
-  const redirectTo = searchParams.get("redirect") || "/";
+  const redirectTo = normalizeRedirectTarget(searchParams.get("redirect"));
 
   useEffect(() => {
     if (isAuthenticated) {
       navigate(redirectTo, { replace: true });
     }
   }, [isAuthenticated, navigate, redirectTo]);
+
+  useEffect(() => {
+    void preloadRedirectTarget(redirectTo);
+  }, [redirectTo]);
 
   const updateField = (field: keyof LoginForm) => (event: ChangeEvent<HTMLInputElement>) => {
     setForm((current) => ({ ...current, [field]: event.target.value }));
@@ -36,6 +96,7 @@ export default function Entrar() {
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setIsSubmitting(true);
+    void preloadRedirectTarget(redirectTo);
 
     const result = await login(form.identifier, form.password);
 
@@ -50,7 +111,9 @@ export default function Entrar() {
       description: `Bem-vindo ao portal, ${result.playerName ?? loginName ?? form.identifier.trim()}.`,
     });
 
-    navigate(redirectTo, { replace: true });
+    startTransition(() => {
+      navigate(redirectTo, { replace: true });
+    });
   };
 
   return (
