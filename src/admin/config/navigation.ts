@@ -19,11 +19,11 @@ export interface AdminNavItem {
 export const adminNavigation: AdminNavItem[] = [
   {
     label: "Dashboard",
-    path: "/admin",
+    path: "/admin/dashboard",
     icon: LayoutDashboard,
     permissions: ["dashboard:view"],
     description: "Resumo operacional, alertas e acoes rapidas",
-    matchPaths: ["/admin"],
+    matchPaths: ["/admin", "/admin/dashboard"],
   },
   {
     label: "Campeonatos",

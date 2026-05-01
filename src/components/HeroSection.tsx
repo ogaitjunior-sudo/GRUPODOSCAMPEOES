@@ -1,277 +1,270 @@
-import { type FormEvent, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import type { CSSProperties, MouseEvent as ReactMouseEvent } from "react";
+import { Link } from "react-router-dom";
 import {
   CalendarClock,
+  ChevronRight,
   Search,
   ShieldCheck,
   Swords,
   Trophy,
   UserRound,
   Users,
+  Zap,
+  type LucideIcon,
 } from "lucide-react";
 import heroLionsBackdrop from "@/assets/hero-lions-backdrop.png";
-import logoGC from "@/assets/logo-gc-fc26.png";
-import { DecorativeParticles } from "@/components/DecorativeParticles";
-import { useChampionships } from "@/contexts/ChampionshipContext";
+import heroLogoShadow from "@/assets/hero-logo-shadow.png";
 
-function countChampionshipsByLabel(statuses: string[], label: string) {
-  return statuses.filter((status) => status === label).length;
+interface QuickMetric {
+  title: string;
+  value: string;
+  icon: LucideIcon;
+}
+
+interface BottomStat {
+  value: string;
+  title: string;
+  helper?: string;
+  icon: LucideIcon;
+}
+
+const quickMetrics: QuickMetric[] = [
+  { title: "TORNEIOS PUBLICADOS", value: "0", icon: Trophy },
+  { title: "CAMPEONATOS AO VIVO", value: "0", icon: Swords },
+  { title: "PR\u00d3XIMAS JANELAS", value: "0", icon: CalendarClock },
+  { title: "CAMPE\u00d5ES OFICIAIS", value: "0", icon: ShieldCheck },
+];
+
+const bottomStats: BottomStat[] = [
+  { value: "0", title: "JOGADORES ATIVOS", icon: Users },
+  { value: "0", title: "CAMPEONATOS REALIZADOS", icon: Trophy },
+  { value: "100%", title: "SISTEMA AUTOM\u00c1TICO", helper: "E SEGURO", icon: ShieldCheck },
+  { value: "", title: "RESPOSTA R\u00c1PIDA", helper: "SUPORTE \u00c1GIL", icon: Zap },
+];
+
+const playerPreviewTokens = Array.from({ length: 5 }, (_, index) => index);
+const particlePositions = Array.from({ length: 44 }, (_, index) => ({
+  left: `${8 + ((index * 9) % 84)}%`,
+  top: `${16 + ((index * 11) % 68)}%`,
+  delay: `${(index % 10) * 0.38}s`,
+  duration: `${6.2 + (index % 7) * 0.52}s`,
+  size: 2 + (index % 3),
+  opacity: 0.22 + (index % 5) * 0.07,
+  drift: `${-12 + (index % 8) * 6}px`,
+}));
+
+const sparkPositions = [
+  { left: "44%", top: "20%", delay: "0.4s", duration: "5.2s" },
+  { left: "49%", top: "28%", delay: "1.1s", duration: "4.8s" },
+  { left: "55%", top: "18%", delay: "0.8s", duration: "5.6s" },
+  { left: "60%", top: "34%", delay: "1.5s", duration: "4.9s" },
+  { left: "65%", top: "24%", delay: "0.6s", duration: "5.4s" },
+  { left: "70%", top: "38%", delay: "1.9s", duration: "5.1s" },
+  { left: "74%", top: "26%", delay: "0.9s", duration: "5.7s" },
+  { left: "79%", top: "44%", delay: "1.3s", duration: "5s" },
+  { left: "83%", top: "30%", delay: "0.5s", duration: "5.5s" },
+  { left: "86%", top: "50%", delay: "1.7s", duration: "4.7s" },
+  { left: "90%", top: "36%", delay: "1s", duration: "5.3s" },
+  { left: "94%", top: "54%", delay: "1.4s", duration: "5.8s" },
+  { left: "58%", top: "58%", delay: "0.7s", duration: "4.9s" },
+  { left: "69%", top: "62%", delay: "1.2s", duration: "5.2s" },
+] as const;
+
+function QuickMetricCard({ title, value, icon: Icon }: QuickMetric) {
+  return (
+    <div className="tr-quick-item tr-stat-card">
+      <span className="tr-quick-icon">
+        <Icon className="h-5 w-5" />
+      </span>
+      <p className="tr-quick-label">{title}</p>
+      <p className="tr-quick-value">{value}</p>
+    </div>
+  );
+}
+
+function BottomStatCard({ value, title, helper, icon: Icon }: BottomStat) {
+  return (
+    <div className="tr-bottom-stat tr-bottom-item">
+      <span className="tr-bottom-stat-icon">
+        <Icon className="h-6 w-6" />
+      </span>
+      <div className="tr-bottom-stat-copy">
+        {value ? <p className="tr-bottom-stat-value">{value}</p> : null}
+        <p className="tr-bottom-stat-title">{title}</p>
+        {helper ? <p className="tr-bottom-stat-helper">{helper}</p> : null}
+      </div>
+    </div>
+  );
 }
 
 export function HeroSection() {
-  const navigate = useNavigate();
-  const { championships } = useChampionships();
-  const [query, setQuery] = useState("");
-  const statusList = useMemo(
-    () => championships.map((championship) => championship.status),
-    [championships],
-  );
+  const handleMouseMove = (event: ReactMouseEvent<HTMLElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
 
-  const openCount = countChampionshipsByLabel(statusList, "REGISTRATION");
-  const liveCount = countChampionshipsByLabel(statusList, "STARTED");
-  const upcomingCount = statusList.filter((status) => status === "DRAFT" || status === "READY").length;
-  const championCount = countChampionshipsByLabel(statusList, "FINISHED");
-  const activePlayersCount = new Set(
-    championships.flatMap((championship) =>
-      championship.registrationRequests
-        .filter((request) => request.status === "approved")
-        .map((request) => request.playerId),
-    ),
-  ).size;
+    event.currentTarget.style.setProperty("--mouse-x", `${x}px`);
+    event.currentTarget.style.setProperty("--mouse-y", `${y}px`);
+  };
 
-  const quickAccessItems = [
-    {
-      title: "Explorar o circuito",
-      helper: "Use busca e filtros para chegar mais rapido ao torneio certo.",
-      to: "/explorar",
-      icon: Search,
-    },
-    {
-      title: "Acompanhar ranking",
-      helper: "Veja quem esta subindo e quais eventos alimentam a temporada.",
-      to: "/ranking",
-      icon: Trophy,
-    },
-    {
-      title: "Entrar no perfil",
-      helper: "Central do jogador para acompanhar pedidos, historico e proximos passos.",
-      to: "/perfil",
-      icon: UserRound,
-    },
-  ];
-
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    const trimmedQuery = query.trim();
-
-    if (!trimmedQuery) {
-      navigate("/explorar");
-      return;
-    }
-
-    navigate(`/explorar?q=${encodeURIComponent(trimmedQuery)}`);
+  const handleMouseLeave = (event: ReactMouseEvent<HTMLElement>) => {
+    event.currentTarget.style.setProperty("--mouse-x", "50%");
+    event.currentTarget.style.setProperty("--mouse-y", "50%");
   };
 
   return (
-    <section className="site-section-shell relative min-h-screen overflow-hidden pt-24">
-      <img
-        src={heroLionsBackdrop}
-        alt="Estadio"
-        className="absolute inset-0 h-full w-full object-cover opacity-100 saturate-110 contrast-110 brightness-95"
-        width={1920}
-        height={1080}
+    <section
+      className="tr-hero"
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+    >
+      <div aria-hidden="true" className="hero-glow" />
+      <div
+        aria-hidden="true"
+        className="tr-lion-left"
+        style={{ backgroundImage: `url(${heroLionsBackdrop})` }}
       />
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_35%,rgba(255,213,92,0.18)_0%,rgba(255,193,7,0.1)_17%,rgba(255,193,7,0.035)_31%,transparent_45%),linear-gradient(90deg,rgba(0,0,0,0.76),rgba(0,0,0,0.25)_44%,rgba(0,0,0,0.72)),linear-gradient(180deg,rgba(0,0,0,0.14),rgba(0,0,0,0.78))]" />
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_38%,transparent_34%,rgba(0,0,0,0.22)_68%,rgba(0,0,0,0.64)_100%)]" />
-      <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-background via-background/62 to-transparent" />
-      <DecorativeParticles className="opacity-45" particleClassName="bg-primary/45" />
+      <div
+        aria-hidden="true"
+        className="tr-lion-right"
+        style={{ backgroundImage: `url(${heroLionsBackdrop})` }}
+      />
+      <div aria-hidden="true" className="tr-lines" />
+      {particlePositions.map((particle, index) => (
+        <span
+          key={`${particle.left}-${particle.top}-${index}`}
+          aria-hidden="true"
+          className="tr-particle"
+          style={{
+            left: particle.left,
+            top: particle.top,
+            width: particle.size,
+            height: particle.size,
+            opacity: particle.opacity,
+            ["--delay" as "--delay"]: particle.delay,
+            ["--duration" as "--duration"]: particle.duration,
+            ["--drift" as "--drift"]: particle.drift,
+          } as CSSProperties}
+        />
+      ))}
+      {sparkPositions.map((particle, index) => (
+        <span
+          key={`${particle.left}-${particle.top}-spark-${index}`}
+          aria-hidden="true"
+          className="tr-spark"
+          style={{
+            left: particle.left,
+            top: particle.top,
+            ["--delay" as "--delay"]: particle.delay,
+            ["--duration" as "--duration"]: particle.duration,
+          } as CSSProperties}
+        />
+      ))}
 
-      <div className="relative z-10 mx-auto max-w-[1560px] px-5 pb-10 pt-12 sm:px-8 lg:pt-16">
-        <div className="grid gap-8 lg:grid-cols-[minmax(0,0.92fr)_minmax(300px,0.72fr)_minmax(380px,0.72fr)] lg:items-center">
-          <div className="max-w-[650px] pt-8 lg:pt-10">
-            <div className="site-kicker">
-              <ShieldCheck className="h-4 w-4" />
-              Circuito X1 UT do FC 26
-            </div>
-
-            <h1 className="mt-8 max-w-4xl text-balance font-heading text-5xl font-semibold leading-[1.02] text-white drop-shadow-[0_12px_28px_rgba(0,0,0,0.55)] md:text-7xl">
-              <span className="block text-white">Aqui nao tem sorte.</span>
-              <span className="block text-primary">So resultado.</span>
-            </h1>
-
-            <p className="mt-6 max-w-2xl text-lg leading-8 text-white/78 md:text-xl">
-              Encontre torneios abertos, acompanhe o ranking e siga o proximo passo certo sem
-              excesso de informacao.
-            </p>
-
-            <div className="mt-7 flex flex-wrap gap-7">
-              <div className="flex items-center gap-4 border-r border-white/12 pr-7">
-                <Trophy className="h-8 w-8 text-primary" />
-                <div>
-                  <p className="text-sm text-white/82">Torneios publicados</p>
-                  <p className="font-heading text-2xl font-semibold text-primary">{championships.length}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-4">
-                <Users className="h-8 w-8 text-primary" />
-                <div>
-                  <p className="text-sm text-white/82">Jogadores ativos</p>
-                  <p className="font-heading text-2xl font-semibold text-primary">{activePlayersCount}</p>
-                </div>
-              </div>
-            </div>
+      <div className="tr-hero-inner">
+        <div className="tr-left">
+          <div className="tr-badge">
+            <ShieldCheck className="h-4 w-4" />
+            CIRCUITO X1 UT DO FC 26
           </div>
 
-          <div className="flex justify-center lg:self-center">
-            <div className="relative w-full max-w-[470px] px-4 py-2">
-              <img
-                src={logoGC}
-                alt="Grupo de Campeoes FC26"
-                className="relative z-10 mx-auto w-full max-w-[430px] brightness-105 contrast-105 drop-shadow-[0_18px_28px_rgba(0,0,0,0.58)]"
-              />
-            </div>
+          <h1 className="tr-title font-hero">
+            {"AQUI N\u00c3O"}
+            <br />
+            TEM SORTE.
+            <br />
+            <span className="gold">{"S\u00d3"}</span>
+            <br />
+            <span className="gold">RESULTADO.</span>
+          </h1>
+
+          <p className="tr-subtitle">
+            {"Entre no circuito, dispute campeonatos e prove quem realmente domina."}
+          </p>
+
+          <div className="tr-actions">
+            <Link to="/campeonatos" className="tr-primary-btn tr-primary-button">
+              <Trophy className="h-4.5 w-4.5" />
+              VER CAMPEONATOS
+              <ChevronRight className="h-4.5 w-4.5" />
+            </Link>
+
+            <Link to="/explorar" className="tr-secondary-btn tr-secondary-button">
+              <Search className="h-4.5 w-4.5" />
+              EXPLORAR CIRCUITO
+            </Link>
           </div>
 
-          <div className="w-full max-w-[540px] justify-self-end lg:self-center">
-            <div className="rounded-[32px] border border-white/10 bg-[linear-gradient(145deg,rgba(24,24,21,0.94),rgba(7,8,9,0.96))] p-7 shadow-[0_26px_80px_rgba(0,0,0,0.45)] backdrop-blur-xl">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.32em] text-primary">Visao rapida</p>
-                  <h2 className="mt-3 font-heading text-2xl font-semibold text-white">
-                    O circuito em um olhar
-                  </h2>
-                </div>
-                <CalendarClock className="h-6 w-6 text-primary" />
-              </div>
+          <div className="tr-player-card">
+            <div className="tr-player-stack" aria-hidden="true">
+              {playerPreviewTokens.map((token) => (
+                <span key={token} className="tr-player-avatar">
+                  <UserRound className="h-4 w-4" />
+                </span>
+              ))}
+            </div>
 
-              <div className="mt-7 grid gap-3 sm:grid-cols-2">
-                {[
-                  {
-                    label: "Torneios publicados",
-                    value: championships.length,
-                    icon: Trophy,
-                  },
-                  {
-                    label: "Campeonatos ao vivo",
-                    value: liveCount,
-                    icon: Swords,
-                  },
-                  {
-                    label: "Proximas janelas",
-                    value: upcomingCount,
-                    icon: CalendarClock,
-                  },
-                  {
-                    label: "Campeoes oficiais",
-                    value: championCount,
-                    icon: ShieldCheck,
-                  },
-                ].map((item) => (
-                  <div key={item.label} className="rounded-[22px] border border-white/10 bg-white/[0.035] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
-                    <item.icon className="h-5 w-5 text-primary" />
-                    <p className="mt-6 text-sm leading-6 text-white/72">{item.label}</p>
-                    <p className="mt-1 font-heading text-3xl font-semibold text-white">
-                      {item.value}
-                    </p>
-                  </div>
-                ))}
-              </div>
+            <div className="tr-player-copy">
+              <p className="tr-player-value">0</p>
+              <p className="tr-player-label">JOGADORES ATIVOS</p>
             </div>
           </div>
         </div>
 
-        <div className="relative z-20 mt-6 grid gap-8 lg:grid-cols-[minmax(0,0.96fr)_minmax(0,0.94fr)]">
-          <form
-            onSubmit={handleSubmit}
-            className="rounded-[30px] border border-white/10 bg-[linear-gradient(145deg,rgba(24,24,20,0.94),rgba(8,9,10,0.96))] p-8 shadow-[0_28px_80px_rgba(0,0,0,0.42)] backdrop-blur-xl"
-          >
-            <label
-              htmlFor="home-search"
-              className="mb-5 block text-xs uppercase tracking-[0.32em] text-primary"
-            >
-              Busca rapida
-            </label>
-            <div className="flex flex-col gap-4 md:flex-row">
-              <div className="flex flex-1 items-center gap-3 rounded-full border border-white/10 bg-black/[0.24] px-5 py-4">
-                <Search className="h-5 w-5 text-white/55" />
-                <input
-                  id="home-search"
-                  type="search"
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                  placeholder="Buscar campeonato, jogador ou ranking"
-                  className="w-full bg-transparent text-base text-white outline-none placeholder:text-white/50"
-                />
+        <div className="tr-center">
+          <div aria-hidden="true" className="tr-energy-ring" />
+          <div aria-hidden="true" className="tr-energy-base" />
+          <div aria-hidden="true" className="tr-energy-beam" />
+          <div className="tr-logo-wrap">
+            <img
+              src={heroLogoShadow}
+              alt="Grupo de Campe\u00f5es FC26"
+              className="tr-logo"
+            />
+          </div>
+        </div>
+
+        <div className="tr-right">
+          <aside className="tr-quick-card">
+            <div className="tr-quick-head">
+              <div>
+                <p className="tr-quick-kicker">{"VIS\u00c3O R\u00c1PIDA"}</p>
+                <p className="tr-quick-subtitle">O circuito em um olhar.</p>
               </div>
-              <button type="submit" className="cta-primary min-w-[160px] px-7 py-4 text-base">
-                Pesquisar
-              </button>
+              <CalendarClock className="h-5 w-5 text-primary" />
             </div>
 
-            <div className="mt-6 grid gap-4 sm:grid-cols-2">
-              <Link to="/campeonatos" className="cta-primary px-6 py-4 text-base">
-                <Trophy className="h-5 w-5" />
-                Ver campeonatos
-              </Link>
-              <Link to="/explorar" className="cta-secondary px-6 py-4 text-base">
-                <Search className="h-5 w-5" />
-                Explorar circuito
-              </Link>
-            </div>
-
-            <div className="mt-5 grid gap-3 sm:grid-cols-3">
-              {[
-                {
-                  label: "Inscricoes abertas",
-                  value: openCount,
-                  icon: Trophy,
-                },
-                {
-                  label: "Ao vivo",
-                  value: liveCount,
-                  icon: Swords,
-                },
-                {
-                  label: "Em breve",
-                  value: upcomingCount,
-                  icon: CalendarClock,
-                },
-              ].map((item) => (
-                <div key={item.label} className="rounded-[20px] border border-white/10 bg-white/[0.035] px-5 py-4">
-                  <p className="text-xs uppercase tracking-[0.24em] text-primary">{item.label}</p>
-                  <div className="mt-3 flex items-center gap-3">
-                    <item.icon className="h-5 w-5 text-white/88" />
-                    <p className="font-heading text-2xl font-semibold text-white">{item.value}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </form>
-
-          <div className="rounded-[30px] border border-white/10 bg-[linear-gradient(145deg,rgba(24,24,20,0.9),rgba(8,9,10,0.96))] p-8 shadow-[0_28px_80px_rgba(0,0,0,0.42)] backdrop-blur-xl">
-            <p className="text-xs uppercase tracking-[0.32em] text-primary">Proximos passos</p>
-            <div className="mt-6 space-y-5">
-              {quickAccessItems.map((item) => (
-                <Link
+            <div className="tr-quick-grid">
+              {quickMetrics.map((item) => (
+                <QuickMetricCard
                   key={item.title}
-                  to={item.to}
-                  className="group flex items-start gap-5 rounded-[22px] transition-colors hover:text-foreground"
-                >
-                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-primary/20 bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
-                    <item.icon className="h-5 w-5" />
-                  </span>
-                  <span className="min-w-0 flex-1 pt-0.5">
-                    <span className="block text-base font-semibold text-white">{item.title}</span>
-                    <span className="mt-1 block text-sm leading-6 text-white/64">
-                      {item.helper}
-                    </span>
-                  </span>
-                </Link>
+                  title={item.title}
+                  value={item.value}
+                  icon={item.icon}
+                />
               ))}
             </div>
-          </div>
+
+            <Link to="/explorar" className="tr-quick-action">
+              VER TODOS OS DADOS
+              <span className="tr-quick-action-icon">
+                <ChevronRight className="h-4.5 w-4.5" />
+              </span>
+            </Link>
+          </aside>
         </div>
+      </div>
+
+      <div className="tr-bottom-stats">
+        {bottomStats.map((item) => (
+          <BottomStatCard
+            key={`${item.title}-${item.value}`}
+            value={item.value}
+            title={item.title}
+            helper={item.helper}
+            icon={item.icon}
+          />
+        ))}
       </div>
     </section>
   );

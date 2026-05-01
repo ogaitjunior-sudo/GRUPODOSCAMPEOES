@@ -1,12 +1,21 @@
 import { Suspense, lazy } from "react";
-import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
+import {
+  BrowserRouter,
+  Navigate,
+  Route,
+  Routes,
+  useLocation,
+} from "react-router-dom";
 import { RequireAdminAccess, RequireAdminPermission } from "@/admin/layout/AdminRouteGuards";
 import { AdminLayout } from "@/admin/layout/AdminLayout";
 import { AdminPanelProvider } from "@/admin/context/AdminPanelContext";
 import { Toaster } from "@/components/ui/toaster";
 import { Footer } from "@/components/Footer";
 import { Navbar } from "@/components/Navbar";
-import { AdminAuthProvider } from "@/contexts/AdminAuthContext";
+import {
+  ADMIN_LOGIN_ROUTE,
+  AdminAuthProvider,
+} from "@/contexts/AdminAuthContext";
 import { ChampionshipProvider } from "@/contexts/ChampionshipContext";
 import { FriendlyChallengesProvider } from "@/contexts/FriendlyChallengesContext";
 import { PlayerAuthProvider } from "@/contexts/PlayerAuthContext";
@@ -60,9 +69,20 @@ function RouteFallback({ isAdminRoute }: { isAdminRoute: boolean }) {
   );
 }
 
+function HomeRoute() {
+  return <Index />;
+}
+
+function LegacyAdminLoginRoute() {
+  const location = useLocation();
+
+  return <Navigate replace to={`${ADMIN_LOGIN_ROUTE}${location.search}`} />;
+}
+
 function AppRoutes() {
   const location = useLocation();
-  const isAdminRoute = location.pathname.startsWith("/admin");
+  const isAdminRoute =
+    location.pathname.startsWith("/admin") || location.pathname === ADMIN_LOGIN_ROUTE;
 
   return (
     <>
@@ -70,7 +90,7 @@ function AppRoutes() {
       <Toaster />
       <Suspense fallback={<RouteFallback isAdminRoute={isAdminRoute} />}>
         <Routes>
-          <Route path="/" element={<Index />} />
+          <Route path="/" element={<HomeRoute />} />
           <Route path="/explorar" element={<Pesquisar />} />
           <Route path="/pesquisar" element={<Pesquisar />} />
           <Route path="/perfil" element={<PerfilJogador />} />
@@ -86,19 +106,24 @@ function AppRoutes() {
           <Route path="/criar-conta" element={<CriarConta />} />
           <Route path="/recuperar-senha" element={<RecuperarSenha />} />
 
-          <Route path="/admin/login" element={<AdminLogin />} />
-        <Route
-          path="/admin"
-          element={
-            <RequireAdminAccess>
-              <AdminPanelProvider>
-                <AdminLayout />
-              </AdminPanelProvider>
-            </RequireAdminAccess>
-          }
-        >
+          <Route path={ADMIN_LOGIN_ROUTE} element={<AdminLogin />} />
+          <Route path="/admin/login" element={<LegacyAdminLoginRoute />} />
+          <Route
+            path="/admin"
+            element={
+              <RequireAdminAccess>
+                <AdminPanelProvider>
+                  <AdminLayout />
+                </AdminPanelProvider>
+              </RequireAdminAccess>
+            }
+          >
             <Route
               index
+              element={<Navigate replace to="dashboard" />}
+            />
+            <Route
+              path="dashboard"
               element={
                 <RequireAdminPermission permission="dashboard:view">
                   <AdminDashboardPage />

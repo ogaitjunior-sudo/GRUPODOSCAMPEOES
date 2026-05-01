@@ -208,6 +208,7 @@ export function PlayerAuthProvider({ children }: { children: ReactNode }) {
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
   const sessionRef = useRef<PlayerSession | null>(session);
   const profileMediaSyncQueueRef = useRef(Promise.resolve());
+  const isSigningOutRef = useRef(false);
 
   useEffect(() => {
     sessionRef.current = session;
@@ -227,7 +228,7 @@ export function PlayerAuthProvider({ children }: { children: ReactNode }) {
   }, [session]);
 
   useEffect(() => {
-    if (session?.provider === "fallback" || !isSupabaseConfigured || !supabase) {
+    if (session?.provider === "fallback" || !isSupabaseConfigured || !supabase || isSigningOutRef.current) {
       return;
     }
 
@@ -238,6 +239,10 @@ export function PlayerAuthProvider({ children }: { children: ReactNode }) {
 
       if (active) {
         setSession((current) => {
+          if (isSigningOutRef.current) {
+            return null;
+          }
+
           const nextSession = buildPlayerSession(data.session);
           return nextSession ?? (current?.provider === "fallback" ? current : null);
         });
@@ -249,7 +254,15 @@ export function PlayerAuthProvider({ children }: { children: ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      if (!nextSession) {
+        isSigningOutRef.current = false;
+      }
+
       setSession((current) => {
+        if (isSigningOutRef.current && nextSession) {
+          return null;
+        }
+
         const nextPlayerSession = buildPlayerSession(nextSession);
         return nextPlayerSession ?? (current?.provider === "fallback" ? current : null);
       });
@@ -690,13 +703,30 @@ export function PlayerAuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
+    const currentSession = session;
+
+    if (currentSession?.provider !== "fallback" && supabase) {
+      isSigningOutRef.current = true;
+    }
+
     setSession(null);
 
-    if (session?.provider === "fallback" || !supabase) {
+    if (typeof window !== "undefined") {
+      window.localStorage.removeItem(PLAYER_FALLBACK_SESSION_STORAGE_KEY);
+    }
+
+    if (currentSession?.provider === "fallback" || !supabase) {
+      isSigningOutRef.current = false;
       return;
     }
 
-    void supabase.auth.signOut();
+    void supabase.auth
+      .signOut({ scope: "local" })
+      .catch(() => undefined)
+      .finally(() => {
+        isSigningOutRef.current = false;
+        setSession((current) => (current?.provider === "fallback" ? current : null));
+      });
   };
 
   return (

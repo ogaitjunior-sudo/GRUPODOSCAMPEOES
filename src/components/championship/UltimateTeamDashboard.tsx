@@ -348,18 +348,26 @@ function TeamIdentityMark({
   teamName: string;
   teamPhotoUrl?: string | null;
 }) {
+  if (teamPhotoUrl) {
+    return (
+      <TeamPhotoBadge
+        name={teamName}
+        photoUrl={teamPhotoUrl}
+        size="sm"
+        shape="square"
+        className="h-9 w-9 border-white/15 bg-black/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_8px_20px_rgba(0,0,0,0.18)]"
+        fallbackContent={
+          <TeamCrest
+            name={teamName}
+            className="h-full w-full rounded-[10px] border-white/15 text-[10px]"
+          />
+        }
+      />
+    );
+  }
+
   return (
-    <div className="relative shrink-0">
-      <TeamCrest name={teamName} />
-      {teamPhotoUrl ? (
-        <TeamPhotoBadge
-          name={teamName}
-          photoUrl={teamPhotoUrl}
-          size="sm"
-          className="absolute -bottom-1 -right-2 h-5 w-5 border-[1.5px] border-[hsl(220_18%_12%)] shadow-[0_8px_18px_hsl(0_0%_0%_/_0.28)]"
-        />
-      ) : null}
-    </div>
+    <TeamCrest name={teamName} />
   );
 }
 

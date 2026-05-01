@@ -4,6 +4,11 @@ import { LockKeyhole, ShieldCheck, UserRound } from "lucide-react";
 import logoGC from "@/assets/logo-gc-fc26.png";
 import { DecorativeParticles } from "@/components/DecorativeParticles";
 import { PageShell } from "@/components/PageShell";
+import {
+  ADMIN_DASHBOARD_ROUTE,
+  ADMIN_USERNAME,
+  useAdminAuth,
+} from "@/contexts/AdminAuthContext";
 import { usePlayerAuth } from "@/contexts/PlayerAuthContext";
 import { toast } from "@/hooks/use-toast";
 
@@ -13,6 +18,10 @@ interface LoginForm {
 }
 
 const DEFAULT_LOGIN_REDIRECT = "/perfil";
+
+function preloadAdminDashboard() {
+  return import("@/admin/pages/AdminDashboardPage");
+}
 
 function normalizeRedirectTarget(value: string | null) {
   if (!value || !value.startsWith("/") || value.startsWith("//")) {
@@ -74,15 +83,22 @@ export default function Entrar() {
   const [errorMessage, setErrorMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
+  const { isPrimaryAdmin, login: loginAdmin } = useAdminAuth();
   const { authConfigurationMessage, isAuthConfigured, isAuthenticated, login, loginName } =
     usePlayerAuth();
   const redirectTo = normalizeRedirectTarget(searchParams.get("redirect"));
 
   useEffect(() => {
+    if (isPrimaryAdmin) {
+      void preloadAdminDashboard();
+      navigate(ADMIN_DASHBOARD_ROUTE, { replace: true });
+      return;
+    }
+
     if (isAuthenticated) {
       navigate(redirectTo, { replace: true });
     }
-  }, [isAuthenticated, navigate, redirectTo]);
+  }, [isAuthenticated, isPrimaryAdmin, navigate, redirectTo]);
 
   useEffect(() => {
     void preloadRedirectTarget(redirectTo);
@@ -96,6 +112,23 @@ export default function Entrar() {
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setIsSubmitting(true);
+
+    const normalizedIdentifier = form.identifier.trim();
+
+    if (normalizedIdentifier === ADMIN_USERNAME) {
+      void preloadAdminDashboard();
+      const adminResult = await loginAdmin(form.identifier, form.password);
+
+      if (!adminResult.success) {
+        setErrorMessage(adminResult.message ?? "Usu\u00e1rio ou senha inv\u00e1lidos");
+        setIsSubmitting(false);
+        return;
+      }
+
+      navigate(ADMIN_DASHBOARD_ROUTE, { replace: true });
+      return;
+    }
+
     void preloadRedirectTarget(redirectTo);
 
     const result = await login(form.identifier, form.password);
@@ -202,7 +235,7 @@ export default function Entrar() {
 
               <button
                 type="submit"
-                disabled={isSubmitting || !isAuthConfigured}
+                disabled={isSubmitting}
                 className="mt-5 w-full rounded-xl bg-electric px-4 py-3 text-center font-heading text-2xl font-normal tracking-[0.08em] text-background transition hover:brightness-110 hover:border-glow-blue disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isSubmitting ? "Validando..." : "Entrar"}

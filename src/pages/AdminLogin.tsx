@@ -4,7 +4,7 @@ import { KeyRound, ShieldCheck, UserRound } from "lucide-react";
 import logoGC from "@/assets/logo-gc-fc26.png";
 import { DecorativeParticles } from "@/components/DecorativeParticles";
 import { PageShell } from "@/components/PageShell";
-import { useAdminAuth } from "@/contexts/AdminAuthContext";
+import { ADMIN_DASHBOARD_ROUTE, useAdminAuth } from "@/contexts/AdminAuthContext";
 
 interface AdminLoginForm {
   username: string;
@@ -14,18 +14,26 @@ interface AdminLoginForm {
 export default function AdminLogin() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { isAdmin, login } = useAdminAuth();
+  const { isPrimaryAdmin, login } = useAdminAuth();
   const [form, setForm] = useState<AdminLoginForm>({ username: "", password: "" });
   const [errorMessage, setErrorMessage] = useState(searchParams.get("error") ?? "");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const redirectTo = searchParams.get("redirect") || "/admin";
+  const redirectTo = (() => {
+    const requestedPath = searchParams.get("redirect")?.trim();
+
+    if (requestedPath && requestedPath.startsWith("/admin")) {
+      return requestedPath;
+    }
+
+    return ADMIN_DASHBOARD_ROUTE;
+  })();
 
   useEffect(() => {
-    if (isAdmin) {
+    if (isPrimaryAdmin) {
       navigate(redirectTo, { replace: true });
     }
-  }, [isAdmin, navigate, redirectTo]);
+  }, [isPrimaryAdmin, navigate, redirectTo]);
 
   const updateField =
     (field: keyof AdminLoginForm) => (event: ChangeEvent<HTMLInputElement>) => {
@@ -40,7 +48,7 @@ export default function AdminLogin() {
     const result = await login(form.username, form.password);
 
     if (!result.success) {
-      setErrorMessage(result.message ?? "Acesso negado.");
+      setErrorMessage(result.message ?? "Usu\u00e1rio ou senha inv\u00e1lidos");
       setIsSubmitting(false);
       return;
     }

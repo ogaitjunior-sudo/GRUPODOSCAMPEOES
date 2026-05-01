@@ -1,7 +1,11 @@
 import type { ReactNode } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import type { AdminPermission } from "@/admin/config/security";
-import { useAdminAuth } from "@/contexts/AdminAuthContext";
+import {
+  ADMIN_DASHBOARD_ROUTE,
+  ADMIN_LOGIN_ROUTE,
+  useAdminAuth,
+} from "@/contexts/AdminAuthContext";
 
 export function RequireAdminAccess({ children }: { children: ReactNode }) {
   const location = useLocation();
@@ -9,7 +13,7 @@ export function RequireAdminAccess({ children }: { children: ReactNode }) {
 
   if (!isPrimaryAdmin) {
     const redirectPath = `${location.pathname}${location.search}`;
-    return <Navigate replace to={`/admin/login?redirect=${encodeURIComponent(redirectPath)}`} />;
+    return <Navigate replace to={`${ADMIN_LOGIN_ROUTE}?redirect=${encodeURIComponent(redirectPath)}`} />;
   }
 
   return <>{children}</>;
@@ -27,11 +31,11 @@ export function RequireAdminPermission({
 
   if (!isPrimaryAdmin) {
     const redirectPath = `${location.pathname}${location.search}`;
-    return <Navigate replace to={`/admin/login?redirect=${encodeURIComponent(redirectPath)}`} />;
+    return <Navigate replace to={`${ADMIN_LOGIN_ROUTE}?redirect=${encodeURIComponent(redirectPath)}`} />;
   }
 
   if (!hasPermission(permission)) {
-    return <Navigate replace to="/admin" />;
+    return <Navigate replace to={ADMIN_DASHBOARD_ROUTE} />;
   }
 
   return <>{children}</>;

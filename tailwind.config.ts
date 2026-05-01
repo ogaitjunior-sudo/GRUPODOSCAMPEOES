@@ -16,6 +16,7 @@ export default {
     extend: {
       fontFamily: {
         heading: ["Orbitron", "sans-serif"],
+        hero: ["Teko", "sans-serif"],
         body: ["Inter", "sans-serif"],
       },
       colors: {

@@ -12,7 +12,7 @@ import {
   type AdminRole,
 } from "@/admin/config/security";
 
-interface AdminSession {
+export interface AdminSession {
   username: string;
   displayName: string;
   role: AdminRole;
@@ -37,11 +37,14 @@ interface AdminAuthContextValue {
   logout: () => void;
 }
 
-const ADMIN_SESSION_STORAGE_KEY = "gc_admin_session";
-const ADMIN_USERNAME = (import.meta.env.VITE_ADMIN_USERNAME ?? "ADMIN").trim();
+export const ADMIN_SESSION_STORAGE_KEY = "gc_admin_session";
+export const ADMIN_LOGIN_ROUTE = "/login";
+export const ADMIN_DASHBOARD_ROUTE = "/admin/dashboard";
+export const ADMIN_USERNAME = (import.meta.env.VITE_ADMIN_USERNAME ?? "ADMIN").trim();
 const ADMIN_PASSWORD_HASH =
   (import.meta.env.VITE_ADMIN_PASSWORD_HASH ??
-    "835d6dc88b708bc646d6db82c853ef4182fabbd4a8de59c213f2b5ab3ae7d9be").trim();
+    "3dbc36f1068ab85bbf98397f0c40a0d4dfcbfaf300fa680205555a6d2de4bb80").trim();
+const INVALID_ADMIN_CREDENTIALS_MESSAGE = "Usu\u00e1rio ou senha inv\u00e1lidos";
 
 const AdminAuthContext = createContext<AdminAuthContextValue | undefined>(undefined);
 
@@ -130,14 +133,14 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
     if (!normalizedUsername || !normalizedPassword) {
       return {
         success: false,
-        message: "Preencha usuário e senha de administrador.",
+        message: INVALID_ADMIN_CREDENTIALS_MESSAGE,
       };
     }
 
     if (normalizedUsername !== ADMIN_USERNAME) {
       return {
         success: false,
-        message: "Acesso negado. Usuário de administrador inválido.",
+        message: INVALID_ADMIN_CREDENTIALS_MESSAGE,
       };
     }
 
@@ -146,7 +149,7 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
     if (passwordHash !== ADMIN_PASSWORD_HASH) {
       return {
         success: false,
-        message: "Acesso negado. Senha de administrador inválida.",
+        message: INVALID_ADMIN_CREDENTIALS_MESSAGE,
       };
     }
 
@@ -180,7 +183,7 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
       value={{
         session,
         role: session?.role ?? "usuario",
-        isAdmin: Boolean(session),
+        isAdmin: isPrimaryAdmin,
         isPrimaryAdmin,
         displayName: session?.displayName ?? null,
         permissions: session?.permissions ?? [],

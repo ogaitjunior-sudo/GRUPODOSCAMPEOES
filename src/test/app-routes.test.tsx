@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import App from "@/App";
 
 afterEach(() => {
@@ -15,9 +15,13 @@ describe("app routes", () => {
     render(<App />);
 
     expect(
-      screen.getByRole("heading", { level: 1, name: /disciplina gera campe/i }),
+      screen.getByRole("heading", {
+        level: 1,
+        name: /aqui n\u00e3o tem sorte\.\s*s\u00f3 resultado\./i,
+      }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /pesquisar/i })).toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: /ver campeonatos/i }).length).toBeGreaterThan(0);
+    expect(screen.getByRole("link", { name: /ver todos os dados/i })).toBeInTheDocument();
   });
 
   it("renders the explore page", async () => {
@@ -54,7 +58,9 @@ describe("app routes", () => {
 
     render(<App />);
 
-    expect(await screen.findByRole("heading", { level: 2, name: /uma comunidade criada entre amigos/i })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { level: 2, name: /uma comunidade criada entre amigos/i }),
+    ).toBeInTheDocument();
     expect(await screen.findByText(/Idson, Alan e Lucas/i)).toBeInTheDocument();
     expect(await screen.findByRole("link", { name: /chamar no whatsapp/i })).toHaveAttribute(
       "href",
@@ -69,6 +75,155 @@ describe("app routes", () => {
 
     expect(await screen.findByRole("heading", { level: 1, name: /bem-vindo/i })).toBeInTheDocument();
     expect(await screen.findByRole("button", { name: /^entrar$/i })).toBeInTheDocument();
+  });
+
+  it("logs the admin in from /entrar and opens /admin/dashboard", async () => {
+    window.history.pushState({}, "", "/entrar");
+
+    render(<App />);
+
+    fireEvent.change(await screen.findByLabelText(/e-mail ou nome do jogador/i), {
+      target: { value: "ADMIN" },
+    });
+    fireEvent.change(screen.getByLabelText(/^senha$/i), {
+      target: { value: "GRUPODECAMPEAO" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /^entrar$/i }));
+
+    expect(await screen.findByRole("heading", { level: 1, name: /dashboard adm/i })).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/admin/dashboard");
+  });
+
+  it("redirects /entrar to /admin/dashboard when the admin session already exists", async () => {
+    window.localStorage.setItem(
+      "gc_admin_session",
+      JSON.stringify({
+        username: "ADMIN",
+        displayName: "ADMIN",
+        role: "super_admin",
+        permissions: [
+          "dashboard:view",
+          "users:view",
+          "users:manage",
+          "players:view",
+          "players:manage",
+          "teams:view",
+          "teams:manage",
+          "championships:view",
+          "championships:manage",
+          "images:view",
+          "images:moderate",
+          "languages:view",
+          "languages:manage",
+          "support:view",
+          "support:manage",
+          "logs:view",
+          "settings:view",
+          "settings:manage",
+        ],
+        loginAt: "2026-04-29T12:00:00.000Z",
+      }),
+    );
+    window.history.pushState({}, "", "/entrar");
+
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { level: 1, name: /dashboard adm/i })).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/admin/dashboard");
+  });
+
+  it("redirects an unauthenticated admin request to /login", async () => {
+    window.history.pushState({}, "", "/admin/dashboard");
+
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { level: 1, name: /gc x1 ops/i })).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/login");
+    expect(window.location.search).toContain("redirect=%2Fadmin%2Fdashboard");
+  });
+
+  it("shows the admin invalid credentials message", async () => {
+    window.history.pushState({}, "", "/login");
+
+    render(<App />);
+
+    fireEvent.change(await screen.findByLabelText(/usuario administrativo/i), {
+      target: { value: "ADMIN" },
+    });
+    fireEvent.change(screen.getByLabelText(/senha administrativa/i), {
+      target: { value: "senha-errada" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /entrar no painel/i }));
+
+    expect(await screen.findByText("Usu\u00e1rio ou senha inv\u00e1lidos")).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/login");
+  });
+
+  it("logs the admin in and opens /admin/dashboard", async () => {
+    window.history.pushState({}, "", "/login");
+
+    render(<App />);
+
+    fireEvent.change(await screen.findByLabelText(/usuario administrativo/i), {
+      target: { value: "ADMIN" },
+    });
+    fireEvent.change(screen.getByLabelText(/senha administrativa/i), {
+      target: { value: "GRUPODECAMPEAO" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /entrar no painel/i }));
+
+    expect(await screen.findByRole("heading", { level: 1, name: /dashboard adm/i })).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/admin/dashboard");
+    await waitFor(() =>
+      expect(JSON.parse(window.localStorage.getItem("gc_admin_session") ?? "{}")).toMatchObject({
+        username: "ADMIN",
+        displayName: "ADMIN",
+        role: "super_admin",
+      }),
+    );
+  });
+
+  it("keeps the public site on the root even when an admin session already exists", async () => {
+    window.localStorage.setItem(
+      "gc_admin_session",
+      JSON.stringify({
+        username: "ADMIN",
+        displayName: "ADMIN",
+        role: "super_admin",
+        permissions: [
+          "dashboard:view",
+          "users:view",
+          "users:manage",
+          "players:view",
+          "players:manage",
+          "teams:view",
+          "teams:manage",
+          "championships:view",
+          "championships:manage",
+          "images:view",
+          "images:moderate",
+          "languages:view",
+          "languages:manage",
+          "support:view",
+          "support:manage",
+          "logs:view",
+          "settings:view",
+          "settings:manage",
+        ],
+        loginAt: "2026-04-29T12:00:00.000Z",
+      }),
+    );
+    window.history.pushState({}, "", "/");
+
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", {
+        level: 1,
+        name: /aqui n\u00e3o tem sorte\.\s*s\u00f3 resultado\./i,
+      }),
+    ).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/");
   });
 
   it("renders the access implementation page", async () => {
@@ -89,6 +244,57 @@ describe("app routes", () => {
 
     expect(await screen.findByText(/entre para abrir o perfil/i)).toBeInTheDocument();
     expect(await screen.findByRole("link", { name: /abrir login/i })).toBeInTheDocument();
+  });
+
+  it("logs the player out from the navbar menu and redirects to /entrar", async () => {
+    window.localStorage.setItem(
+      "gc_player_fallback_session",
+      JSON.stringify({
+        id: "player-fallback-tidihunter",
+        email: "tidihunter@local.player",
+        displayName: "TIDIHUNTER",
+        loginAt: "2026-04-29T12:00:00.000Z",
+        provider: "fallback",
+      }),
+    );
+    window.history.pushState({}, "", "/perfil");
+
+    render(<App />);
+
+    fireEvent.click(await screen.findByRole("button", { name: /abrir navega/i }));
+    fireEvent.click(await screen.findByRole("button", { name: /sair da conta/i }));
+
+    await waitFor(() => {
+      expect(window.location.pathname).toBe("/entrar");
+    });
+    expect(window.localStorage.getItem("gc_player_fallback_session")).toBeNull();
+  });
+
+  it("opens and closes the navbar notifications dropdown for authenticated players", async () => {
+    window.localStorage.setItem(
+      "gc_player_fallback_session",
+      JSON.stringify({
+        id: "player-fallback-tidihunter",
+        email: "tidihunter@local.player",
+        displayName: "TIDIHUNTER",
+        loginAt: "2026-04-29T12:00:00.000Z",
+        provider: "fallback",
+      }),
+    );
+    window.history.pushState({}, "", "/perfil");
+
+    render(<App />);
+
+    fireEvent.click(await screen.findByRole("button", { name: /abrir notifica/i }));
+
+    expect(await screen.findByText(/novo campeonato aberto/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /ver todas as notifica/i })).toBeInTheDocument();
+
+    fireEvent.mouseDown(document.body);
+
+    await waitFor(() => {
+      expect(screen.queryByText(/novo campeonato aberto/i)).not.toBeInTheDocument();
+    });
   });
 
   it("renders the create account page", async () => {

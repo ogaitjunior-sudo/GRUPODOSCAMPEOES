@@ -3,7 +3,7 @@ import { ShieldAlert } from "lucide-react";
 import { useLocation } from "react-router-dom";
 import { EmptyStateCard } from "@/components/EmptyStateCard";
 import { PageShell } from "@/components/PageShell";
-import { useAdminAuth } from "@/contexts/AdminAuthContext";
+import { ADMIN_LOGIN_ROUTE, useAdminAuth } from "@/contexts/AdminAuthContext";
 
 export function AdminOnlyRoute({ children }: { children: ReactNode }) {
   const { isAdmin } = useAdminAuth();
@@ -24,7 +24,7 @@ export function AdminOnlyRoute({ children }: { children: ReactNode }) {
             title="Acesso negado"
             description="Esta area interna fica fora da experiencia publica. Faca login com um acesso administrativo para continuar."
             actionLabel="Entrar no painel"
-            actionTo={`/admin/login?redirect=${encodeURIComponent(redirectPath)}`}
+            actionTo={`${ADMIN_LOGIN_ROUTE}?redirect=${encodeURIComponent(redirectPath)}`}
             className="mx-auto max-w-3xl"
           />
         </div>

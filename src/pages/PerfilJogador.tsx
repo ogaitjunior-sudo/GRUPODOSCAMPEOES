@@ -827,7 +827,12 @@ export default function PerfilJogador() {
               <div className="overflow-hidden rounded-[28px] border border-primary/20 bg-metallic-card shadow-[0_18px_45px_hsl(0_0%_0%_/_0.34)] border-glow-gold">
                 <div className="relative flex h-72 items-end justify-center bg-[radial-gradient(circle_at_top,hsl(51_100%_50%_/_0.18),transparent_38%),linear-gradient(180deg,hsl(0_0%_18%),hsl(0_0%_10%))]">
                   <div className="absolute inset-0 opacity-25 [background-image:linear-gradient(hsl(0_0%_100%_/_0.04)_1px,transparent_1px),linear-gradient(90deg,hsl(0_0%_100%_/_0.04)_1px,transparent_1px)] [background-size:24px_24px]" />
-                  <PlayerAvatar name={playerName} avatarUrl={avatarUrl} size="xl" className="mb-6" />
+                  <PlayerAvatar
+                    name={playerName}
+                    avatarUrl={avatarUrl}
+                    size="xl"
+                    className="mb-4 h-44 w-44 border-primary/30 shadow-[0_0_44px_hsl(51_100%_50%_/_0.18)] sm:h-48 sm:w-48"
+                  />
                 </div>
 
                 <div className="space-y-4 p-6">

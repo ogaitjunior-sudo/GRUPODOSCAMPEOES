@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   BarChart3,
+  Bell,
   ChevronDown,
   HelpCircle,
   List,
@@ -37,6 +38,15 @@ const playerMenuSecondaryItems = [
   { label: "Ajuda", path: "/ajuda", icon: HelpCircle },
 ];
 
+type NavbarNotification = {
+  id: string;
+  title: string;
+  description: string;
+  read: boolean;
+};
+
+const playerNotifications: NavbarNotification[] = [];
+
 function formatPlayerDisplayName(name: string | null) {
   if (!name) {
     return "";
@@ -47,6 +57,7 @@ function formatPlayerDisplayName(name: string | null) {
 
 export function Navbar() {
   const location = useLocation();
+  const navigate = useNavigate();
   const {
     isAuthenticated: isPlayerAuthenticated,
     avatarUrl,
@@ -55,117 +66,218 @@ export function Navbar() {
     logout: logoutPlayer,
   } = usePlayerAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const notificationWrapperRef = useRef<HTMLDivElement | null>(null);
   const LoginIcon = loginRoute.icon;
   const playerDisplayName = formatPlayerDisplayName(loginName);
   const resolvedPlayerAvatarUrl = avatarUrl ?? readStoredPlayerAvatar(playerEmail);
+  const isHomeRoute = location.pathname === "/";
+  const unreadCount = playerNotifications.filter((notification) => !notification.read).length;
   const isItemActive = (path: string) =>
     path === "/" ? location.pathname === path : location.pathname.startsWith(path);
 
   useEffect(() => {
     setMobileOpen(false);
-  }, [location.pathname]);
+    setNotificationsOpen(false);
+  }, [location.pathname, location.search]);
+
+  useEffect(() => {
+    if (!notificationsOpen) {
+      return;
+    }
+
+    const handlePointerOutside = (event: MouseEvent) => {
+      if (!notificationWrapperRef.current?.contains(event.target as Node)) {
+        setNotificationsOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handlePointerOutside);
+
+    return () => {
+      document.removeEventListener("mousedown", handlePointerOutside);
+    };
+  }, [notificationsOpen]);
+
+  const handlePlayerLogout = () => {
+    logoutPlayer();
+    setMobileOpen(false);
+    setNotificationsOpen(false);
+    navigate("/entrar", { replace: true });
+  };
 
   return (
-    <nav className="fixed left-0 right-0 top-0 z-50 border-b border-white/8 bg-[#020304]/94 backdrop-blur-xl">
-      <div className="mx-auto flex h-24 max-w-[1860px] items-center justify-between gap-8 px-5 sm:px-8">
-        <Link to="/" className="flex items-center gap-3">
-          <span className="flex h-[70px] w-[70px] items-center justify-center overflow-hidden rounded-full border border-white/10 bg-black/30 shadow-[0_16px_36px_rgba(0,0,0,0.35)]">
-            <img src={logoGC} alt="Grupo de Campeões FC26" className="h-[58px] w-[58px] object-contain" />
-          </span>
-          <span className="hidden min-w-0 sm:block">
-            <span className="block font-heading text-xl font-semibold tracking-[0.08em] text-foreground">
-              Grupo de Campeões
+    <nav className={cn("premium-header tr-header", !isHomeRoute && "bg-[#020202]/92")}>
+      <div className="premium-header-shell">
+        <Link to="/" className="premium-header-brand">
+            <img
+              src={logoGC}
+              alt="Grupo de Campeões FC26"
+              className="h-[38px] w-[38px] object-contain drop-shadow-[0_12px_28px_rgba(0,0,0,0.38)]"
+            />
+
+          <span className="premium-header-brand-copy hidden sm:block">
+            <span className="premium-header-brand-title font-heading">
+              {"Grupo de Campeões"}
             </span>
-            <span className="mt-1 block text-sm tracking-[0.38em] text-muted-foreground">
-              FC 26 • X1 UT
+            <span className="premium-header-brand-subtitle">
+              {"FC 26 • X1 UT"}
             </span>
           </span>
         </Link>
 
-        <div className="hidden flex-1 items-center justify-center gap-8 xl:flex">
+        <div className="premium-header-menu hidden xl:flex">
           {navItems.map((item) => (
             <Link
               key={item.path}
               to={item.path}
               className={cn(
-                "relative py-3 text-base font-medium tracking-[0.01em] transition-colors after:absolute after:-bottom-2 after:left-0 after:h-[2px] after:w-full after:origin-left after:scale-x-0 after:rounded-full after:bg-primary after:transition-transform",
-                isItemActive(item.path)
-                  ? "text-primary after:scale-x-100"
-                  : "text-foreground/86 hover:text-primary",
-                item.highlight && !isItemActive(item.path) && "text-primary hover:text-primary",
+                "premium-header-link gold-flash-hover py-2",
+                isItemActive(item.path) && "is-active",
+                item.highlight && !isItemActive(item.path) && "text-primary",
               )}
             >
-              {item.label}
+              <span className="inline-flex items-center gap-2">
+                {item.label}
+                {item.highlight ? <item.icon className="h-3.5 w-3.5" /> : null}
+              </span>
             </Link>
           ))}
         </div>
 
         <div className="flex items-center gap-3">
           {isPlayerAuthenticated ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
+            <div className="tr-header-actions">
+              <div
+                ref={notificationWrapperRef}
+                className="tr-notification-wrapper hidden sm:block"
+              >
                 <button
                   type="button"
-                  className="hidden items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-foreground transition-colors hover:border-white/15 sm:inline-flex"
+                  className="tr-notification-btn gold-flash-hover gold-hover-scale"
+                  aria-expanded={notificationsOpen}
+                  aria-label={
+                    unreadCount > 0
+                      ? `Abrir notificações (${unreadCount} não lidas)`
+                      : "Abrir notificações"
+                  }
+                  onClick={() => setNotificationsOpen((current) => !current)}
                 >
-                  <PlayerAvatar
-                    name={playerDisplayName || "Jogador"}
-                    avatarUrl={resolvedPlayerAvatarUrl}
-                    size="sm"
-                    className="h-7 w-7 border-primary/20"
-                  />
-                  <span className="font-medium">{playerDisplayName}</span>
-                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                  <Bell className="h-[18px] w-[18px]" />
+                  {unreadCount > 0 ? (
+                    <span className="tr-notification-badge">{unreadCount}</span>
+                  ) : null}
                 </button>
-              </DropdownMenuTrigger>
 
-              <DropdownMenuContent
-                align="end"
-                sideOffset={10}
-                className="w-60 rounded-[24px] site-card p-1.5 text-foreground shadow-[0_24px_60px_hsl(0_0%_0%_/_0.38)]"
-              >
-                {playerMenuPrimaryItems.map((item) => (
-                  <DropdownMenuItem
-                    key={item.label}
-                    asChild
-                    className="cursor-pointer rounded-2xl px-4 py-3 text-[14px] font-medium text-foreground focus:bg-white/5"
+                {notificationsOpen ? (
+                  <div className="tr-notification-dropdown">
+                    <div className="tr-notification-title">Notificações</div>
+
+                    {playerNotifications.length > 0 ? (
+                      <>
+                        {playerNotifications.map((notification) => (
+                          <div
+                            key={notification.id}
+                            className={cn(
+                              "tr-notification-item",
+                              !notification.read && "unread",
+                            )}
+                          >
+                            <strong>{notification.title}</strong>
+                            <span>{notification.description}</span>
+                          </div>
+                        ))}
+
+                        <button
+                          type="button"
+                          className="tr-notification-footer"
+                          onClick={() => {
+                            setNotificationsOpen(false);
+                            navigate("/perfil?aba=atividade");
+                          }}
+                        >
+                          Ver todas as notificações
+                        </button>
+                      </>
+                    ) : (
+                      <div className="tr-notification-empty">
+                        Nenhuma notificação no momento.
+                      </div>
+                    )}
+                  </div>
+                ) : null}
+              </div>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    className={cn(
+                      "premium-header-profile gold-flash-hover gold-hover-scale hidden sm:inline-flex",
+                      isHomeRoute ? "min-w-[216px]" : "min-w-[196px]",
+                    )}
                   >
-                    <Link to={item.path} className="flex items-center gap-2">
-                      <item.icon className="h-4 w-4 text-primary" />
-                      {item.label}
-                    </Link>
-                  </DropdownMenuItem>
-                ))}
+                    <PlayerAvatar
+                      name={playerDisplayName || "Jogador"}
+                      avatarUrl={resolvedPlayerAvatarUrl}
+                      size="sm"
+                      className="h-8 w-8 border-primary/40"
+                    />
+                    <span className="premium-header-profile-name truncate uppercase tracking-[0.03em]">
+                      {playerDisplayName}
+                    </span>
+                    <ChevronDown className="h-3.5 w-3.5 text-white/72" />
+                  </button>
+                </DropdownMenuTrigger>
 
-                <DropdownMenuSeparator className="mx-2 my-1 bg-border" />
-
-                {playerMenuSecondaryItems.map((item) => (
-                  <DropdownMenuItem
-                    key={item.label}
-                    asChild
-                    className="cursor-pointer rounded-2xl px-4 py-3 text-[14px] font-medium text-muted-foreground focus:bg-white/5 focus:text-foreground"
-                  >
-                    <Link to={item.path} className="flex items-center gap-2">
-                      <item.icon className="h-4 w-4 text-muted-foreground" />
-                      {item.label}
-                    </Link>
-                  </DropdownMenuItem>
-                ))}
-
-                <DropdownMenuSeparator className="mx-2 my-1 bg-border" />
-
-                <DropdownMenuItem
-                  onSelect={(event) => {
-                    event.preventDefault();
-                    logoutPlayer();
-                  }}
-                  className="cursor-pointer rounded-2xl px-4 py-3 text-[14px] font-medium text-primary focus:bg-primary/10 focus:text-primary"
+                <DropdownMenuContent
+                  align="end"
+                  sideOffset={10}
+                  className="w-60 rounded-[24px] site-card p-1.5 text-foreground shadow-[0_24px_60px_hsl(0_0%_0%_/_0.38)]"
                 >
-                  <LogOut className="mr-2 h-4 w-4" />
-                  Sair
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+                  {playerMenuPrimaryItems.map((item) => (
+                    <DropdownMenuItem
+                      key={item.label}
+                      asChild
+                      className="cursor-pointer rounded-2xl px-4 py-3 text-[14px] font-medium text-foreground focus:bg-white/5"
+                    >
+                      <Link to={item.path} className="flex items-center gap-2">
+                        <item.icon className="h-4 w-4 text-primary" />
+                        {item.label}
+                      </Link>
+                    </DropdownMenuItem>
+                  ))}
+
+                  <DropdownMenuSeparator className="mx-2 my-1 bg-border" />
+
+                  {playerMenuSecondaryItems.map((item) => (
+                    <DropdownMenuItem
+                      key={item.label}
+                      asChild
+                      className="cursor-pointer rounded-2xl px-4 py-3 text-[14px] font-medium text-muted-foreground focus:bg-white/5 focus:text-foreground"
+                    >
+                      <Link to={item.path} className="flex items-center gap-2">
+                        <item.icon className="h-4 w-4 text-muted-foreground" />
+                        {item.label}
+                      </Link>
+                    </DropdownMenuItem>
+                  ))}
+
+                  <DropdownMenuSeparator className="mx-2 my-1 bg-border" />
+
+                  <DropdownMenuItem
+                    onSelect={(event) => {
+                      event.preventDefault();
+                      handlePlayerLogout();
+                    }}
+                    className="cursor-pointer rounded-2xl px-4 py-3 text-[14px] font-medium text-primary focus:bg-primary/10 focus:text-primary"
+                  >
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Sair
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           ) : (
             <>
               <SiteActionLink
@@ -190,9 +302,9 @@ export function Navbar() {
 
           <button
             onClick={() => setMobileOpen((current) => !current)}
-            className="rounded-full border border-white/10 bg-white/[0.04] p-2.5 text-foreground xl:hidden"
+            className="rounded-full border border-primary/20 bg-primary/[0.06] p-2.5 text-foreground shadow-[0_0_14px_rgba(255,204,0,0.08)] xl:hidden"
             aria-expanded={mobileOpen}
-            aria-label="Abrir navegação pública"
+            aria-label={"Abrir navegação pública"}
           >
             {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
@@ -201,10 +313,12 @@ export function Navbar() {
 
       {mobileOpen ? (
         <div className="border-t border-white/8 bg-background/92 xl:hidden">
-          <div className="container mx-auto px-4 py-4">
+          <div className="mx-auto max-w-[1500px] px-4 py-4 sm:px-6">
             <div className="rounded-[24px] site-card p-3">
               <div className="mb-2 px-3 py-2">
-                <p className="text-xs uppercase tracking-[0.22em] text-primary">Navegação</p>
+                <p className="text-xs uppercase tracking-[0.22em] text-primary">
+                  {"NAVEGAÇÃO"}
+                </p>
               </div>
 
               <div className="space-y-1">
@@ -229,7 +343,7 @@ export function Navbar() {
             <div className="mt-4 rounded-[24px] site-card-soft p-3">
               {isPlayerAuthenticated ? (
                 <>
-                <div className="flex items-center gap-3 rounded-2xl px-4 py-3 text-foreground">
+                  <div className="flex items-center gap-3 rounded-2xl px-4 py-3 text-foreground">
                     <PlayerAvatar
                       name={playerDisplayName || "Jogador"}
                       avatarUrl={resolvedPlayerAvatarUrl}
@@ -257,7 +371,7 @@ export function Navbar() {
 
                   <button
                     type="button"
-                    onClick={logoutPlayer}
+                    onClick={handlePlayerLogout}
                     className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm text-primary transition-colors hover:bg-primary/10"
                   >
                     <LogOut className="h-4 w-4" />
