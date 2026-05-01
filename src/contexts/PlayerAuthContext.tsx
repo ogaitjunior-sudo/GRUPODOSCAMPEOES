@@ -16,6 +16,7 @@ import {
   authenticatePlayerFallback,
   createPlayerFallbackSession,
   getPlayerFallbackCredentials,
+  isPlayerFallbackIdentifier,
   isPlayerFallbackSession,
   type PlayerFallbackSession,
 } from "@/lib/player-fallback-auth";
@@ -340,6 +341,8 @@ export function PlayerAuthProvider({ children }: { children: ReactNode }) {
   const login = async (identifier: string, password: string): Promise<AuthResult> => {
     const normalizedIdentifier = identifier.trim();
     const normalizedPassword = password.trim();
+    const normalizedEmailIdentifier = normalizedIdentifier.toLowerCase();
+    const isExplicitEmailIdentifier = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedIdentifier);
 
     if (!normalizedIdentifier || !normalizedPassword) {
       return {
@@ -348,50 +351,53 @@ export function PlayerAuthProvider({ children }: { children: ReactNode }) {
       };
     }
 
-    const fallbackAuth = await authenticatePlayerFallback(normalizedIdentifier, normalizedPassword);
+    if (isPlayerFallbackIdentifier(normalizedIdentifier)) {
+      const fallbackAuth = await authenticatePlayerFallback(normalizedIdentifier, normalizedPassword);
 
-    if (fallbackAuth) {
-      if (!fallbackAuth.success) {
-        return {
-          success: false,
-          message: fallbackAuth.message,
-        };
+      if (fallbackAuth) {
+        if (!fallbackAuth.success) {
+          return {
+            success: false,
+            message: fallbackAuth.message,
+          };
+        }
+
+        const fallbackSession = {
+          ...fallbackAuth.session,
+          avatarUrl: readStoredPlayerAvatar(fallbackAuth.session.email),
+          teamPhotoUrl: readStoredPlayerTeamPhoto(fallbackAuth.session.email),
+        } satisfies PlayerSession;
+
+        setSession(fallbackSession);
+
+        void syncPlayerAccessDirectoryEntry({
+          name: fallbackSession.displayName,
+          email: fallbackSession.email,
+          lastLoginAt: fallbackSession.loginAt,
+          createdAt: fallbackSession.loginAt,
+        });
+
+          return {
+          success: true,
+          playerName: fallbackAuth.playerName,
+          };
       }
-
-      const fallbackSession = {
-        ...fallbackAuth.session,
-        avatarUrl: readStoredPlayerAvatar(fallbackAuth.session.email),
-        teamPhotoUrl: readStoredPlayerTeamPhoto(fallbackAuth.session.email),
-      } satisfies PlayerSession;
-
-      setSession(fallbackSession);
-
-      void syncPlayerAccessDirectoryEntry({
-        name: fallbackSession.displayName,
-        email: fallbackSession.email,
-        lastLoginAt: fallbackSession.loginAt,
-        createdAt: fallbackSession.loginAt,
-      });
-
-      return {
-        success: true,
-        playerName: fallbackAuth.playerName,
-      };
     }
 
     if (!isSupabaseConfigured || !supabase) {
-      return {
+        return {
         success: false,
         message: supabaseAuthSetupMessage,
-      };
-    }
+        };
+      }
 
-    let resolvedEmail = "";
+    let resolvedEmail = normalizedEmailIdentifier;
 
-    try {
-      const resolution = await resolvePlayerLoginEmail(normalizedIdentifier);
+    if (!isExplicitEmailIdentifier) {
+      try {
+        const resolution = await resolvePlayerLoginEmail(normalizedIdentifier);
 
-      if (!resolution.email) {
+        if (!resolution.email) {
         return {
           success: false,
           message:
@@ -400,12 +406,14 @@ export function PlayerAuthProvider({ children }: { children: ReactNode }) {
         };
       }
 
-      resolvedEmail = resolution.email;
-    } catch {
+        resolvedEmail = resolution.email;
+      } catch {
       return {
         success: false,
         message: "Não foi possível validar o nome do jogador agora. Tente entrar com o e-mail.",
       };
+    }
+
     }
 
     const { data, error } = await supabase.auth.signInWithPassword({

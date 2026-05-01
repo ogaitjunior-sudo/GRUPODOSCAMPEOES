@@ -31,52 +31,6 @@ function normalizeRedirectTarget(value: string | null) {
   return value;
 }
 
-function preloadRedirectTarget(target: string) {
-  const pathname = target.split("?")[0];
-
-  if (pathname === "/" || pathname === "") {
-    return import("./Index.tsx");
-  }
-
-  if (pathname.startsWith("/perfil")) {
-    return import("./PerfilJogador.tsx");
-  }
-
-  if (pathname.startsWith("/explorar") || pathname.startsWith("/pesquisar")) {
-    return import("./Pesquisar.tsx");
-  }
-
-  if (pathname.startsWith("/ranking")) {
-    return import("./Ranking.tsx");
-  }
-
-  if (pathname.startsWith("/campeonatos/")) {
-    return import("./ChampionshipDetails.tsx");
-  }
-
-  if (pathname.startsWith("/campeonatos")) {
-    return import("./Campeonatos.tsx");
-  }
-
-  if (pathname.startsWith("/relampago")) {
-    return import("./Relampago.tsx");
-  }
-
-  if (pathname.startsWith("/campeoes")) {
-    return import("./Champions.tsx");
-  }
-
-  if (pathname.startsWith("/ligas")) {
-    return import("./Ligas.tsx");
-  }
-
-  if (pathname.startsWith("/ajuda")) {
-    return import("./Ajuda.tsx");
-  }
-
-  return Promise.resolve();
-}
-
 export default function Entrar() {
   const [searchParams] = useSearchParams();
   const [form, setForm] = useState<LoginForm>({ identifier: "", password: "" });
@@ -99,10 +53,6 @@ export default function Entrar() {
       navigate(redirectTo, { replace: true });
     }
   }, [isAuthenticated, isPrimaryAdmin, navigate, redirectTo]);
-
-  useEffect(() => {
-    void preloadRedirectTarget(redirectTo);
-  }, [redirectTo]);
 
   const updateField = (field: keyof LoginForm) => (event: ChangeEvent<HTMLInputElement>) => {
     setForm((current) => ({ ...current, [field]: event.target.value }));
@@ -128,8 +78,6 @@ export default function Entrar() {
       navigate(ADMIN_DASHBOARD_ROUTE, { replace: true });
       return;
     }
-
-    void preloadRedirectTarget(redirectTo);
 
     const result = await login(form.identifier, form.password);
 
