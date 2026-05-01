@@ -1,4 +1,4 @@
-import type { CSSProperties, MouseEvent as ReactMouseEvent } from "react";
+import { useEffect, useState, type CSSProperties, type MouseEvent as ReactMouseEvent } from "react";
 import { Link } from "react-router-dom";
 import {
   CalendarClock,
@@ -12,8 +12,10 @@ import {
   Zap,
   type LucideIcon,
 } from "lucide-react";
+import type { AdminPanelState } from "@/admin/types";
 import heroLionsBackdrop from "@/assets/hero-lions-backdrop.png";
 import heroLogoShadow from "@/assets/hero-logo-shadow.png";
+import { readCachedAdminPanelState } from "@/lib/admin-panel-store";
 
 interface QuickMetric {
   title: string;
@@ -33,13 +35,6 @@ const quickMetrics: QuickMetric[] = [
   { title: "CAMPEONATOS AO VIVO", value: "0", icon: Swords },
   { title: "PR\u00d3XIMAS JANELAS", value: "0", icon: CalendarClock },
   { title: "CAMPE\u00d5ES OFICIAIS", value: "0", icon: ShieldCheck },
-];
-
-const bottomStats: BottomStat[] = [
-  { value: "0", title: "JOGADORES ATIVOS", icon: Users },
-  { value: "0", title: "CAMPEONATOS REALIZADOS", icon: Trophy },
-  { value: "100%", title: "SISTEMA AUTOM\u00c1TICO", helper: "E SEGURO", icon: ShieldCheck },
-  { value: "", title: "RESPOSTA R\u00c1PIDA", helper: "SUPORTE \u00c1GIL", icon: Zap },
 ];
 
 const playerPreviewTokens = Array.from({ length: 5 }, (_, index) => index);
@@ -70,6 +65,38 @@ const sparkPositions = [
   { left: "69%", top: "62%", delay: "1.2s", duration: "5.2s" },
 ] as const;
 
+function normalizePlayerEmail(value: string) {
+  return value.trim().toLowerCase();
+}
+
+function countActivePlayers(state: AdminPanelState) {
+  const activePlayers = new Set<string>();
+
+  state.users.forEach((user) => {
+    const normalizedEmail = normalizePlayerEmail(user.email);
+
+    if (!normalizedEmail || user.status !== "active") {
+      return;
+    }
+
+    if (user.role === "player" || user.role === "captain" || user.role === "manager") {
+      activePlayers.add(normalizedEmail);
+    }
+  });
+
+  state.players.forEach((player) => {
+    const normalizedEmail = normalizePlayerEmail(player.email);
+
+    if (!normalizedEmail || player.status === "blocked") {
+      return;
+    }
+
+    activePlayers.add(normalizedEmail);
+  });
+
+  return activePlayers.size;
+}
+
 function QuickMetricCard({ title, value, icon: Icon }: QuickMetric) {
   return (
     <div className="tr-quick-item tr-stat-card">
@@ -98,6 +125,30 @@ function BottomStatCard({ value, title, helper, icon: Icon }: BottomStat) {
 }
 
 export function HeroSection() {
+  const [activePlayersCount, setActivePlayersCount] = useState(() =>
+    countActivePlayers(readCachedAdminPanelState()),
+  );
+
+  useEffect(() => {
+    const syncActivePlayersCount = () => {
+      setActivePlayersCount(countActivePlayers(readCachedAdminPanelState()));
+    };
+
+    syncActivePlayersCount();
+
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.addEventListener("storage", syncActivePlayersCount);
+    window.addEventListener("focus", syncActivePlayersCount);
+
+    return () => {
+      window.removeEventListener("storage", syncActivePlayersCount);
+      window.removeEventListener("focus", syncActivePlayersCount);
+    };
+  }, []);
+
   const handleMouseMove = (event: ReactMouseEvent<HTMLElement>) => {
     const rect = event.currentTarget.getBoundingClientRect();
     const x = event.clientX - rect.left;
@@ -111,6 +162,14 @@ export function HeroSection() {
     event.currentTarget.style.setProperty("--mouse-x", "50%");
     event.currentTarget.style.setProperty("--mouse-y", "50%");
   };
+
+  const activePlayersValue = new Intl.NumberFormat("pt-BR").format(activePlayersCount);
+  const bottomStats: BottomStat[] = [
+    { value: activePlayersValue, title: "JOGADORES ATIVOS", icon: Users },
+    { value: "0", title: "CAMPEONATOS REALIZADOS", icon: Trophy },
+    { value: "100%", title: "SISTEMA AUTOM\u00c1TICO", helper: "E SEGURO", icon: ShieldCheck },
+    { value: "", title: "RESPOSTA R\u00c1PIDA", helper: "SUPORTE \u00c1GIL", icon: Zap },
+  ];
 
   return (
     <section
@@ -205,7 +264,7 @@ export function HeroSection() {
             </div>
 
             <div className="tr-player-copy">
-              <p className="tr-player-value">0</p>
+              <p className="tr-player-value">{activePlayersValue}</p>
               <p className="tr-player-label">JOGADORES ATIVOS</p>
             </div>
           </div>
