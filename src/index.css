@@ -1167,30 +1167,37 @@
 
   .tr-bottom-stat-copy {
     min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
   }
 
   .tr-bottom-stat-value {
     color: hsl(0 0% 100%);
     font-family: "Teko", sans-serif;
-    font-size: 2.2rem;
+    font-size: clamp(1.95rem, 1.55vw, 2.2rem);
     font-weight: 700;
-    line-height: 0.9;
+    line-height: 0.88;
+    letter-spacing: 0.015em;
   }
 
   .tr-bottom-stat-title {
-    margin-top: 4px;
+    max-width: 15ch;
+    margin-top: 5px;
     color: hsl(0 0% 100%);
-    font-size: 0.82rem;
+    font-size: 0.78rem;
     font-weight: 700;
-    letter-spacing: 0.05em;
+    line-height: 1.16;
+    letter-spacing: 0.085em;
     text-transform: uppercase;
   }
 
   .tr-bottom-stat-helper {
-    margin-top: 2px;
+    margin-top: 3px;
     color: hsl(0 0% 100% / 0.7);
-    font-size: 0.76rem;
-    line-height: 1.25;
+    font-size: 0.72rem;
+    line-height: 1.16;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
   }
 
