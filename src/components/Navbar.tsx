@@ -25,10 +25,16 @@ import {
 import { cn } from "@/lib/utils";
 import { loginRoute, navItems } from "@/navigation";
 
-const playerMenuPrimaryItems = [
+const desktopPlayerMenuPrimaryItems = [
   { label: "Perfil", path: "/perfil", icon: User },
   { label: "Campeonatos", path: "/perfil?aba=campeonatos", icon: List },
   { label: "Ranking", path: "/perfil?aba=rankings", icon: BarChart3 },
+];
+
+const mobilePlayerMenuPrimaryItems = [
+  { label: "Perfil", path: "/perfil", icon: User },
+  { label: "Campeonatos", path: "/campeonatos", icon: List },
+  { label: "Ranking", path: "/ranking", icon: BarChart3 },
 ];
 
 const playerMenuSecondaryItems = [
@@ -65,6 +71,7 @@ export function Navbar() {
   } = usePlayerAuth();
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
   const notificationWrapperRef = useRef<HTMLDivElement | null>(null);
   const profileTriggerRef = useRef<HTMLButtonElement | null>(null);
   const profileDropdownRef = useRef<HTMLDivElement | null>(null);
@@ -73,6 +80,9 @@ export function Navbar() {
   const resolvedPlayerAvatarUrl = avatarUrl ?? readStoredPlayerAvatar(playerEmail);
   const isHomeRoute = location.pathname === "/";
   const unreadCount = playerNotifications.filter((notification) => !notification.read).length;
+  const profileMenuPrimaryItems = isMobileViewport
+    ? mobilePlayerMenuPrimaryItems
+    : desktopPlayerMenuPrimaryItems;
   const isItemActive = (path: string) =>
     path === "/" ? location.pathname === path : location.pathname.startsWith(path);
 
@@ -80,6 +90,35 @@ export function Navbar() {
     setNotificationsOpen(false);
     setProfileMenuOpen(false);
   }, [location.pathname, location.search]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const mediaQuery = window.matchMedia("(max-width: 768px)");
+    const syncViewport = () => setIsMobileViewport(mediaQuery.matches);
+
+    syncViewport();
+
+    const handleChange = (event: MediaQueryListEvent) => {
+      setIsMobileViewport(event.matches);
+    };
+
+    if (typeof mediaQuery.addEventListener === "function") {
+      mediaQuery.addEventListener("change", handleChange);
+
+      return () => {
+        mediaQuery.removeEventListener("change", handleChange);
+      };
+    }
+
+    mediaQuery.addListener(handleChange);
+
+    return () => {
+      mediaQuery.removeListener(handleChange);
+    };
+  }, []);
 
   useEffect(() => {
     if (!notificationsOpen) {
@@ -264,7 +303,7 @@ export function Navbar() {
                   sideOffset={10}
                   className="profile-dropdown user-dropdown tr-user-dropdown w-60 rounded-[24px] site-card p-1.5 text-foreground shadow-[0_24px_60px_hsl(0_0%_0%_/_0.38)]"
                 >
-                  {playerMenuPrimaryItems.map((item) => (
+                  {profileMenuPrimaryItems.map((item) => (
                     <DropdownMenuItem
                       key={item.label}
                       asChild
