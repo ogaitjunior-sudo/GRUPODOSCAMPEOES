@@ -331,7 +331,7 @@ export function Navbar() {
 
       {mobileOpen ? (
         <div
-          className="mobile-menu-layer border-t border-white/8 bg-background/92 xl:hidden"
+          className="mobile-menu mobile-menu-layer border-t border-white/8 bg-background/92 xl:hidden"
           onClick={() => setMobileOpen(false)}
         >
           <div className="mx-auto max-w-[1500px] px-4 py-4 sm:px-6">

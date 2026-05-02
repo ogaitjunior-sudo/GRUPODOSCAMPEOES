@@ -221,7 +221,7 @@ export function HeroSection() {
       ))}
 
       <div className="tr-hero-inner">
-        <div className="tr-left">
+        <div className="tr-left hero">
           <div className="tr-badge">
             <ShieldCheck className="h-4 w-4" />
             CIRCUITO X1 UT DO FC 26
@@ -241,7 +241,7 @@ export function HeroSection() {
             {"Entre no circuito, dispute campeonatos e prove quem realmente domina."}
           </p>
 
-          <div className="tr-actions">
+          <div className="tr-actions actions">
             <Link to="/campeonatos" className="tr-primary-btn tr-primary-button">
               <Trophy className="h-4.5 w-4.5" />
               VER CAMPEONATOS
@@ -254,7 +254,7 @@ export function HeroSection() {
             </Link>
           </div>
 
-          <div className="tr-player-card">
+          <div className="tr-player-card players-card">
             <div className="tr-player-stack" aria-hidden="true">
               {playerPreviewTokens.map((token) => (
                 <span key={token} className="tr-player-avatar">
@@ -270,7 +270,7 @@ export function HeroSection() {
           </div>
         </div>
 
-        <div className="tr-center">
+        <div className="tr-center hero-visual">
           <div aria-hidden="true" className="tr-energy-ring" />
           <div aria-hidden="true" className="tr-energy-base" />
           <div aria-hidden="true" className="tr-energy-beam" />
@@ -278,13 +278,13 @@ export function HeroSection() {
             <img
               src={heroLogoShadow}
               alt="Grupo de Campe\u00f5es FC26"
-              className="tr-logo"
+              className="tr-logo hero-logo"
             />
           </div>
         </div>
 
         <div className="tr-right">
-          <aside className="tr-quick-card">
+          <aside className="tr-quick-card quick-view">
             <div className="tr-quick-head">
               <div>
                 <p className="tr-quick-kicker">{"VIS\u00c3O R\u00c1PIDA"}</p>

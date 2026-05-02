@@ -2029,11 +2029,13 @@
     flex-shrink: 0;
   }
 
+  .mobile-menu,
   .mobile-menu-layer {
     position: fixed;
     inset: 0;
     z-index: 9998;
     display: flex;
+    width: 100%;
     flex-direction: column;
     padding: 84px 20px 24px;
     gap: 14px;
@@ -2045,7 +2047,8 @@
 
   .mobile-menu-layer > div {
     display: flex;
-    width: min(100%, 420px);
+    width: 100%;
+    max-width: 100%;
     flex-direction: column;
     gap: 14px;
     margin: 0 auto;
@@ -2066,6 +2069,7 @@
     border: 0;
     box-shadow: none;
     animation: hunterMenuIn 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+    align-items: center;
   }
 
   .mobile-menu-layer .mobile-menu-panel + .mobile-menu-panel {
@@ -2140,12 +2144,15 @@
 
   .mobile-menu-panel .mb-2 {
     margin-bottom: 0;
+    width: 100%;
+    text-align: center;
   }
 
   .mobile-menu-panel .space-y-1 {
     display: flex;
     flex-direction: column;
     gap: 14px;
+    width: 100%;
   }
 
   .mobile-menu-entry {
@@ -2465,15 +2472,15 @@
   }
 
   .tr-hero-inner {
-    padding: 28px 16px 0;
-    gap: 24px;
+    display: flex;
+    flex-direction: column;
+    padding: 20px 16px 10px;
+    gap: 0;
   }
 
   .tr-left,
   .tr-right,
-  .hero-text,
   .hero-center,
-  .right-panel,
   .tr-player-card,
   .hero-player-card,
   .search-card,
@@ -2483,16 +2490,83 @@
     max-width: 100%;
   }
 
+  .tr-left,
+  .tr-center,
+  .tr-right {
+    display: contents;
+  }
+
+  .hero,
+  .hero-visual,
+  .quick-view {
+    width: 100%;
+  }
+
+  .tr-badge,
+  .tr-title,
+  .tr-subtitle,
+  .tr-logo-wrap {
+    order: 1;
+    width: 100%;
+    text-align: center;
+  }
+
+  .tr-actions,
+  .actions {
+    order: 2;
+    width: 100%;
+    margin-top: 12px;
+  }
+
+  .tr-player-card,
+  .players-card {
+    order: 3;
+    width: auto;
+    margin: 16px;
+  }
+
+  .tr-quick-card,
+  .quick-view {
+    order: 4;
+    width: auto;
+    max-width: none;
+    margin: 0 16px 16px;
+  }
+
+  .tr-energy-ring,
+  .tr-energy-base,
+  .tr-energy-beam {
+    display: none;
+  }
+
   .tr-title {
-    font-size: clamp(40px, 12vw, 56px);
-    line-height: 0.95;
-    letter-spacing: -1px;
+    margin-top: 14px;
+    font-size: 28px;
+    line-height: 1.2;
+    letter-spacing: -0.4px;
   }
 
   .tr-subtitle,
   .hero-subtitle {
     max-width: 100%;
     font-size: 14px;
+    opacity: 0.8;
+  }
+
+  .tr-subtitle {
+    margin-top: 12px;
+  }
+
+  .tr-logo-wrap {
+    margin: 20px auto;
+  }
+
+  .hero-logo,
+  .tr-logo {
+    display: block;
+    width: 80%;
+    max-width: 260px;
+    margin: 20px auto;
   }
 
   .tr-quick-grid,
@@ -2518,14 +2592,9 @@
     min-height: 280px;
   }
 
-  .hero-image,
-  .tr-logo {
+  .hero-image {
     width: min(420px, 100%);
     max-width: 100%;
-  }
-
-  .right-panel {
-    padding: 16px;
   }
 
   .quick-stat-card {
@@ -2576,12 +2645,13 @@
   }
 
   .tr-hero-inner {
-    padding: 32px 16px 0;
+    padding: 20px 16px 10px;
   }
 
   .tr-title {
-    font-size: 52px;
-    letter-spacing: -1px;
+    font-size: 28px;
+    line-height: 1.2;
+    letter-spacing: -0.4px;
   }
 
   .tr-actions {
@@ -2594,15 +2664,16 @@
   }
 
     .tr-player-card {
-      flex-direction: column;
-      justify-content: center;
-      min-height: 118px;
-      padding: 16px 20px;
+      flex-direction: row;
+      justify-content: space-between;
+      min-height: 0;
+      padding: 14px 16px;
+      margin: 16px;
     }
 
     .tr-player-copy {
-      align-items: center;
-      text-align: center;
+      align-items: flex-end;
+      text-align: right;
     }
 
   .tr-quick-grid,
@@ -2625,12 +2696,12 @@
   }
 
   .home-container {
-    padding-inline: 0;
+    padding-inline: 16px;
   }
 
   .home-main {
-    width: calc(100% - 32px);
-    padding-top: 34px;
+    width: 100%;
+    padding-top: 20px;
     padding-inline: 0;
   }
 
