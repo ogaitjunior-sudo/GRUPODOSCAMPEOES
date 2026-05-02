@@ -129,7 +129,7 @@ export function UltimateTeamGroupDashboard({
           </button>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="table-wrapper ranking-table-wrapper overflow-x-auto">
           {standings.length > 0 ? (
             <table className="min-w-full border-separate border-spacing-0 text-sm">
               <thead>

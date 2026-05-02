@@ -15,9 +15,9 @@ export function Footer() {
   ];
 
   return (
-    <footer className="pb-10 pt-16">
+    <footer className="site-footer pb-10 pt-16">
       <div className="container mx-auto px-4">
-        <div className="rounded-[32px] site-card px-6 py-8 md:px-8 md:py-10">
+        <div className="footer-shell rounded-[32px] site-card px-6 py-8 md:px-8 md:py-10">
           <div className="grid gap-10 md:grid-cols-[minmax(0,1.25fr)_minmax(220px,0.8fr)_minmax(220px,0.8fr)]">
             <div className="max-w-xl">
               <div className="flex items-center gap-3">
@@ -37,7 +37,7 @@ export function Footer() {
                 fluxo do jogador sem excesso de informação.
               </p>
 
-              <div className="mt-6 flex flex-wrap gap-3 text-sm">
+              <div className="footer-actions mt-6 flex flex-wrap gap-3 text-sm">
                 <Link to="/campeonatos" className="cta-secondary px-4 py-2.5">
                   Ver campeonatos
                 </Link>

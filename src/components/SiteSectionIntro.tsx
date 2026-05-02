@@ -26,7 +26,7 @@ export function SiteSectionIntro({
   return (
     <div
       className={cn(
-        "flex flex-col gap-5 md:flex-row md:items-end md:justify-between",
+        "site-section-intro flex flex-col gap-5 md:flex-row md:items-end md:justify-between",
         centered && "items-center text-center",
         className,
       )}
@@ -40,12 +40,12 @@ export function SiteSectionIntro({
         )}
 
         <div className="space-y-3">
-          <h1 className="text-balance font-heading text-3xl font-semibold tracking-[0.06em] text-foreground md:text-5xl">
+          <h1 className="page-title text-balance font-heading text-3xl font-semibold tracking-[0.06em] text-foreground md:text-5xl">
             {title}
           </h1>
           <p
             className={cn(
-              "max-w-2xl text-sm leading-7 text-muted-foreground md:text-base",
+              "page-subtitle max-w-2xl text-sm leading-7 text-muted-foreground md:text-base",
               centered && "mx-auto",
             )}
           >

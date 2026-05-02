@@ -93,7 +93,7 @@ export function ChallengeModal({
 
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
-      <DialogContent className="border-white/10 bg-[linear-gradient(180deg,hsl(220_24%_14%_/_0.98),hsl(222_24%_9%_/_0.98))] p-0 text-slate-100 sm:max-w-2xl">
+      <DialogContent className="mobile-dialog border-white/10 bg-[linear-gradient(180deg,hsl(220_24%_14%_/_0.98),hsl(222_24%_9%_/_0.98))] p-0 text-slate-100 sm:max-w-2xl">
         <div className="border-b border-white/8 bg-[radial-gradient(circle_at_top_left,hsl(45_100%_55%_/_0.14),transparent_28%),radial-gradient(circle_at_top_right,hsl(196_100%_50%_/_0.14),transparent_24%),linear-gradient(180deg,hsl(220_24%_18%_/_0.92),hsl(220_20%_12%_/_0.92))] px-6 py-6">
           <DialogHeader className="text-left">
             <DialogTitle className="flex items-center gap-3 font-heading text-2xl uppercase tracking-[0.12em] text-white">

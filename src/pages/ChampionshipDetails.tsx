@@ -2515,7 +2515,7 @@ function ParticipationDialog({
 
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent className="mobile-dialog sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
@@ -3187,7 +3187,7 @@ function GroupMatchDialog({
 
   return (
     <Dialog open={Boolean(match)} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-xl">
+      <DialogContent className="mobile-dialog sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>Editar partida da fase de grupos</DialogTitle>
           <DialogDescription>
@@ -3308,7 +3308,7 @@ function BracketMatchDialog({
 
   return (
     <Dialog open={Boolean(match)} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent className="mobile-dialog sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Editar confronto do mata-mata</DialogTitle>
           <DialogDescription>

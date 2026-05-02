@@ -4,6 +4,7 @@ import {
   BarChart3,
   Bell,
   ChevronDown,
+  ChevronRight,
   HelpCircle,
   List,
   LogOut,
@@ -99,6 +100,23 @@ export function Navbar() {
     };
   }, [notificationsOpen]);
 
+  useEffect(() => {
+    if (typeof document === "undefined" || typeof window === "undefined") {
+      return;
+    }
+
+    if (!mobileOpen || window.innerWidth > 768) {
+      return;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [mobileOpen]);
+
   const handlePlayerLogout = () => {
     logoutPlayer();
     setMobileOpen(false);
@@ -108,25 +126,25 @@ export function Navbar() {
 
   return (
     <nav className={cn("premium-header tr-header", !isHomeRoute && "bg-[#020202]/92")}>
-      <div className="premium-header-shell">
-        <Link to="/" className="premium-header-brand">
+      <div className="premium-header-shell tr-header-inner header-inner">
+        <Link to="/" className="premium-header-brand tr-brand header-logo">
             <img
               src={logoGC}
               alt="Grupo de Campeões FC26"
               className="h-[38px] w-[38px] object-contain drop-shadow-[0_12px_28px_rgba(0,0,0,0.38)]"
             />
 
-          <span className="premium-header-brand-copy hidden sm:block">
-            <span className="premium-header-brand-title font-heading">
+          <span className="premium-header-brand-copy tr-brand-text hidden sm:block">
+            <span className="premium-header-brand-title site-title font-heading">
               {"Grupo de Campeões"}
             </span>
-            <span className="premium-header-brand-subtitle">
+            <span className="premium-header-brand-subtitle tr-brand-subtitle site-subtitle">
               {"FC 26 • X1 UT"}
             </span>
           </span>
         </Link>
 
-        <div className="premium-header-menu hidden xl:flex">
+        <div className="premium-header-menu tr-nav desktop-nav hidden xl:flex">
           {navItems.map((item) => (
             <Link
               key={item.path}
@@ -145,9 +163,9 @@ export function Navbar() {
           ))}
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="header-actions-wrapper flex items-center gap-3">
           {isPlayerAuthenticated ? (
-            <div className="tr-header-actions">
+            <div className="tr-header-actions header-actions">
               <div
                 ref={notificationWrapperRef}
                 className="tr-notification-wrapper hidden sm:block"
@@ -213,7 +231,7 @@ export function Navbar() {
                   <button
                     type="button"
                     className={cn(
-                      "premium-header-profile gold-flash-hover gold-hover-scale hidden sm:inline-flex",
+                      "premium-header-profile tr-user-menu profile-menu user-dropdown-trigger gold-flash-hover gold-hover-scale hidden sm:inline-flex",
                       isHomeRoute ? "min-w-[216px]" : "min-w-[196px]",
                     )}
                   >
@@ -233,7 +251,7 @@ export function Navbar() {
                 <DropdownMenuContent
                   align="end"
                   sideOffset={10}
-                  className="w-60 rounded-[24px] site-card p-1.5 text-foreground shadow-[0_24px_60px_hsl(0_0%_0%_/_0.38)]"
+                  className="profile-dropdown user-dropdown w-60 rounded-[24px] site-card p-1.5 text-foreground shadow-[0_24px_60px_hsl(0_0%_0%_/_0.38)]"
                 >
                   {playerMenuPrimaryItems.map((item) => (
                     <DropdownMenuItem
@@ -302,7 +320,7 @@ export function Navbar() {
 
           <button
             onClick={() => setMobileOpen((current) => !current)}
-            className="rounded-full border border-primary/20 bg-primary/[0.06] p-2.5 text-foreground shadow-[0_0_14px_rgba(255,204,0,0.08)] xl:hidden"
+            className="mobile-menu-btn rounded-full border border-primary/20 bg-primary/[0.06] p-2.5 text-foreground shadow-[0_0_14px_rgba(255,204,0,0.08)] xl:hidden"
             aria-expanded={mobileOpen}
             aria-label={"Abrir navegação pública"}
           >
@@ -312,9 +330,15 @@ export function Navbar() {
       </div>
 
       {mobileOpen ? (
-        <div className="border-t border-white/8 bg-background/92 xl:hidden">
+        <div
+          className="mobile-menu-layer border-t border-white/8 bg-background/92 xl:hidden"
+          onClick={() => setMobileOpen(false)}
+        >
           <div className="mx-auto max-w-[1500px] px-4 py-4 sm:px-6">
-            <div className="rounded-[24px] site-card p-3">
+            <div
+              className="mobile-menu-panel rounded-[24px] site-card p-3"
+              onClick={(event) => event.stopPropagation()}
+            >
               <div className="mb-2 px-3 py-2">
                 <p className="text-xs uppercase tracking-[0.22em] text-primary">
                   {"NAVEGAÇÃO"}
@@ -327,23 +351,31 @@ export function Navbar() {
                     key={item.path}
                     to={item.path}
                     className={cn(
-                      "flex items-center gap-3 rounded-2xl px-4 py-3 text-sm transition-colors",
+                      "mobile-menu-entry flex items-center justify-between gap-3 rounded-2xl px-4 py-3 text-sm transition-colors",
                       isItemActive(item.path)
-                        ? "bg-white/6 text-foreground"
+                        ? "active bg-white/6 text-foreground"
                         : "text-muted-foreground hover:bg-white/5 hover:text-foreground",
                     )}
                   >
-                    <item.icon className="h-4 w-4" />
-                    {item.label}
+                    <span className="inline-flex items-center gap-3">
+                      <item.icon className="h-4 w-4" />
+                      {item.label}
+                    </span>
+                    <ChevronRight className="h-4 w-4 opacity-70" />
                   </Link>
                 ))}
               </div>
             </div>
 
-            <div className="mt-4 rounded-[24px] site-card-soft p-3">
+            <div className="my-3 h-px bg-white/8" />
+
+            <div
+              className="mobile-menu-panel rounded-[24px] site-card-soft p-3"
+              onClick={(event) => event.stopPropagation()}
+            >
               {isPlayerAuthenticated ? (
                 <>
-                  <div className="flex items-center gap-3 rounded-2xl px-4 py-3 text-foreground">
+                  <div className="mobile-menu-account-summary flex items-center gap-3 rounded-2xl px-4 py-3 text-foreground">
                     <PlayerAvatar
                       name={playerDisplayName || "Jogador"}
                       avatarUrl={resolvedPlayerAvatarUrl}
@@ -362,28 +394,49 @@ export function Navbar() {
                     <Link
                       key={item.path}
                       to={item.path}
-                      className="flex items-center gap-3 rounded-2xl px-4 py-3 text-sm text-muted-foreground transition-colors hover:bg-white/5 hover:text-foreground"
+                      className={cn(
+                        "mobile-menu-entry flex items-center justify-between gap-3 rounded-2xl px-4 py-3 text-sm text-muted-foreground transition-colors hover:bg-white/5 hover:text-foreground",
+                        isItemActive(item.path) && "active text-foreground",
+                      )}
                     >
-                      <item.icon className="h-4 w-4" />
-                      {item.label}
+                      <span className="inline-flex items-center gap-3">
+                        <item.icon className="h-4 w-4" />
+                        {item.label}
+                      </span>
+                      <ChevronRight className="h-4 w-4 opacity-70" />
                     </Link>
                   ))}
 
                   <button
                     type="button"
                     onClick={handlePlayerLogout}
-                    className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm text-primary transition-colors hover:bg-primary/10"
+                    className="mobile-menu-entry mobile-menu-danger flex w-full items-center justify-between gap-3 rounded-2xl px-4 py-3 text-left text-sm text-primary transition-colors hover:bg-primary/10"
                   >
-                    <LogOut className="h-4 w-4" />
-                    Sair da conta
+                    <span className="inline-flex items-center gap-3">
+                      <LogOut className="h-4 w-4" />
+                      Sair da conta
+                    </span>
+                    <ChevronRight className="h-4 w-4 opacity-70" />
                   </button>
                 </>
               ) : (
                 <div className="flex flex-col gap-3 p-2">
-                  <SiteActionLink to={loginRoute.path} variant="primary" icon={LoginIcon}>
+                  <SiteActionLink
+                    to={loginRoute.path}
+                    variant="primary"
+                    icon={LoginIcon}
+                    iconPosition="right"
+                    className="mobile-menu-entry !flex !min-h-[46px] !w-full !justify-between !rounded-2xl !px-4 !py-3 text-sm"
+                  >
                     {loginRoute.label}
                   </SiteActionLink>
-                  <SiteActionLink to="/criar-conta" variant="secondary">
+                  <SiteActionLink
+                    to="/criar-conta"
+                    variant="secondary"
+                    icon={ChevronRight}
+                    iconPosition="right"
+                    className="mobile-menu-entry !flex !min-h-[46px] !w-full !justify-between !rounded-2xl !px-4 !py-3 text-sm"
+                  >
                     Criar conta
                   </SiteActionLink>
                 </div>

@@ -84,7 +84,7 @@ export default function CriarConta() {
 
   return (
     <PageShell className="bg-background">
-      <section className="relative flex min-h-[calc(100vh-4rem)] items-center justify-center overflow-hidden px-4 py-16">
+      <section className="auth-page register-page relative flex min-h-[calc(100vh-4rem)] items-center justify-center overflow-hidden px-4 py-16">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,hsl(51_100%_50%_/_0.12),transparent_32%),radial-gradient(circle_at_80%_20%,hsl(195_100%_50%_/_0.14),transparent_24%),linear-gradient(180deg,hsl(0_0%_6%),hsl(0_0%_4%))]" />
         <DecorativeParticles
           count={20}
@@ -93,8 +93,8 @@ export default function CriarConta() {
           durationRange={[2.5, 5.5]}
         />
 
-        <div className="relative z-10 w-full max-w-xl">
-          <div className="mb-6 flex items-center gap-3">
+        <div className="auth-page-shell relative z-10 w-full max-w-xl">
+          <div className="auth-page-intro mb-6 flex items-center gap-3">
             <img
               src={logoGC}
               alt="Grupo de Campeões FC26"
@@ -110,7 +110,7 @@ export default function CriarConta() {
             </div>
           </div>
 
-          <div className="rounded-[32px] site-card p-7 md:p-8">
+          <div className="auth-card register-card rounded-[32px] site-card p-7 md:p-8">
             <div className="mb-8">
               <div className="site-kicker">
                 <ShieldPlus className="h-4 w-4 text-electric" />
@@ -125,7 +125,7 @@ export default function CriarConta() {
               </p>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-5">
+            <form onSubmit={handleSubmit} className="auth-form space-y-5">
               {!isAuthConfigured && (
                 <div className="rounded-2xl site-card-subtle px-4 py-3 text-sm text-muted-foreground">
                   {authConfigurationMessage}
@@ -213,7 +213,7 @@ export default function CriarConta() {
                 </p>
               </div>
 
-              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/8 pt-2">
+              <div className="form-actions flex flex-wrap items-center justify-between gap-3 border-t border-white/8 pt-2">
                 <p className="text-sm text-muted-foreground">Já tem acesso?</p>
                 <Link
                   to={`/entrar${redirectTo !== "/" ? `?redirect=${encodeURIComponent(redirectTo)}` : ""}`}

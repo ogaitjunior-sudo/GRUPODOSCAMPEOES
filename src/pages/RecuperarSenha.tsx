@@ -110,7 +110,7 @@ export default function RecuperarSenha() {
 
   return (
     <PageShell className="bg-background">
-      <section className="relative flex min-h-[calc(100vh-4rem)] items-center justify-center overflow-hidden px-4 py-16">
+      <section className="auth-page recovery-page relative flex min-h-[calc(100vh-4rem)] items-center justify-center overflow-hidden px-4 py-16">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,hsl(195_100%_50%_/_0.14),transparent_30%),radial-gradient(circle_at_20%_80%,hsl(51_100%_50%_/_0.12),transparent_24%),linear-gradient(180deg,hsl(0_0%_6%),hsl(0_0%_4%))]" />
         <DecorativeParticles
           count={18}
@@ -119,8 +119,8 @@ export default function RecuperarSenha() {
           durationRange={[2.5, 5.5]}
         />
 
-        <div className="relative z-10 w-full max-w-md">
-          <div className="mb-6 flex items-center gap-3">
+        <div className="auth-page-shell relative z-10 w-full max-w-md">
+          <div className="auth-page-intro mb-6 flex items-center gap-3">
             <img
               src={logoGC}
               alt="Grupo de Campeões FC26"
@@ -136,7 +136,7 @@ export default function RecuperarSenha() {
             </div>
           </div>
 
-          <div className="rounded-[28px] border border-primary/20 bg-metallic-card p-7 shadow-[0_20px_80px_hsl(0_0%_0%_/_0.45)] border-glow-blue backdrop-blur-sm">
+          <div className="auth-card recovery-card rounded-[28px] border border-primary/20 bg-metallic-card p-7 shadow-[0_20px_80px_hsl(0_0%_0%_/_0.45)] border-glow-blue backdrop-blur-sm">
             <div className="mb-8">
               <h1 className="font-heading text-4xl font-normal tracking-[0.15em] text-electric text-glow-blue">
                 RECUPERAR SENHA
@@ -147,7 +147,7 @@ export default function RecuperarSenha() {
               </div>
             </div>
 
-            <form onSubmit={handleSubmit}>
+            <form onSubmit={handleSubmit} className="auth-form">
               <div className="space-y-4">
                 {!isAuthConfigured && (
                   <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
@@ -219,7 +219,7 @@ export default function RecuperarSenha() {
                 {isSubmitting ? "Enviando..." : isRecoveryMode ? "Salvar nova senha" : "Recuperar"}
               </button>
 
-              <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+              <div className="form-actions mt-6 flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <LifeBuoy className="h-4 w-4 text-primary" />
                   Precisa voltar?
