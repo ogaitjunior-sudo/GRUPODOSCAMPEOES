@@ -5,9 +5,11 @@ import {
   Bell,
   ChevronDown,
   HelpCircle,
+  House,
   List,
   LogOut,
   Search,
+  Trophy,
   User,
 } from "lucide-react";
 import logoGC from "@/assets/logo-gc-fc26.png";
@@ -40,6 +42,14 @@ const mobilePlayerMenuPrimaryItems = [
 const playerMenuSecondaryItems = [
   { label: "Explorar", path: "/explorar", icon: Search },
   { label: "Ajuda", path: "/ajuda", icon: HelpCircle },
+];
+
+const mobileBottomNavItems = [
+  { label: "Início", path: "/", icon: House, matchPaths: ["/"] },
+  { label: "Campeonatos", path: "/campeonatos", icon: Trophy },
+  { label: "Ranking", path: "/ranking", icon: BarChart3 },
+  { label: "Explorar", path: "/explorar", icon: Search, matchPaths: ["/explorar", "/pesquisar"] },
+  { label: "Perfil", path: "/perfil", icon: User },
 ];
 
 type NavbarNotification = {
@@ -79,12 +89,21 @@ export function Navbar() {
   const playerDisplayName = formatPlayerDisplayName(loginName);
   const resolvedPlayerAvatarUrl = avatarUrl ?? readStoredPlayerAvatar(playerEmail);
   const isHomeRoute = location.pathname === "/";
+  const isAuthRoute = [
+    loginRoute.path,
+    "/criar-conta",
+    "/recuperar-senha",
+    "/acesso-implantacao",
+  ].includes(location.pathname);
   const unreadCount = playerNotifications.filter((notification) => !notification.read).length;
   const profileMenuPrimaryItems = isMobileViewport
     ? mobilePlayerMenuPrimaryItems
     : desktopPlayerMenuPrimaryItems;
   const isItemActive = (path: string) =>
     path === "/" ? location.pathname === path : location.pathname.startsWith(path);
+  const isMobileBottomItemActive = (item: (typeof mobileBottomNavItems)[number]) =>
+    (item.matchPaths ?? [item.path]).some((path) => isItemActive(path));
+  const shouldRenderMobileBottomNav = isMobileViewport && !isAuthRoute;
 
   useEffect(() => {
     setNotificationsOpen(false);
@@ -369,6 +388,21 @@ export function Navbar() {
           )}
         </div>
       </div>
+
+      {shouldRenderMobileBottomNav ? (
+        <nav className="mobile-bottom-nav bottom-nav" aria-label="Navegação inferior mobile">
+          {mobileBottomNavItems.map((item) => (
+            <Link
+              key={item.path}
+              to={item.path}
+              className={cn("bottom-nav-item", isMobileBottomItemActive(item) && "active")}
+            >
+              <item.icon className="h-[18px] w-[18px]" />
+              <span>{item.label}</span>
+            </Link>
+          ))}
+        </nav>
+      ) : null}
     </nav>
   );
 }

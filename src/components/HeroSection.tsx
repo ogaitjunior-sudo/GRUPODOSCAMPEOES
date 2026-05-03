@@ -223,7 +223,9 @@ export function HeroSection() {
       <div className="tr-hero-inner">
         <div className="tr-left hero">
           <div className="mobile-hero-title md:hidden">
-            <h1>
+            <h1 aria-label="GRUPO DE CAMPEÕES">
+              <span aria-hidden="true">GRUPO DE</span>
+              <strong aria-hidden="true">CAMPEÕES</strong>
               GRUPO DE
               <br />
               CAMPEÕES
@@ -271,6 +273,8 @@ export function HeroSection() {
                 </span>
               ))}
             </div>
+
+            <span aria-hidden="true" className="tr-player-divider" />
 
             <div className="tr-player-copy">
               <p className="tr-player-value">{activePlayersValue}</p>
