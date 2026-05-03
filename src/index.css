@@ -2537,8 +2537,8 @@
     display: block;
     width: 100%;
     text-align: center;
-    margin-top: 20px;
-    margin-bottom: 10px;
+    margin-top: 16px;
+    margin-bottom: 8px;
   }
 
   .mobile-hero-title h1 {
@@ -2566,30 +2566,30 @@
   }
 
   .tr-badge,
-  .tr-title,
-  .tr-subtitle {
-    order: 3;
-    width: 100%;
-    text-align: center;
+  .tr-subtitle,
+  .hero-text-old,
+  .hero-text h1 {
+    display: none !important;
   }
 
   .tr-actions,
-  .actions {
-    order: 2;
+  .actions,
+  .hero-buttons {
+    order: 3;
     width: 100%;
-    margin-top: 12px;
+    margin-top: 16px;
   }
 
   .tr-player-card,
   .players-card {
-    order: 3;
+    order: 4;
     width: auto;
     margin: 16px;
   }
 
   .tr-quick-card,
   .quick-view {
-    order: 4;
+    order: 5;
     width: auto;
     max-width: none;
     margin: 0 16px 16px;
@@ -2626,7 +2626,7 @@
   .tr-logo-wrap,
   .hero-logo-wrap {
     position: relative;
-    margin: 18px auto 14px;
+    margin: 10px auto 16px;
     isolation: isolate;
   }
 
@@ -2644,9 +2644,9 @@
   .hero-logo img,
   .tr-logo {
     display: block;
-    width: min(260px, 80%);
-    max-width: 260px;
-    margin: 18px auto;
+    width: min(240px, 80%);
+    max-width: 240px;
+    margin: 10px auto 16px;
   }
 
   .tr-quick-grid,

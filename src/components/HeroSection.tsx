@@ -236,7 +236,7 @@ export function HeroSection() {
             CIRCUITO X1 UT DO FC 26
           </div>
 
-          <h1 className="tr-title font-hero">
+          <h1 className="tr-title font-hero hero-text-old">
             {"AQUI N\u00c3O"}
             <br />
             TEM SORTE.
@@ -250,7 +250,7 @@ export function HeroSection() {
             {"Entre no circuito, dispute campeonatos e prove quem realmente domina."}
           </p>
 
-          <div className="tr-actions actions">
+          <div className="tr-actions actions hero-buttons">
             <Link to="/campeonatos" className="tr-primary-btn tr-primary-button">
               <Trophy className="h-4.5 w-4.5" />
               VER CAMPEONATOS
