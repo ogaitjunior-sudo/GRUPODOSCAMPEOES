@@ -2541,8 +2541,9 @@
     min-height: auto;
     height: auto;
     padding-top: 78px;
+    padding-bottom: 110px;
     overflow-x: hidden !important;
-    overflow: visible !important;
+    overflow-y: visible;
     background:
       radial-gradient(circle at center 32%, rgba(255, 212, 0, 0.22), transparent 42%),
       radial-gradient(circle at center 55%, rgba(255, 212, 0, 0.16), transparent 52%),
@@ -2552,7 +2553,8 @@
   .tr-hero-inner {
     display: flex;
     flex-direction: column;
-    padding: 18px 24px 190px !important;
+    align-items: center;
+    padding: 18px 24px 0 !important;
     gap: 14px !important;
   }
 
@@ -2588,11 +2590,13 @@
 
   .mobile-hero-title {
     order: 1;
-    display: block;
+    display: flex !important;
+    flex-direction: column;
+    align-items: center;
     width: 100%;
     max-width: 360px;
     text-align: center;
-    margin: 12px auto 12px !important;
+    margin: 6px auto 4px !important;
     overflow: visible;
     animation: hunterTitleIn 0.55s ease-out both;
   }
@@ -2616,26 +2620,24 @@
 
   .mobile-hero-title span {
     display: block;
-    font-size: 32px !important;
+    font-size: 34px;
     font-weight: 900;
     color: #fff;
-    line-height: 1 !important;
+    line-height: 0.95;
   }
 
   .mobile-hero-title strong {
     display: block;
-    font-size: clamp(48px, 13vw, 58px) !important;
-    line-height: 0.9 !important;
+    font-size: clamp(62px, 17vw, 82px);
+    line-height: 0.85;
     font-weight: 950;
-    white-space: nowrap;
-    text-align: center;
     color: #ffd400;
     text-shadow: 0 0 32px rgba(255, 212, 0, 0.45);
   }
 
   .mobile-hero-title p {
     margin-top: 12px;
-    font-size: 16px;
+    font-size: 18px;
     color: rgba(255, 255, 255, 0.72);
     opacity: 1;
   }
@@ -2696,7 +2698,7 @@
     order: 5;
     width: 100%;
     max-width: none;
-    margin: 0 auto 96px;
+    margin: 0 auto;
     border-radius: 22px;
     padding: 24px 22px;
     background: rgba(10, 10, 10, 0.9);
@@ -3271,7 +3273,7 @@
   }
 
   .tr-hero-inner {
-    padding: 18px 20px 190px !important;
+    padding: 18px 20px 0 !important;
   }
 
   .tr-title {
