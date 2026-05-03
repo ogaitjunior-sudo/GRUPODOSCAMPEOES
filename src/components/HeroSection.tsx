@@ -251,13 +251,13 @@ export function HeroSection() {
           </p>
 
           <div className="tr-actions actions hero-buttons">
-            <Link to="/campeonatos" className="tr-primary-btn tr-primary-button">
+            <Link to="/campeonatos" className="tr-primary-btn tr-primary-button btn-primary">
               <Trophy className="h-4.5 w-4.5" />
               VER CAMPEONATOS
               <ChevronRight className="h-4.5 w-4.5" />
             </Link>
 
-            <Link to="/explorar" className="tr-secondary-btn tr-secondary-button">
+            <Link to="/explorar" className="tr-secondary-btn tr-secondary-button btn-secondary">
               <Search className="h-4.5 w-4.5" />
               EXPLORAR CIRCUITO
             </Link>
@@ -266,7 +266,7 @@ export function HeroSection() {
           <div className="tr-player-card players-card">
             <div className="tr-player-stack" aria-hidden="true">
               {playerPreviewTokens.map((token) => (
-                <span key={token} className="tr-player-avatar">
+                <span key={token} className="tr-player-avatar player-avatar">
                   <UserRound className="h-4 w-4" />
                 </span>
               ))}
