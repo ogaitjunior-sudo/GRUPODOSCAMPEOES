@@ -2978,23 +2978,23 @@
   .bottom-nav,
   .bottom-navigation {
     position: relative !important;
-    top: unset !important;
+    top: auto !important;
     bottom: auto !important;
     left: auto !important;
     right: auto !important;
     width: calc(100% - 32px) !important;
     inset: auto !important;
-    z-index: 9999 !important;
+    z-index: auto !important;
     display: grid !important;
     grid-template-columns: repeat(5, 1fr) !important;
-    height: 72px !important;
-    min-height: 72px !important;
-    max-height: 72px !important;
+    height: 70px !important;
+    min-height: 70px !important;
+    max-height: 70px !important;
     padding: 6px 10px !important;
-    margin: 22px auto 24px !important;
-    border-radius: 24px !important;
+    margin: 30px auto !important;
+    border-radius: 20px !important;
     border: 1px solid rgba(255, 212, 0, 0.25);
-    background: rgba(5, 5, 5, 0.94) !important;
+    background: rgba(10, 10, 10, 0.95) !important;
     backdrop-filter: blur(18px);
     transform: none !important;
     box-shadow:
@@ -3471,20 +3471,21 @@
     left: auto !important;
     right: auto !important;
     bottom: auto !important;
+    top: auto !important;
     inset: auto !important;
     width: calc(100% - 32px) !important;
     display: grid !important;
     grid-template-columns: repeat(5, 1fr) !important;
-    height: 72px !important;
-    min-height: 72px !important;
-    max-height: 72px !important;
+    height: 70px !important;
+    min-height: 70px !important;
+    max-height: 70px !important;
     padding: 6px 10px !important;
-    margin: 22px auto 24px !important;
-    border-radius: 24px !important;
+    margin: 30px auto !important;
+    border-radius: 20px !important;
     border: 1px solid rgba(255, 212, 0, 0.25) !important;
-    background: rgba(5, 5, 5, 0.94) !important;
+    background: rgba(10, 10, 10, 0.95) !important;
     transform: none !important;
-    z-index: 9999 !important;
+    z-index: auto !important;
   }
 
   .mobile-bottom-nav a,
