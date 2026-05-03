@@ -2982,19 +2982,19 @@
     bottom: auto !important;
     left: auto !important;
     right: auto !important;
-    width: 100% !important;
+    width: calc(100% - 32px) !important;
     inset: auto !important;
     z-index: 9999 !important;
-    display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    height: 58px !important;
-    min-height: 58px !important;
-    max-height: 58px !important;
+    display: grid !important;
+    grid-template-columns: repeat(5, 1fr) !important;
+    height: 72px !important;
+    min-height: 72px !important;
+    max-height: 72px !important;
     padding: 6px 10px !important;
-    margin-top: 20px !important;
-    border-radius: 18px !important;
+    margin: 22px auto 24px !important;
+    border-radius: 24px !important;
     border: 1px solid rgba(255, 212, 0, 0.25);
-    background: rgba(0, 0, 0, 0.95) !important;
+    background: rgba(5, 5, 5, 0.94) !important;
     backdrop-filter: blur(18px);
     transform: none !important;
     box-shadow:
@@ -3381,12 +3381,12 @@
     display: flex;
     flex-direction: column;
     overflow-y: auto !important;
-    padding-bottom: 0 !important;
+    padding-bottom: 24px !important;
   }
 
   main {
     overflow-y: auto !important;
-    padding-bottom: 0 !important;
+    padding-bottom: 24px !important;
   }
 
   .app-main {
@@ -3401,7 +3401,7 @@
     height: auto !important;
     min-height: auto !important;
     overflow: visible !important;
-    padding-bottom: 0 !important;
+    padding-bottom: 24px !important;
   }
 
   .tr-hero,
@@ -3472,15 +3472,18 @@
     right: auto !important;
     bottom: auto !important;
     inset: auto !important;
-    width: 100% !important;
-    height: 58px !important;
-    min-height: 58px !important;
-    max-height: 58px !important;
+    width: calc(100% - 32px) !important;
+    display: grid !important;
+    grid-template-columns: repeat(5, 1fr) !important;
+    height: 72px !important;
+    min-height: 72px !important;
+    max-height: 72px !important;
     padding: 6px 10px !important;
-    margin-top: 20px !important;
-    border-radius: 18px !important;
-    background: rgba(0, 0, 0, 0.95) !important;
-    transform: translateY(0) !important;
+    margin: 22px auto 24px !important;
+    border-radius: 24px !important;
+    border: 1px solid rgba(255, 212, 0, 0.25) !important;
+    background: rgba(5, 5, 5, 0.94) !important;
+    transform: none !important;
     z-index: 9999 !important;
   }
 
