@@ -222,6 +222,15 @@ export function HeroSection() {
 
       <div className="tr-hero-inner">
         <div className="tr-left hero">
+          <div className="mobile-hero-title md:hidden">
+            <h1>
+              GRUPO DE
+              <br />
+              CAMPEÕES
+            </h1>
+            <p>A elite compete aqui.</p>
+          </div>
+
           <div className="tr-badge">
             <ShieldCheck className="h-4 w-4" />
             CIRCUITO X1 UT DO FC 26
@@ -274,7 +283,7 @@ export function HeroSection() {
           <div aria-hidden="true" className="tr-energy-ring" />
           <div aria-hidden="true" className="tr-energy-base" />
           <div aria-hidden="true" className="tr-energy-beam" />
-          <div className="tr-logo-wrap">
+          <div className="tr-logo-wrap hero-logo-wrap">
             <img
               src={heroLogoShadow}
               alt="Grupo de Campe\u00f5es FC26"
