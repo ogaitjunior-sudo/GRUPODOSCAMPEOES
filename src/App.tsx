@@ -58,7 +58,7 @@ function RouteFallback({ isAdminRoute }: { isAdminRoute: boolean }) {
   return (
     <div className={isAdminRoute ? "min-h-screen bg-background" : "min-h-[50vh]"}>
       <div className="container mx-auto flex min-h-[50vh] items-center justify-center px-4 py-16">
-        <div className="rounded-2xl border border-border bg-card/80 px-6 py-5 text-center shadow-[0_20px_70px_-40px_rgba(0,0,0,0.85)] backdrop-blur">
+        <div className="hunter-loading rounded-2xl border border-border bg-card/80 px-6 py-5 text-center shadow-[0_20px_70px_-40px_rgba(0,0,0,0.85)] backdrop-blur">
           <p className="text-xs uppercase tracking-[0.35em] text-primary/80">carregando</p>
           <p className="mt-3 text-sm text-muted-foreground">
             Preparando a proxima tela do campeonato.

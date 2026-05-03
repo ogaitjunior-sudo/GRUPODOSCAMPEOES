@@ -2559,6 +2559,7 @@
     text-align: center;
     margin-top: 16px;
     margin-bottom: 4px;
+    animation: hunterTitleIn 0.55s ease-out both;
   }
 
   .mobile-hero-title h1 {
@@ -2599,6 +2600,7 @@
     order: 3;
     width: 100%;
     margin-top: 8px;
+    animation: hunterButtonsIn 0.55s ease-out 0.22s both;
   }
 
   .tr-player-card,
@@ -2606,6 +2608,7 @@
     order: 4;
     width: auto;
     margin: 16px;
+    animation: hunterCardIn 0.55s ease-out 0.32s both;
   }
 
   .tr-quick-card,
@@ -2614,6 +2617,7 @@
     width: auto;
     max-width: none;
     margin: 0 16px 16px;
+    animation: hunterCardIn 0.55s ease-out 0.32s both;
   }
 
   .tr-energy-ring,
@@ -2668,6 +2672,9 @@
     width: min(280px, 88%);
     max-width: 280px;
     margin: 4px auto 10px;
+    animation:
+      hunterLogoIn 0.75s cubic-bezier(0.2, 0.8, 0.2, 1) 0.12s both,
+      hunterLogoFloat 5s ease-in-out 1s infinite;
   }
 
   .btn-primary {
@@ -2680,6 +2687,26 @@
     font-weight: 700;
     box-shadow: 0 10px 30px rgba(255, 212, 0, 0.35);
     animation: pulseGlowMobile 2.5s infinite ease-in-out;
+  }
+
+  .btn-primary,
+  .tr-primary-button {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .btn-primary::before,
+  .tr-primary-button::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -80%;
+    width: 60%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.45), transparent);
+    transform: skewX(-18deg);
+    animation: hunterButtonShine 3.2s ease-in-out infinite;
+    pointer-events: none;
   }
 
   .btn-primary:active {
@@ -2733,21 +2760,21 @@
     z-index: 1;
   }
 
+  .players-card::after,
+  .tr-player-card::after,
+  .quick-view::after,
+  .tr-quick-card::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at top, rgba(255, 212, 0, 0.16), transparent 58%);
+    opacity: 0.45;
+    pointer-events: none;
+  }
+
   .player-avatar {
     border: 2px solid rgba(255, 212, 0, 0.4);
     box-shadow: 0 0 10px rgba(255, 212, 0, 0.3);
-  }
-
-  .hero,
-  .players-card,
-  .quick-view {
-    animation: fadeUp 0.4s ease;
-  }
-
-  .hero-logo,
-  .hero-logo img,
-  .tr-logo {
-    animation: floatLogoMobile 4s ease-in-out infinite;
   }
 
   .page-shell button:active,
@@ -2757,6 +2784,57 @@
   .tr-secondary-btn:active {
     transform: scale(0.96);
     filter: brightness(1.1);
+  }
+
+  .mobile-menu-panel.open,
+  .mobile-menu-panel.is-open {
+    animation: hunterMenuOpen 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .mobile-bottom-nav {
+    backdrop-filter: blur(18px);
+    box-shadow:
+      0 -8px 40px rgba(0, 0, 0, 0.75),
+      0 0 32px rgba(255, 212, 0, 0.12);
+  }
+
+  .mobile-bottom-nav a,
+  .mobile-bottom-nav button {
+    transition: transform 0.18s ease, color 0.18s ease, filter 0.18s ease;
+  }
+
+  .mobile-bottom-nav a:active,
+  .mobile-bottom-nav button:active {
+    transform: scale(0.92);
+  }
+
+  .mobile-bottom-nav .active {
+    color: #ffd400;
+    filter: drop-shadow(0 0 10px rgba(255, 212, 0, 0.55));
+  }
+
+  .hunter-loading {
+    min-height: 220px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    color: #ffd400;
+    font-weight: 900;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  .hunter-loading::before {
+    content: "";
+    width: 54px;
+    height: 54px;
+    border-radius: 999px;
+    border: 2px solid rgba(255, 212, 0, 0.18);
+    border-top-color: #ffd400;
+    box-shadow: 0 0 26px rgba(255, 212, 0, 0.35);
+    animation: hunterSpin 0.8s linear infinite;
+    margin-bottom: 14px;
   }
 
   @keyframes fadeUp {
@@ -2781,13 +2859,95 @@
     }
   }
 
-  @keyframes floatLogoMobile {
+  @keyframes hunterTitleIn {
+    from {
+      opacity: 0;
+      transform: translateY(18px);
+      filter: blur(6px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+      filter: blur(0);
+    }
+  }
+
+  @keyframes hunterLogoIn {
+    0% {
+      opacity: 0;
+      transform: scale(0.82) translateY(22px);
+      filter: blur(8px);
+    }
+
+    70% {
+      opacity: 1;
+      transform: scale(1.04) translateY(-4px);
+      filter: blur(0);
+    }
+
+    100% {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+      filter: blur(0);
+    }
+  }
+
+  @keyframes hunterButtonsIn {
+    from {
+      opacity: 0;
+      transform: translateY(24px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes hunterCardIn {
+    from {
+      opacity: 0;
+      transform: translateY(24px) scale(0.98);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  @keyframes hunterLogoFloat {
     0%, 100% {
       transform: translateY(0);
     }
 
     50% {
-      transform: translateY(-8px);
+      transform: translateY(-7px);
+    }
+  }
+
+  @keyframes hunterButtonShine {
+    0%, 55% {
+      left: -80%;
+    }
+
+    100% {
+      left: 130%;
+    }
+  }
+
+  @keyframes hunterMenuOpen {
+    from {
+      opacity: 0;
+      transform: translateX(28px);
+      filter: blur(8px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateX(0);
+      filter: blur(0);
     }
   }
 
@@ -2798,6 +2958,12 @@
 
     to {
       transform: translateY(-200px);
+    }
+  }
+
+  @keyframes hunterSpin {
+    to {
+      transform: rotate(360deg);
     }
   }
 
@@ -2866,7 +3032,7 @@
   }
 }
 
-  @media (max-width: 680px) {
+@media (max-width: 680px) {
   .premium-header-brand-title {
     font-size: 14px;
   }
@@ -2951,6 +3117,32 @@
     flex-direction: column;
     height: auto;
     padding: 18px 20px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body::after,
+  .mobile-hero-title,
+  .hero-logo,
+  .hero-logo img,
+  .tr-logo,
+  .hero-buttons,
+  .tr-actions,
+  .players-card,
+  .tr-player-card,
+  .quick-view,
+  .tr-quick-card,
+  .btn-primary,
+  .tr-primary-button,
+  .mobile-menu-panel.open,
+  .mobile-menu-panel.is-open,
+  .mobile-bottom-nav,
+  .mobile-bottom-nav a,
+  .mobile-bottom-nav button,
+  .hunter-loading,
+  .hunter-loading::before {
+    animation: none !important;
+    transition: none !important;
   }
 }
 
