@@ -3390,14 +3390,18 @@
   }
 
   .tr-hero,
+  .hero,
+  .hero-section,
+  main {
+    padding-bottom: 160px !important;
+    overflow: visible !important;
+  }
+
+  .tr-hero,
   .hero-section {
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
-  }
-
-  .tr-hero {
-    padding-bottom: 150px !important;
   }
 
   .tr-hero-inner {
@@ -3456,9 +3460,12 @@
   .mobile-bottom-nav,
   .bottom-nav,
   .bottom-navigation {
-    height: 70px !important;
-    bottom: 8px !important;
-    inset: auto 18px 8px !important;
+    height: 72px !important;
+    bottom: 10px !important;
+    inset: auto 18px 10px !important;
+    padding: 10px 14px !important;
+    border-radius: 24px !important;
+    z-index: 9999 !important;
   }
 
   .container,
@@ -3475,16 +3482,18 @@
     display: grid !important;
     width: calc(100% - 32px) !important;
     min-height: 104px !important;
-    margin: 8px auto 12px !important;
+    margin: 10px auto 18px !important;
     position: relative !important;
     transform: translateY(-4px) !important;
-    z-index: 20 !important;
+    z-index: 10 !important;
   }
 
   .tr-quick-card,
   .quick-view {
     width: calc(100% - 32px) !important;
-    margin: 0 auto 120px !important;
+    margin: 0 auto 140px !important;
+    position: relative !important;
+    z-index: 10 !important;
   }
 }
 
