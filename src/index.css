@@ -1861,6 +1861,16 @@
     isolation: isolate;
   }
 
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: -2;
+    background: radial-gradient(circle at center, rgba(255, 215, 0, 0.08), transparent 70%);
+    animation: bgPulse 6s ease-in-out infinite;
+  }
+
   body::after {
     content: "";
     position: fixed;
@@ -2648,11 +2658,20 @@
     margin-top: 12px;
   }
 
+  .hero h1,
+  .mobile-hero-title h1 {
+    text-shadow:
+      0 0 10px rgba(255, 215, 0, 0.25),
+      0 0 20px rgba(255, 215, 0, 0.15);
+  }
+
   .tr-logo-wrap,
   .hero-logo-wrap {
     position: relative;
     margin: 4px auto 10px;
     isolation: isolate;
+    transform: scale(1.05);
+    filter: drop-shadow(0 25px 50px rgba(255, 200, 0, 0.35));
   }
 
   .tr-logo-wrap::after,
@@ -2686,7 +2705,7 @@
     font-size: 16px;
     font-weight: 700;
     box-shadow: 0 10px 30px rgba(255, 212, 0, 0.35);
-    animation: pulseGlowMobile 2.5s infinite ease-in-out;
+    animation: pulseBtn 2.5s ease-in-out infinite;
   }
 
   .btn-primary,
@@ -2813,6 +2832,17 @@
     filter: drop-shadow(0 0 10px rgba(255, 212, 0, 0.55));
   }
 
+  .stats-card,
+  .tr-bottom-stats {
+    transform: translateY(0);
+    transition: transform 0.3s ease;
+  }
+
+  .stats-card:active,
+  .tr-bottom-stats:active {
+    transform: translateY(-3px);
+  }
+
   .hunter-loading {
     min-height: 220px;
     display: flex;
@@ -2849,13 +2879,23 @@
     }
   }
 
-  @keyframes pulseGlowMobile {
+  @keyframes pulseBtn {
     0%, 100% {
-      box-shadow: 0 0 20px rgba(255, 212, 0, 0.3);
+      box-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
     }
 
     50% {
-      box-shadow: 0 0 40px rgba(255, 212, 0, 0.6);
+      box-shadow: 0 0 25px rgba(255, 215, 0, 0.6);
+    }
+  }
+
+  @keyframes bgPulse {
+    0%, 100% {
+      opacity: 0.5;
+    }
+
+    50% {
+      opacity: 1;
     }
   }
 
@@ -3121,6 +3161,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  body::before,
   body::after,
   .mobile-hero-title,
   .hero-logo,
@@ -3139,6 +3180,8 @@
   .mobile-bottom-nav,
   .mobile-bottom-nav a,
   .mobile-bottom-nav button,
+  .stats-card,
+  .tr-bottom-stats,
   .hunter-loading,
   .hunter-loading::before {
     animation: none !important;
