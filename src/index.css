@@ -1869,7 +1869,7 @@
     font-size: 14px;
     position: relative;
     isolation: isolate;
-    padding-bottom: 120px !important;
+    padding-bottom: 130px !important;
     overflow-x: hidden !important;
   }
 
@@ -2541,7 +2541,7 @@
     min-height: auto;
     height: auto;
     padding-top: 78px;
-    padding-bottom: 130px !important;
+    padding-bottom: 150px !important;
     overflow-x: hidden !important;
     overflow-y: visible;
     background:
@@ -2691,9 +2691,11 @@
   .players-card {
     order: 4;
     width: 100%;
-    margin: 20px auto 18px;
+    margin: 16px auto 18px !important;
     min-height: 158px;
     padding: 20px;
+    position: relative;
+    z-index: 4;
     display: grid;
     grid-template-columns: minmax(0, 1fr) 1px minmax(0, 1fr);
     align-items: center;
@@ -2971,11 +2973,11 @@
   .bottom-navigation {
     position: fixed !important;
     top: unset !important;
-    bottom: 16px !important;
+    bottom: 8px !important;
     left: 14px !important;
     right: 14px !important;
     width: auto !important;
-    inset: auto 14px 16px !important;
+    inset: auto 14px 8px !important;
     z-index: 99999 !important;
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
