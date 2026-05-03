@@ -1869,7 +1869,7 @@
     font-size: 14px;
     position: relative;
     isolation: isolate;
-    padding-bottom: 125px !important;
+    padding-bottom: 120px !important;
     overflow-x: hidden !important;
   }
 
@@ -2541,7 +2541,7 @@
     min-height: auto;
     height: auto;
     padding-top: 78px;
-    padding-bottom: 110px;
+    padding-bottom: 130px !important;
     overflow-x: hidden !important;
     overflow-y: visible;
     background:
@@ -2674,8 +2674,10 @@
     display: grid !important;
     grid-template-columns: 1fr 1fr !important;
     gap: 14px !important;
-    margin-top: 4px;
-    margin-bottom: 24px !important;
+    margin-top: -12px !important;
+    margin-bottom: 18px !important;
+    position: relative;
+    z-index: 6;
     animation: hunterButtonsIn 0.55s ease-out 0.22s both;
   }
 
@@ -2750,11 +2752,17 @@
     display: block;
     width: min(82vw, 360px) !important;
     max-width: 360px !important;
-    margin: 14px auto 28px !important;
+    margin: 14px auto 4px !important;
     filter: drop-shadow(0 0 40px rgba(255, 212, 0, 0.38));
     animation:
       hunterLogoIn 0.75s cubic-bezier(0.2, 0.8, 0.2, 1) 0.12s both,
       hunterLogoFloat 5s ease-in-out 1s infinite;
+  }
+
+  .tr-center,
+  .hero-logo,
+  .hero-logo-wrap {
+    margin-bottom: 0 !important;
   }
 
   .btn-primary {
@@ -2762,7 +2770,7 @@
     overflow: hidden;
     transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
     min-height: 60px;
-    height: 72px !important;
+    height: 64px !important;
     font-size: 16px;
     font-weight: 700;
     box-shadow: 0 10px 30px rgba(255, 212, 0, 0.35);
@@ -2824,9 +2832,9 @@
   .tr-secondary-button,
   .btn-primary,
   .btn-secondary {
-    height: 72px !important;
-    border-radius: 18px;
-    font-size: 13px !important;
+    height: 64px !important;
+    border-radius: 18px !important;
+    font-size: 12px !important;
     font-weight: 900;
     padding: 0 10px !important;
     min-width: 0 !important;
@@ -2963,11 +2971,11 @@
   .bottom-navigation {
     position: fixed !important;
     top: unset !important;
-    bottom: calc(8px + env(safe-area-inset-bottom)) !important;
+    bottom: 16px !important;
     left: 14px !important;
     right: 14px !important;
     width: auto !important;
-    inset: auto 14px calc(8px + env(safe-area-inset-bottom)) !important;
+    inset: auto 14px 16px !important;
     z-index: 99999 !important;
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
