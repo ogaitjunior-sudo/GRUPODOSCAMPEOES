@@ -2594,10 +2594,10 @@
     flex-direction: column;
     align-items: center;
     width: 100%;
-    max-width: 360px;
+    max-width: 100%;
     text-align: center;
     margin: 6px auto 4px !important;
-    overflow: visible;
+    overflow: hidden;
     animation: hunterTitleIn 0.55s ease-out both;
   }
 
@@ -2620,24 +2620,30 @@
 
   .mobile-hero-title span {
     display: block;
-    font-size: 34px;
+    font-size: clamp(26px, 8vw, 34px) !important;
     font-weight: 900;
     color: #fff;
-    line-height: 0.95;
+    line-height: 1 !important;
   }
 
   .mobile-hero-title strong {
     display: block;
-    font-size: clamp(62px, 17vw, 82px);
-    line-height: 0.85;
+    width: 100%;
+    max-width: 100%;
+    font-size: clamp(42px, 13vw, 58px) !important;
+    line-height: 0.9 !important;
     font-weight: 950;
+    letter-spacing: -1px !important;
+    white-space: nowrap !important;
+    overflow: visible !important;
+    text-align: center;
     color: #ffd400;
     text-shadow: 0 0 32px rgba(255, 212, 0, 0.45);
   }
 
   .mobile-hero-title p {
-    margin-top: 12px;
-    font-size: 18px;
+    margin-top: 10px !important;
+    font-size: 16px !important;
     color: rgba(255, 255, 255, 0.72);
     opacity: 1;
   }
