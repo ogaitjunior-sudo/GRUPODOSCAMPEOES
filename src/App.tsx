@@ -85,170 +85,173 @@ function AppRoutes() {
   const isAdminRoute =
     location.pathname.startsWith("/admin") || location.pathname === ADMIN_LOGIN_ROUTE;
 
+  const routes = (
+    <Suspense fallback={<RouteFallback isAdminRoute={isAdminRoute} />}>
+      <Routes>
+        <Route path="/" element={<HomeRoute />} />
+        <Route path="/explorar" element={<Pesquisar />} />
+        <Route path="/pesquisar" element={<Pesquisar />} />
+        <Route path="/perfil" element={<PerfilJogador />} />
+        <Route path="/relampago" element={<Relampago />} />
+        <Route path="/campeoes" element={<Champions />} />
+        <Route path="/ranking" element={<Ranking />} />
+        <Route path="/campeonatos" element={<Campeonatos />} />
+        <Route path="/campeonatos/:championshipId" element={<ChampionshipDetails />} />
+        <Route path="/ligas" element={<Ligas />} />
+        <Route path="/ajuda" element={<Ajuda />} />
+        <Route path="/entrar" element={<Entrar />} />
+        <Route path="/acesso-implantacao" element={<AcessoImplantacao />} />
+        <Route path="/criar-conta" element={<CriarConta />} />
+        <Route path="/recuperar-senha" element={<RecuperarSenha />} />
+
+        <Route path={ADMIN_LOGIN_ROUTE} element={<AdminLogin />} />
+        <Route path="/admin/login" element={<LegacyAdminLoginRoute />} />
+        <Route
+          path="/admin"
+          element={
+            <RequireAdminAccess>
+              <AdminPanelProvider>
+                <AdminLayout />
+              </AdminPanelProvider>
+            </RequireAdminAccess>
+          }
+        >
+          <Route
+            index
+            element={<Navigate replace to="dashboard" />}
+          />
+          <Route
+            path="dashboard"
+            element={
+              <RequireAdminPermission permission="dashboard:view">
+                <AdminDashboardPage />
+              </RequireAdminPermission>
+            }
+          />
+          <Route
+            path="perfis"
+            element={
+              <RequireAdminAccess>
+                <AdminProfilesPage />
+              </RequireAdminAccess>
+            }
+          />
+          <Route
+            path="usuarios"
+            element={
+              <RequireAdminPermission permission="users:view">
+                <AdminUsersPage />
+              </RequireAdminPermission>
+            }
+          />
+          <Route
+            path="jogadores"
+            element={
+              <RequireAdminPermission permission="players:view">
+                <AdminPlayersPage />
+              </RequireAdminPermission>
+            }
+          />
+          <Route
+            path="times"
+            element={
+              <RequireAdminPermission permission="teams:view">
+                <AdminTeamsPage />
+              </RequireAdminPermission>
+            }
+          />
+          <Route
+            path="campeonatos"
+            element={
+              <RequireAdminPermission permission="championships:view">
+                <AdminChampionshipsPage />
+              </RequireAdminPermission>
+            }
+          />
+          <Route
+            path="campeonatos/novo"
+            element={
+              <RequireAdminPermission permission="championships:manage">
+                <AdminChampionshipForm />
+              </RequireAdminPermission>
+            }
+          />
+          <Route
+            path="campeonatos/:championshipId/editar"
+            element={
+              <RequireAdminPermission permission="championships:manage">
+                <AdminChampionshipForm />
+              </RequireAdminPermission>
+            }
+          />
+          <Route
+            path="campeonatos/:championshipId"
+            element={
+              <RequireAdminPermission permission="championships:view">
+                <AdminChampionshipWorkspacePage />
+              </RequireAdminPermission>
+            }
+          />
+          <Route
+            path="imagens"
+            element={
+              <RequireAdminPermission permission="images:view">
+                <AdminImageRequestsPage />
+              </RequireAdminPermission>
+            }
+          />
+          <Route
+            path="idiomas"
+            element={
+              <RequireAdminPermission permission="languages:view">
+                <AdminLanguagesPage />
+              </RequireAdminPermission>
+            }
+          />
+          <Route
+            path="suporte"
+            element={
+              <RequireAdminPermission permission="support:view">
+                <AdminSupportPage />
+              </RequireAdminPermission>
+            }
+          />
+          <Route
+            path="sistema"
+            element={
+              <RequireAdminAccess>
+                <AdminSystemPage />
+              </RequireAdminAccess>
+            }
+          />
+          <Route
+            path="logs"
+            element={
+              <RequireAdminPermission permission="logs:view">
+                <AdminLogsPage />
+              </RequireAdminPermission>
+            }
+          />
+          <Route
+            path="configuracoes"
+            element={
+              <RequireAdminPermission permission="settings:view">
+                <AdminSettingsPage />
+              </RequireAdminPermission>
+            }
+          />
+        </Route>
+
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </Suspense>
+  );
+
   return (
     <>
       {!isAdminRoute ? <Navbar /> : null}
       <Toaster />
-      <Suspense fallback={<RouteFallback isAdminRoute={isAdminRoute} />}>
-        <Routes>
-          <Route path="/" element={<HomeRoute />} />
-          <Route path="/explorar" element={<Pesquisar />} />
-          <Route path="/pesquisar" element={<Pesquisar />} />
-          <Route path="/perfil" element={<PerfilJogador />} />
-          <Route path="/relampago" element={<Relampago />} />
-          <Route path="/campeoes" element={<Champions />} />
-          <Route path="/ranking" element={<Ranking />} />
-          <Route path="/campeonatos" element={<Campeonatos />} />
-          <Route path="/campeonatos/:championshipId" element={<ChampionshipDetails />} />
-          <Route path="/ligas" element={<Ligas />} />
-          <Route path="/ajuda" element={<Ajuda />} />
-          <Route path="/entrar" element={<Entrar />} />
-          <Route path="/acesso-implantacao" element={<AcessoImplantacao />} />
-          <Route path="/criar-conta" element={<CriarConta />} />
-          <Route path="/recuperar-senha" element={<RecuperarSenha />} />
-
-          <Route path={ADMIN_LOGIN_ROUTE} element={<AdminLogin />} />
-          <Route path="/admin/login" element={<LegacyAdminLoginRoute />} />
-          <Route
-            path="/admin"
-            element={
-              <RequireAdminAccess>
-                <AdminPanelProvider>
-                  <AdminLayout />
-                </AdminPanelProvider>
-              </RequireAdminAccess>
-            }
-          >
-            <Route
-              index
-              element={<Navigate replace to="dashboard" />}
-            />
-            <Route
-              path="dashboard"
-              element={
-                <RequireAdminPermission permission="dashboard:view">
-                  <AdminDashboardPage />
-                </RequireAdminPermission>
-              }
-            />
-            <Route
-              path="perfis"
-              element={
-                <RequireAdminAccess>
-                  <AdminProfilesPage />
-                </RequireAdminAccess>
-              }
-            />
-            <Route
-              path="usuarios"
-              element={
-                <RequireAdminPermission permission="users:view">
-                  <AdminUsersPage />
-                </RequireAdminPermission>
-              }
-            />
-            <Route
-              path="jogadores"
-              element={
-                <RequireAdminPermission permission="players:view">
-                  <AdminPlayersPage />
-                </RequireAdminPermission>
-              }
-            />
-            <Route
-              path="times"
-              element={
-                <RequireAdminPermission permission="teams:view">
-                  <AdminTeamsPage />
-                </RequireAdminPermission>
-              }
-            />
-            <Route
-              path="campeonatos"
-              element={
-                <RequireAdminPermission permission="championships:view">
-                  <AdminChampionshipsPage />
-                </RequireAdminPermission>
-              }
-            />
-            <Route
-              path="campeonatos/novo"
-              element={
-                <RequireAdminPermission permission="championships:manage">
-                  <AdminChampionshipForm />
-                </RequireAdminPermission>
-              }
-            />
-            <Route
-              path="campeonatos/:championshipId/editar"
-              element={
-                <RequireAdminPermission permission="championships:manage">
-                  <AdminChampionshipForm />
-                </RequireAdminPermission>
-              }
-            />
-            <Route
-              path="campeonatos/:championshipId"
-              element={
-                <RequireAdminPermission permission="championships:view">
-                  <AdminChampionshipWorkspacePage />
-                </RequireAdminPermission>
-              }
-            />
-            <Route
-              path="imagens"
-              element={
-                <RequireAdminPermission permission="images:view">
-                  <AdminImageRequestsPage />
-                </RequireAdminPermission>
-              }
-            />
-            <Route
-              path="idiomas"
-              element={
-                <RequireAdminPermission permission="languages:view">
-                  <AdminLanguagesPage />
-                </RequireAdminPermission>
-              }
-            />
-            <Route
-              path="suporte"
-              element={
-                <RequireAdminPermission permission="support:view">
-                  <AdminSupportPage />
-                </RequireAdminPermission>
-              }
-            />
-            <Route
-              path="sistema"
-              element={
-                <RequireAdminAccess>
-                  <AdminSystemPage />
-                </RequireAdminAccess>
-              }
-            />
-            <Route
-              path="logs"
-              element={
-                <RequireAdminPermission permission="logs:view">
-                  <AdminLogsPage />
-                </RequireAdminPermission>
-              }
-            />
-            <Route
-              path="configuracoes"
-              element={
-                <RequireAdminPermission permission="settings:view">
-                  <AdminSettingsPage />
-                </RequireAdminPermission>
-              }
-            />
-          </Route>
-
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </Suspense>
-      {!isAdminRoute ? <MobileBottomNav /> : null}
+      {isAdminRoute ? routes : <main className="app-main">{routes}<MobileBottomNav /></main>}
       {!isAdminRoute ? <Footer /> : null}
     </>
   );
