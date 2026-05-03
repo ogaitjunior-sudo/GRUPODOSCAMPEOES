@@ -1857,6 +1857,23 @@
 
   body {
     font-size: 14px;
+    position: relative;
+    isolation: isolate;
+  }
+
+  body::after {
+    content: "";
+    position: fixed;
+    inset: -12% 0 0;
+    pointer-events: none;
+    z-index: -1;
+    opacity: 0.6;
+    background-image:
+      radial-gradient(circle, rgba(255, 212, 0, 0.2) 0 1.6px, transparent 2px),
+      radial-gradient(circle, rgba(255, 255, 255, 0.15) 0 1.2px, transparent 1.8px);
+    background-position: 0 0, 40px 60px;
+    background-size: 120px 120px, 160px 160px;
+    animation: moveParticlesMobile 12s linear infinite;
   }
 
   .page-shell,
@@ -2499,6 +2516,9 @@
     min-height: auto;
     height: auto;
     padding-top: 64px;
+    background:
+      radial-gradient(circle at center, rgba(255, 212, 0, 0.08), transparent 70%),
+      #050505;
   }
 
   .tr-hero-inner {
@@ -2659,6 +2679,7 @@
     font-size: 16px;
     font-weight: 700;
     box-shadow: 0 10px 30px rgba(255, 212, 0, 0.35);
+    animation: pulseGlowMobile 2.5s infinite ease-in-out;
   }
 
   .btn-primary:active {
@@ -2723,6 +2744,21 @@
     animation: fadeUp 0.4s ease;
   }
 
+  .hero-logo,
+  .hero-logo img,
+  .tr-logo {
+    animation: floatLogoMobile 4s ease-in-out infinite;
+  }
+
+  .page-shell button:active,
+  .btn-primary:active,
+  .btn-secondary:active,
+  .tr-primary-btn:active,
+  .tr-secondary-btn:active {
+    transform: scale(0.96);
+    filter: brightness(1.1);
+  }
+
   @keyframes fadeUp {
     from {
       opacity: 0;
@@ -2732,6 +2768,36 @@
     to {
       opacity: 1;
       transform: translateY(0);
+    }
+  }
+
+  @keyframes pulseGlowMobile {
+    0%, 100% {
+      box-shadow: 0 0 20px rgba(255, 212, 0, 0.3);
+    }
+
+    50% {
+      box-shadow: 0 0 40px rgba(255, 212, 0, 0.6);
+    }
+  }
+
+  @keyframes floatLogoMobile {
+    0%, 100% {
+      transform: translateY(0);
+    }
+
+    50% {
+      transform: translateY(-8px);
+    }
+  }
+
+  @keyframes moveParticlesMobile {
+    from {
+      transform: translateY(0);
+    }
+
+    to {
+      transform: translateY(-200px);
     }
   }
 
