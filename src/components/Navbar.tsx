@@ -5,11 +5,9 @@ import {
   Bell,
   ChevronDown,
   HelpCircle,
-  House,
   List,
   LogOut,
   Search,
-  Trophy,
   User,
 } from "lucide-react";
 import logoGC from "@/assets/logo-gc-fc26.png";
@@ -42,14 +40,6 @@ const mobilePlayerMenuPrimaryItems = [
 const playerMenuSecondaryItems = [
   { label: "Explorar", path: "/explorar", icon: Search },
   { label: "Ajuda", path: "/ajuda", icon: HelpCircle },
-];
-
-const mobileBottomNavItems = [
-  { label: "Início", path: "/", icon: House, matchPaths: ["/"] },
-  { label: "Campeonatos", path: "/campeonatos", icon: Trophy },
-  { label: "Ranking", path: "/ranking", icon: BarChart3 },
-  { label: "Explorar", path: "/explorar", icon: Search, matchPaths: ["/explorar", "/pesquisar"] },
-  { label: "Perfil", path: "/perfil", icon: User },
 ];
 
 type NavbarNotification = {
@@ -89,21 +79,12 @@ export function Navbar() {
   const playerDisplayName = formatPlayerDisplayName(loginName);
   const resolvedPlayerAvatarUrl = avatarUrl ?? readStoredPlayerAvatar(playerEmail);
   const isHomeRoute = location.pathname === "/";
-  const isAuthRoute = [
-    loginRoute.path,
-    "/criar-conta",
-    "/recuperar-senha",
-    "/acesso-implantacao",
-  ].includes(location.pathname);
   const unreadCount = playerNotifications.filter((notification) => !notification.read).length;
   const profileMenuPrimaryItems = isMobileViewport
     ? mobilePlayerMenuPrimaryItems
     : desktopPlayerMenuPrimaryItems;
   const isItemActive = (path: string) =>
     path === "/" ? location.pathname === path : location.pathname.startsWith(path);
-  const isMobileBottomItemActive = (item: (typeof mobileBottomNavItems)[number]) =>
-    (item.matchPaths ?? [item.path]).some((path) => isItemActive(path));
-  const shouldRenderMobileBottomNav = isMobileViewport && !isAuthRoute;
 
   useEffect(() => {
     setNotificationsOpen(false);
@@ -197,13 +178,13 @@ export function Navbar() {
         <Link to="/" className="premium-header-brand tr-brand header-logo">
           <img
             src={logoGC}
-            alt="Grupo de Campeões FC26"
+            alt="Grupo de Campeoes FC26"
             className="h-[38px] w-[38px] object-contain drop-shadow-[0_12px_28px_rgba(0,0,0,0.38)]"
           />
 
           <span className="premium-header-brand-copy tr-brand-text hidden sm:block">
             <span className="premium-header-brand-title site-title font-heading">
-              Grupo de Campeões
+              Grupo de Campeoes
             </span>
             <span className="premium-header-brand-subtitle tr-brand-subtitle site-subtitle">
               FC 26 • X1 UT
@@ -243,8 +224,8 @@ export function Navbar() {
                   aria-expanded={notificationsOpen}
                   aria-label={
                     unreadCount > 0
-                      ? `Abrir notificações (${unreadCount} não lidas)`
-                      : "Abrir notificações"
+                      ? `Abrir notificacoes (${unreadCount} nao lidas)`
+                      : "Abrir notificacoes"
                   }
                   onClick={() => setNotificationsOpen((current) => !current)}
                 >
@@ -256,7 +237,7 @@ export function Navbar() {
 
                 {notificationsOpen ? (
                   <div className="tr-notification-dropdown">
-                    <div className="tr-notification-title">Notificações</div>
+                    <div className="tr-notification-title">Notificacoes</div>
 
                     {playerNotifications.length > 0 ? (
                       <>
@@ -281,12 +262,12 @@ export function Navbar() {
                             navigate("/perfil?aba=atividade");
                           }}
                         >
-                          Ver todas as notificações
+                          Ver todas as notificacoes
                         </button>
                       </>
                     ) : (
                       <div className="tr-notification-empty">
-                        Nenhuma notificação no momento.
+                        Nenhuma notificacao no momento.
                       </div>
                     )}
                   </div>
@@ -388,21 +369,6 @@ export function Navbar() {
           )}
         </div>
       </div>
-
-      {shouldRenderMobileBottomNav ? (
-        <nav className="mobile-bottom-nav bottom-nav" aria-label="Navegação inferior mobile">
-          {mobileBottomNavItems.map((item) => (
-            <Link
-              key={item.path}
-              to={item.path}
-              className={cn("bottom-nav-item", isMobileBottomItemActive(item) && "active")}
-            >
-              <item.icon className="h-[18px] w-[18px]" />
-              <span>{item.label}</span>
-            </Link>
-          ))}
-        </nav>
-      ) : null}
     </nav>
   );
 }
