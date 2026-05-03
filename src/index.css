@@ -1869,7 +1869,7 @@
     font-size: 14px;
     position: relative;
     isolation: isolate;
-    padding-bottom: 110px !important;
+    padding-bottom: 125px !important;
     overflow-x: hidden !important;
   }
 
@@ -2542,6 +2542,7 @@
     height: auto;
     padding-top: 78px;
     overflow-x: hidden !important;
+    overflow: visible !important;
     background:
       radial-gradient(circle at center 32%, rgba(255, 212, 0, 0.22), transparent 42%),
       radial-gradient(circle at center 55%, rgba(255, 212, 0, 0.16), transparent 52%),
@@ -2551,7 +2552,7 @@
   .tr-hero-inner {
     display: flex;
     flex-direction: column;
-    padding: 18px 24px 120px !important;
+    padding: 18px 24px 190px !important;
     gap: 14px !important;
   }
 
@@ -2591,7 +2592,7 @@
     width: 100%;
     max-width: 360px;
     text-align: center;
-    margin: 26px auto 12px;
+    margin: 12px auto 12px !important;
     overflow: visible;
     animation: hunterTitleIn 0.55s ease-out both;
   }
@@ -2666,6 +2667,7 @@
     grid-template-columns: 1fr 1fr !important;
     gap: 14px !important;
     margin-top: 4px;
+    margin-bottom: 24px !important;
     animation: hunterButtonsIn 0.55s ease-out 0.22s both;
   }
 
@@ -2740,7 +2742,7 @@
     display: block;
     width: min(82vw, 360px) !important;
     max-width: 360px !important;
-    margin: 14px auto 22px !important;
+    margin: 14px auto 28px !important;
     filter: drop-shadow(0 0 40px rgba(255, 212, 0, 0.38));
     animation:
       hunterLogoIn 0.75s cubic-bezier(0.2, 0.8, 0.2, 1) 0.12s both,
@@ -2953,11 +2955,11 @@
   .bottom-navigation {
     position: fixed !important;
     top: unset !important;
-    bottom: calc(12px + env(safe-area-inset-bottom)) !important;
+    bottom: calc(8px + env(safe-area-inset-bottom)) !important;
     left: 14px !important;
     right: 14px !important;
     width: auto !important;
-    inset: auto 14px calc(12px + env(safe-area-inset-bottom)) !important;
+    inset: auto 14px calc(8px + env(safe-area-inset-bottom)) !important;
     z-index: 99999 !important;
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -2968,7 +2970,7 @@
     backdrop-filter: blur(18px);
     margin: 0 !important;
     transform: none !important;
-  box-shadow:
+    box-shadow:
       0 18px 60px rgba(0, 0, 0, 0.75),
       0 0 34px rgba(255, 212, 0, 0.1);
   }
@@ -3269,7 +3271,7 @@
   }
 
   .tr-hero-inner {
-    padding: 18px 20px 110px;
+    padding: 18px 20px 190px !important;
   }
 
   .tr-title {
