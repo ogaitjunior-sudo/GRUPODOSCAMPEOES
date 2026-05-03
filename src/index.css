@@ -3371,6 +3371,48 @@
   }
 }
 
+@media (max-width: 768px) {
+  body,
+  main {
+    overflow-y: auto !important;
+  }
+
+  .tr-hero,
+  .hero,
+  .hero-section {
+    height: auto !important;
+    min-height: auto !important;
+    overflow: visible !important;
+  }
+
+  .tr-hero,
+  .hero-section {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+  }
+
+  .tr-hero {
+    padding-bottom: 180px !important;
+  }
+
+  .container,
+  .page,
+  .wrapper,
+  .page-shell,
+  .home-page-shell,
+  .home-container {
+    overflow: visible !important;
+  }
+
+  .tr-player-card,
+  .players-card {
+    display: grid !important;
+    margin-top: 24px !important;
+    margin-bottom: 32px !important;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   body::before,
   body::after,
