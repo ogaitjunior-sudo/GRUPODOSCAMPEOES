@@ -2538,7 +2538,7 @@
     width: 100%;
     text-align: center;
     margin-top: 16px;
-    margin-bottom: 8px;
+    margin-bottom: 4px;
   }
 
   .mobile-hero-title h1 {
@@ -2554,8 +2554,9 @@
 
   .mobile-hero-title p {
     margin-top: 6px;
-    font-size: 14px;
+    font-size: 13px;
     color: rgba(255, 255, 255, 0.7);
+    opacity: 0.6;
   }
 
   .tr-logo-wrap,
@@ -2577,7 +2578,7 @@
   .hero-buttons {
     order: 3;
     width: 100%;
-    margin-top: 16px;
+    margin-top: 8px;
   }
 
   .tr-player-card,
@@ -2626,7 +2627,7 @@
   .tr-logo-wrap,
   .hero-logo-wrap {
     position: relative;
-    margin: 10px auto 16px;
+    margin: 4px auto 10px;
     isolation: isolate;
   }
 
@@ -2634,9 +2635,9 @@
   .hero-logo-wrap::after {
     content: "";
     position: absolute;
-    inset: -40px;
-    background: radial-gradient(circle, rgba(255, 215, 0, 0.25), transparent 70%);
-    filter: blur(40px);
+    inset: -60px;
+    background: radial-gradient(circle, rgba(255, 215, 0, 0.35), transparent 70%);
+    filter: blur(60px);
     z-index: -1;
   }
 
@@ -2644,15 +2645,20 @@
   .hero-logo img,
   .tr-logo {
     display: block;
-    width: min(240px, 80%);
-    max-width: 240px;
-    margin: 10px auto 16px;
+    width: min(280px, 88%);
+    max-width: 280px;
+    margin: 4px auto 10px;
   }
 
   .btn-primary {
     position: relative;
     overflow: hidden;
     transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+    min-height: 60px;
+    height: 60px;
+    font-size: 16px;
+    font-weight: 700;
+    box-shadow: 0 10px 30px rgba(255, 212, 0, 0.35);
   }
 
   .btn-primary:active {
