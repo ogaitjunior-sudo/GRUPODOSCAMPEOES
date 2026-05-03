@@ -2537,13 +2537,19 @@
     border-radius: 20px;
   }
 
+  .tr-hero,
+  .home-page,
+  main {
+    padding-bottom: 220px !important;
+  }
+
   .tr-hero {
     min-height: auto;
     height: auto;
     padding-top: 78px;
-    padding-bottom: 150px !important;
+    padding-bottom: 220px !important;
     overflow-x: hidden !important;
-    overflow-y: visible;
+    overflow: visible !important;
     background:
       radial-gradient(circle at center 32%, rgba(255, 212, 0, 0.22), transparent 42%),
       radial-gradient(circle at center 55%, rgba(255, 212, 0, 0.16), transparent 52%),
@@ -2691,11 +2697,11 @@
   .players-card {
     order: 4;
     width: 100%;
-    margin: 16px auto 18px !important;
+    margin: 22px auto 32px !important;
     min-height: 158px;
     padding: 20px;
-    position: relative;
-    z-index: 4;
+    position: relative !important;
+    z-index: 10 !important;
     display: grid;
     grid-template-columns: minmax(0, 1fr) 1px minmax(0, 1fr);
     align-items: center;
@@ -2973,15 +2979,15 @@
   .bottom-navigation {
     position: fixed !important;
     top: unset !important;
-    bottom: 8px !important;
-    left: 14px !important;
-    right: 14px !important;
+    bottom: 6px !important;
+    left: 18px !important;
+    right: 18px !important;
     width: auto !important;
-    inset: auto 14px 8px !important;
-    z-index: 99999 !important;
+    inset: auto 18px 6px !important;
+    z-index: 9999 !important;
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
-    height: 76px !important;
+    height: 68px !important;
     border-radius: 26px !important;
     border: 1px solid rgba(255, 212, 0, 0.25);
     background: rgba(8, 8, 8, 0.94);
