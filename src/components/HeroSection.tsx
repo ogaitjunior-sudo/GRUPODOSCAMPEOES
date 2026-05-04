@@ -1,10 +1,12 @@
 import { useEffect, useState, type CSSProperties, type MouseEvent as ReactMouseEvent } from "react";
 import { Link } from "react-router-dom";
 import {
+  BarChart3,
   CalendarClock,
   ChevronRight,
   Search,
   ShieldCheck,
+  Star,
   Swords,
   Trophy,
   UserRound,
@@ -165,6 +167,11 @@ export function HeroSection() {
   };
 
   const activePlayersValue = new Intl.NumberFormat("pt-BR").format(activePlayersCount);
+  const mobileQuickMetrics: QuickMetric[] = [
+    { title: "CAMPEONATOS", value: "0", icon: Trophy },
+    { title: "JOGADORES", value: activePlayersValue, icon: Users },
+    { title: "PREMIACOES", value: "0", icon: Star },
+  ];
   const bottomStats: BottomStat[] = [
     { value: activePlayersValue, title: "JOGADORES ATIVOS", icon: Users },
     { value: "0", title: "CAMPEONATOS REALIZADOS", icon: Trophy },
@@ -256,30 +263,71 @@ export function HeroSection() {
           <div className="tr-actions actions hero-buttons">
             <Link to="/campeonatos" className="tr-primary-btn tr-primary-button btn-primary">
               <Trophy className="h-4.5 w-4.5" />
-              VER CAMPEONATOS
-              <ChevronRight className="h-4.5 w-4.5" />
+              <span className="tr-cta-label">VER CAMPEONATOS</span>
+              <ChevronRight className="tr-cta-arrow h-4.5 w-4.5" />
             </Link>
 
             <Link to="/explorar" className="tr-secondary-btn tr-secondary-button btn-secondary">
               <Search className="h-4.5 w-4.5" />
-              EXPLORAR CIRCUITO
+              <span className="tr-cta-label">EXPLORAR CIRCUITO</span>
+              <ChevronRight className="tr-cta-arrow h-4.5 w-4.5" />
             </Link>
           </div>
 
           <div className="tr-player-card players-card">
-            <div className="tr-player-stack" aria-hidden="true">
-              {playerPreviewTokens.map((token) => (
-                <span key={token} className="tr-player-avatar player-avatar">
-                  <UserRound className="h-4 w-4" />
-                </span>
-              ))}
+            <div className="tr-player-mobile-shell md:hidden">
+              <div className="tr-player-mobile-main">
+                <div className="tr-player-stack" aria-hidden="true">
+                  {playerPreviewTokens.map((token) => (
+                    <span key={token} className="tr-player-avatar player-avatar">
+                      <UserRound className="h-4 w-4" />
+                    </span>
+                  ))}
+                </div>
+                <p className="tr-player-mobile-value">{activePlayersValue}</p>
+                <p className="tr-player-mobile-label">JOGADORES ATIVOS</p>
+              </div>
+
+              <span aria-hidden="true" className="tr-player-divider" />
+
+              <div className="tr-player-mobile-side">
+                <div className="tr-player-mobile-side-item">
+                  <span className="tr-player-mobile-side-icon">
+                    <BarChart3 className="h-4.5 w-4.5" />
+                  </span>
+                  <div className="tr-player-mobile-side-copy">
+                    <p className="tr-player-mobile-side-label">RANK ATUAL</p>
+                    <p className="tr-player-mobile-side-value">-</p>
+                  </div>
+                </div>
+
+                <div className="tr-player-mobile-side-item">
+                  <span className="tr-player-mobile-side-icon">
+                    <Zap className="h-4.5 w-4.5" />
+                  </span>
+                  <div className="tr-player-mobile-side-copy">
+                    <p className="tr-player-mobile-side-label">PROXIMO NIVEL</p>
+                    <p className="tr-player-mobile-side-value">-</p>
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <span aria-hidden="true" className="tr-player-divider" />
+            <div className="tr-player-desktop-shell hidden md:flex md:w-full md:items-center md:justify-between">
+              <div className="tr-player-stack" aria-hidden="true">
+                {playerPreviewTokens.map((token) => (
+                  <span key={token} className="tr-player-avatar player-avatar">
+                    <UserRound className="h-4 w-4" />
+                  </span>
+                ))}
+              </div>
 
-            <div className="tr-player-copy">
-              <p className="tr-player-value">{activePlayersValue}</p>
-              <p className="tr-player-label">JOGADORES ATIVOS</p>
+              <span aria-hidden="true" className="tr-player-divider" />
+
+              <div className="tr-player-copy">
+                <p className="tr-player-value">{activePlayersValue}</p>
+                <p className="tr-player-label">JOGADORES ATIVOS</p>
+              </div>
             </div>
           </div>
         </div>
@@ -298,7 +346,29 @@ export function HeroSection() {
         </div>
 
         <div className="tr-right">
-          <aside className="tr-quick-card quick-view">
+          <aside className="tr-quick-card quick-view tr-quick-mobile md:hidden">
+            <div className="tr-quick-head">
+              <div>
+                <p className="tr-quick-kicker">{"VISAO RAPIDA"}</p>
+                <p className="tr-quick-subtitle">O circuito em um olhar.</p>
+              </div>
+              <CalendarClock className="h-5 w-5 text-primary" />
+            </div>
+
+            <div className="tr-mobile-quick-grid">
+              {mobileQuickMetrics.map((item) => (
+                <div key={item.title} className="tr-mobile-quick-item">
+                  <span className="tr-mobile-quick-icon">
+                    <item.icon className="h-5 w-5" />
+                  </span>
+                  <p className="tr-mobile-quick-value">{item.value}</p>
+                  <p className="tr-mobile-quick-label">{item.title}</p>
+                </div>
+              ))}
+            </div>
+          </aside>
+
+          <aside className="tr-quick-card quick-view tr-quick-desktop hidden md:block">
             <div className="tr-quick-head">
               <div>
                 <p className="tr-quick-kicker">{"VIS\u00c3O R\u00c1PIDA"}</p>

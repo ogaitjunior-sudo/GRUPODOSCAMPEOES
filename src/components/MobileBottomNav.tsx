@@ -1,14 +1,19 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { BarChart3, House, Search, Trophy, User } from "lucide-react";
+import { BarChart3, FileText, House, Trophy, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { loginRoute } from "@/navigation";
 
 const mobileBottomNavItems = [
-  { label: "Inicio", path: "/", icon: House, matchPaths: ["/"] },
+  { label: "Início", path: "/", icon: House, matchPaths: ["/"] },
   { label: "Campeonatos", path: "/campeonatos", icon: Trophy },
   { label: "Ranking", path: "/ranking", icon: BarChart3 },
-  { label: "Explorar", path: "/explorar", icon: Search, matchPaths: ["/explorar", "/pesquisar"] },
+  {
+    label: "Notícias",
+    path: "/explorar",
+    icon: FileText,
+    matchPaths: ["/explorar", "/pesquisar"],
+  },
   { label: "Perfil", path: "/perfil", icon: User },
 ] as const;
 

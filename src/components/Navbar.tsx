@@ -7,6 +7,7 @@ import {
   HelpCircle,
   List,
   LogOut,
+  Menu,
   Search,
   User,
 } from "lucide-react";
@@ -71,6 +72,7 @@ export function Navbar() {
   } = usePlayerAuth();
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isMobileViewport, setIsMobileViewport] = useState(false);
   const notificationWrapperRef = useRef<HTMLDivElement | null>(null);
   const profileTriggerRef = useRef<HTMLButtonElement | null>(null);
@@ -89,6 +91,7 @@ export function Navbar() {
   useEffect(() => {
     setNotificationsOpen(false);
     setProfileMenuOpen(false);
+    setMobileMenuOpen(false);
   }, [location.pathname, location.search]);
 
   useEffect(() => {
@@ -165,15 +168,132 @@ export function Navbar() {
     };
   }, [profileMenuOpen]);
 
+  useEffect(() => {
+    if (typeof document === "undefined" || !isMobileViewport) {
+      return;
+    }
+
+    const { overflow } = document.body.style;
+
+    if (mobileMenuOpen) {
+      document.body.style.overflow = "hidden";
+    }
+
+    return () => {
+      document.body.style.overflow = overflow;
+    };
+  }, [isMobileViewport, mobileMenuOpen]);
+
   const handlePlayerLogout = () => {
     logoutPlayer();
     setNotificationsOpen(false);
     setProfileMenuOpen(false);
+    setMobileMenuOpen(false);
     navigate("/entrar", { replace: true });
   };
 
+  const renderNotificationsPanel = () => {
+    if (!notificationsOpen) {
+      return null;
+    }
+
+    return (
+      <div className="tr-notification-dropdown">
+        <div className="tr-notification-title">Notificacoes</div>
+
+        {playerNotifications.length > 0 ? (
+          <>
+            {playerNotifications.map((notification) => (
+              <div
+                key={notification.id}
+                className={cn(
+                  "tr-notification-item",
+                  !notification.read && "unread",
+                )}
+              >
+                <strong>{notification.title}</strong>
+                <span>{notification.description}</span>
+              </div>
+            ))}
+
+            <button
+              type="button"
+              className="tr-notification-footer"
+              onClick={() => {
+                setNotificationsOpen(false);
+                navigate("/perfil?aba=atividade");
+              }}
+            >
+              Ver todas as notificacoes
+            </button>
+          </>
+        ) : (
+          <div className="tr-notification-empty">
+            Nenhuma notificacao no momento.
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderProfileMenuContent = () => (
+    <DropdownMenuContent
+      ref={profileDropdownRef}
+      align="end"
+      sideOffset={10}
+      className="profile-dropdown user-dropdown tr-user-dropdown w-60 rounded-[24px] site-card p-1.5 text-foreground shadow-[0_24px_60px_hsl(0_0%_0%_/_0.38)]"
+    >
+      {profileMenuPrimaryItems.map((item) => (
+        <DropdownMenuItem
+          key={item.label}
+          asChild
+          className="cursor-pointer rounded-2xl px-4 py-3 text-[14px] font-medium text-foreground focus:bg-white/5"
+        >
+          <Link to={item.path} className="flex items-center gap-2">
+            <item.icon className="h-4 w-4 text-primary" />
+            {item.label}
+          </Link>
+        </DropdownMenuItem>
+      ))}
+
+      <DropdownMenuSeparator className="mx-2 my-1 bg-border" />
+
+      {playerMenuSecondaryItems.map((item) => (
+        <DropdownMenuItem
+          key={item.label}
+          asChild
+          className="cursor-pointer rounded-2xl px-4 py-3 text-[14px] font-medium text-muted-foreground focus:bg-white/5 focus:text-foreground"
+        >
+          <Link to={item.path} className="flex items-center gap-2">
+            <item.icon className="h-4 w-4 text-muted-foreground" />
+            {item.label}
+          </Link>
+        </DropdownMenuItem>
+      ))}
+
+      <DropdownMenuSeparator className="mx-2 my-1 bg-border" />
+
+      <DropdownMenuItem
+        onSelect={(event) => {
+          event.preventDefault();
+          handlePlayerLogout();
+        }}
+        className="cursor-pointer rounded-2xl px-4 py-3 text-[14px] font-medium text-primary focus:bg-primary/10 focus:text-primary"
+      >
+        <LogOut className="mr-2 h-4 w-4" />
+        Sair
+      </DropdownMenuItem>
+    </DropdownMenuContent>
+  );
+
   return (
-    <nav className={cn("premium-header tr-header", !isHomeRoute && "bg-[#020202]/92")}>
+    <nav
+      className={cn(
+        "premium-header tr-header",
+        isHomeRoute && "home-mobile-header",
+        !isHomeRoute && "bg-[#020202]/92",
+      )}
+    >
       <div className="premium-header-shell tr-header-inner header-inner">
         <Link to="/" className="premium-header-brand tr-brand header-logo">
           <img
@@ -212,7 +332,74 @@ export function Navbar() {
         </div>
 
         <div className="header-actions-wrapper flex items-center gap-3">
-          {isPlayerAuthenticated ? (
+          {isMobileViewport ? (
+            <div className="tr-header-actions header-actions tr-mobile-header-actions">
+              <div ref={notificationWrapperRef} className="tr-notification-wrapper">
+                <button
+                  type="button"
+                  className="tr-notification-btn gold-flash-hover gold-hover-scale"
+                  aria-expanded={notificationsOpen}
+                  aria-label={
+                    unreadCount > 0
+                      ? `Abrir notificacoes (${unreadCount} nao lidas)`
+                      : "Abrir notificacoes"
+                  }
+                  onClick={() => setNotificationsOpen((current) => !current)}
+                >
+                  <Bell className="h-[20px] w-[20px]" />
+                  {unreadCount > 0 ? (
+                    <span className="tr-notification-badge">{unreadCount}</span>
+                  ) : null}
+                </button>
+
+                {renderNotificationsPanel()}
+              </div>
+
+              {isPlayerAuthenticated ? (
+                <DropdownMenu open={profileMenuOpen} onOpenChange={setProfileMenuOpen}>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      ref={profileTriggerRef}
+                      type="button"
+                      className="premium-header-profile tr-user-menu profile-menu user-dropdown-trigger gold-flash-hover gold-hover-scale tr-mobile-profile-btn"
+                      aria-label="Abrir menu do perfil"
+                    >
+                      <PlayerAvatar
+                        name={playerDisplayName || "Jogador"}
+                        avatarUrl={resolvedPlayerAvatarUrl}
+                        size="sm"
+                        className="h-10 w-10 border-primary/40"
+                      />
+                    </button>
+                  </DropdownMenuTrigger>
+
+                  {renderProfileMenuContent()}
+                </DropdownMenu>
+              ) : (
+                <Link
+                  to={loginRoute.path}
+                  className="premium-header-profile tr-user-menu profile-menu user-dropdown-trigger gold-flash-hover gold-hover-scale tr-mobile-profile-btn"
+                  aria-label={loginRoute.label}
+                >
+                  <PlayerAvatar
+                    name={loginRoute.label}
+                    size="sm"
+                    className="h-10 w-10 border-primary/40"
+                  />
+                </Link>
+              )}
+
+              <button
+                type="button"
+                className="mobile-menu-btn gold-flash-hover gold-hover-scale"
+                aria-expanded={mobileMenuOpen}
+                aria-label="Abrir menu principal"
+                onClick={() => setMobileMenuOpen((current) => !current)}
+              >
+                <Menu className="h-[22px] w-[22px]" />
+              </button>
+            </div>
+          ) : isPlayerAuthenticated ? (
             <div className="tr-header-actions header-actions">
               <div
                 ref={notificationWrapperRef}
@@ -235,43 +422,7 @@ export function Navbar() {
                   ) : null}
                 </button>
 
-                {notificationsOpen ? (
-                  <div className="tr-notification-dropdown">
-                    <div className="tr-notification-title">Notificacoes</div>
-
-                    {playerNotifications.length > 0 ? (
-                      <>
-                        {playerNotifications.map((notification) => (
-                          <div
-                            key={notification.id}
-                            className={cn(
-                              "tr-notification-item",
-                              !notification.read && "unread",
-                            )}
-                          >
-                            <strong>{notification.title}</strong>
-                            <span>{notification.description}</span>
-                          </div>
-                        ))}
-
-                        <button
-                          type="button"
-                          className="tr-notification-footer"
-                          onClick={() => {
-                            setNotificationsOpen(false);
-                            navigate("/perfil?aba=atividade");
-                          }}
-                        >
-                          Ver todas as notificacoes
-                        </button>
-                      </>
-                    ) : (
-                      <div className="tr-notification-empty">
-                        Nenhuma notificacao no momento.
-                      </div>
-                    )}
-                  </div>
-                ) : null}
+                {renderNotificationsPanel()}
               </div>
 
               <DropdownMenu open={profileMenuOpen} onOpenChange={setProfileMenuOpen}>
@@ -283,9 +434,9 @@ export function Navbar() {
                       "premium-header-profile tr-user-menu profile-menu user-dropdown-trigger gold-flash-hover gold-hover-scale hidden sm:inline-flex",
                       isHomeRoute ? "min-w-[216px]" : "min-w-[196px]",
                     )}
-                  >
-                    <PlayerAvatar
-                      name={playerDisplayName || "Jogador"}
+                    >
+                      <PlayerAvatar
+                        name={playerDisplayName || "Jogador"}
                       avatarUrl={resolvedPlayerAvatarUrl}
                       size="sm"
                       className="h-8 w-8 border-primary/40"
@@ -294,56 +445,10 @@ export function Navbar() {
                       {playerDisplayName}
                     </span>
                     <ChevronDown className="h-3.5 w-3.5 text-white/72" />
-                  </button>
-                </DropdownMenuTrigger>
+                    </button>
+                  </DropdownMenuTrigger>
 
-                <DropdownMenuContent
-                  ref={profileDropdownRef}
-                  align="end"
-                  sideOffset={10}
-                  className="profile-dropdown user-dropdown tr-user-dropdown w-60 rounded-[24px] site-card p-1.5 text-foreground shadow-[0_24px_60px_hsl(0_0%_0%_/_0.38)]"
-                >
-                  {profileMenuPrimaryItems.map((item) => (
-                    <DropdownMenuItem
-                      key={item.label}
-                      asChild
-                      className="cursor-pointer rounded-2xl px-4 py-3 text-[14px] font-medium text-foreground focus:bg-white/5"
-                    >
-                      <Link to={item.path} className="flex items-center gap-2">
-                        <item.icon className="h-4 w-4 text-primary" />
-                        {item.label}
-                      </Link>
-                    </DropdownMenuItem>
-                  ))}
-
-                  <DropdownMenuSeparator className="mx-2 my-1 bg-border" />
-
-                  {playerMenuSecondaryItems.map((item) => (
-                    <DropdownMenuItem
-                      key={item.label}
-                      asChild
-                      className="cursor-pointer rounded-2xl px-4 py-3 text-[14px] font-medium text-muted-foreground focus:bg-white/5 focus:text-foreground"
-                    >
-                      <Link to={item.path} className="flex items-center gap-2">
-                        <item.icon className="h-4 w-4 text-muted-foreground" />
-                        {item.label}
-                      </Link>
-                    </DropdownMenuItem>
-                  ))}
-
-                  <DropdownMenuSeparator className="mx-2 my-1 bg-border" />
-
-                  <DropdownMenuItem
-                    onSelect={(event) => {
-                      event.preventDefault();
-                      handlePlayerLogout();
-                    }}
-                    className="cursor-pointer rounded-2xl px-4 py-3 text-[14px] font-medium text-primary focus:bg-primary/10 focus:text-primary"
-                  >
-                    <LogOut className="mr-2 h-4 w-4" />
-                    Sair
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
+                  {renderProfileMenuContent()}
               </DropdownMenu>
             </div>
           ) : (
@@ -369,6 +474,72 @@ export function Navbar() {
           )}
         </div>
       </div>
+
+      {isMobileViewport && mobileMenuOpen ? (
+        <div className="mobile-menu-layer" onClick={() => setMobileMenuOpen(false)}>
+          <div onClick={(event) => event.stopPropagation()}>
+            <div className="mobile-menu-panel open">
+              {isPlayerAuthenticated ? (
+                <div className="mobile-menu-account-summary mobile-menu-entry">
+                  <div className="flex items-center gap-3">
+                    <PlayerAvatar
+                      name={playerDisplayName || "Jogador"}
+                      avatarUrl={resolvedPlayerAvatarUrl}
+                      size="sm"
+                      className="h-12 w-12 border-primary/40"
+                    />
+                    <div className="min-w-0 text-left">
+                      <p className="truncate text-sm font-semibold uppercase tracking-[0.08em] text-white">
+                        {playerDisplayName || "Jogador"}
+                      </p>
+                      <p className="mt-1 text-xs uppercase tracking-[0.2em] text-primary/80">
+                        Grupo de Campeoes
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+
+              <div className="space-y-1">
+                {navItems.map((item) => (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    className={cn("mobile-menu-entry", isItemActive(item.path) && "active")}
+                  >
+                    <span className="flex items-center gap-3">
+                      <item.icon className="h-5 w-5" />
+                      {item.label}
+                    </span>
+                    <ChevronDown className="h-4 w-4 rotate-[-90deg]" />
+                  </Link>
+                ))}
+
+                {isPlayerAuthenticated ? (
+                  <button
+                    type="button"
+                    className="mobile-menu-entry mobile-menu-danger"
+                    onClick={handlePlayerLogout}
+                  >
+                    <span className="flex items-center gap-3">
+                      <LogOut className="h-5 w-5" />
+                      Sair
+                    </span>
+                  </button>
+                ) : (
+                  <Link to={loginRoute.path} className="mobile-menu-entry">
+                    <span className="flex items-center gap-3">
+                      <LoginIcon className="h-5 w-5" />
+                      {loginRoute.label}
+                    </span>
+                    <ChevronDown className="h-4 w-4 rotate-[-90deg]" />
+                  </Link>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </nav>
   );
 }
