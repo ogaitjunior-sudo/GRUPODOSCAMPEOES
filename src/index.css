@@ -4385,7 +4385,7 @@
 
   body,
   main {
-    padding-bottom: 100px !important;
+    padding-bottom: 130px !important;
   }
 
   .mobile-menu-btn {
@@ -4426,9 +4426,9 @@
   }
 
   .tr-hero {
-    min-height: 100svh !important;
-    padding-top: 110px !important;
-    padding-bottom: calc(124px + env(safe-area-inset-bottom, 0px)) !important;
+    min-height: auto !important;
+    padding-top: 100px !important;
+    padding-bottom: calc(130px + env(safe-area-inset-bottom, 0px)) !important;
   }
 
   .tr-hero::before {
@@ -4459,7 +4459,7 @@
     max-width: 430px !important;
     margin: 0 auto !important;
     padding: 0 24px !important;
-    gap: 14px !important;
+    gap: 12px !important;
   }
 
   .mobile-hero-title h1 {
@@ -4467,14 +4467,14 @@
   }
 
   .mobile-hero-title span {
-    font-size: clamp(28px, 7vw, 36px) !important;
+    font-size: clamp(26px, 6vw, 36px) !important;
     letter-spacing: 0.02em;
     line-height: 1.1 !important;
   }
 
   .mobile-hero-title strong {
-    font-size: clamp(52px, 13.5vw, 72px) !important;
-    line-height: 1.02 !important;
+    font-size: clamp(42px, 11vw, 62px) !important;
+    line-height: 1 !important;
     text-shadow:
       0 0 10px rgba(255, 212, 0, 0.3),
       0 0 22px rgba(255, 212, 0, 0.18);
@@ -4489,13 +4489,13 @@
   .hero-logo,
   .tr-logo,
   .hero-logo img {
-    width: clamp(300px, 78vw, 420px) !important;
-    max-width: 420px !important;
+    width: clamp(290px, 72vw, 380px) !important;
+    max-width: 380px !important;
   }
 
   .tr-logo-wrap,
   .hero-logo-wrap {
-    margin-bottom: 10px !important;
+    margin-bottom: 8px !important;
   }
 
   .tr-actions,
@@ -4505,7 +4505,7 @@
     width: 100% !important;
     max-width: 382px !important;
     gap: 12px !important;
-    margin: 12px auto 0 !important;
+    margin: 10px auto 18px !important;
   }
 
   .tr-primary-btn,
@@ -4573,7 +4573,7 @@
     width: 100% !important;
     max-width: 382px !important;
     min-height: 150px !important;
-    margin: 0 !important;
+    margin: 18px 0 0 !important;
     padding: 18px !important;
     border-radius: 18px !important;
     border: 1px solid rgba(255, 200, 0, 0.25) !important;
@@ -4783,13 +4783,13 @@
   .bottom-nav,
   .bottom-navigation {
     position: fixed !important;
-    left: 0 !important;
-    right: 0 !important;
-    bottom: 0 !important;
-    inset: auto 0 0 0 !important;
-    transform: none !important;
-    width: 100% !important;
-    max-width: none !important;
+    left: 50% !important;
+    right: auto !important;
+    bottom: 14px !important;
+    inset: auto auto 14px 50% !important;
+    transform: translateX(-50%) !important;
+    width: calc(100% - 32px) !important;
+    max-width: 430px !important;
     height: 82px !important;
     min-height: 82px !important;
     max-height: 82px !important;
@@ -4801,7 +4801,7 @@
       0 -12px 30px rgba(0, 0, 0, 0.45),
       inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
     backdrop-filter: blur(18px) !important;
-    z-index: 9999 !important;
+    z-index: 50 !important;
   }
 
   .mobile-bottom-nav a,
