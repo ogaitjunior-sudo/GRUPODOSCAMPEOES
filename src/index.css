@@ -4383,6 +4383,11 @@
     max-width: 382px !important;
   }
 
+  body,
+  main {
+    padding-bottom: 100px !important;
+  }
+
   .mobile-menu-btn {
     display: inline-flex !important;
   }
@@ -4457,14 +4462,19 @@
     gap: 14px !important;
   }
 
+  .mobile-hero-title h1 {
+    line-height: 1.1 !important;
+  }
+
   .mobile-hero-title span {
     font-size: clamp(28px, 7vw, 36px) !important;
     letter-spacing: 0.02em;
+    line-height: 1.1 !important;
   }
 
   .mobile-hero-title strong {
-    font-size: clamp(72px, 18vw, 98px) !important;
-    line-height: 0.88 !important;
+    font-size: clamp(52px, 13.5vw, 72px) !important;
+    line-height: 1.02 !important;
     text-shadow:
       0 0 10px rgba(255, 212, 0, 0.3),
       0 0 22px rgba(255, 212, 0, 0.18);
@@ -4483,6 +4493,11 @@
     max-width: 420px !important;
   }
 
+  .tr-logo-wrap,
+  .hero-logo-wrap {
+    margin-bottom: 10px !important;
+  }
+
   .tr-actions,
   .actions,
   .hero-buttons {
@@ -4490,7 +4505,7 @@
     width: 100% !important;
     max-width: 382px !important;
     gap: 12px !important;
-    margin: 14px auto 0 !important;
+    margin: 12px auto 0 !important;
   }
 
   .tr-primary-btn,
@@ -4768,13 +4783,13 @@
   .bottom-nav,
   .bottom-navigation {
     position: fixed !important;
-    left: 50% !important;
-    right: auto !important;
+    left: 0 !important;
+    right: 0 !important;
     bottom: 0 !important;
-    inset: auto auto 0 50% !important;
-    transform: translateX(-50%) !important;
-    width: calc(100% - 32px) !important;
-    max-width: 430px !important;
+    inset: auto 0 0 0 !important;
+    transform: none !important;
+    width: 100% !important;
+    max-width: none !important;
     height: 82px !important;
     min-height: 82px !important;
     max-height: 82px !important;
