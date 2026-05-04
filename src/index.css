@@ -3381,6 +3381,7 @@
     display: flex;
     flex-direction: column;
     overflow-y: auto !important;
+    overflow-x: hidden !important;
     padding-bottom: 24px !important;
   }
 
@@ -3412,11 +3413,34 @@
   }
 
   .tr-hero-inner {
-    gap: 10px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    width: 100% !important;
+    max-width: 420px !important;
+    margin: 0 auto !important;
+    padding: 0 16px !important;
+    box-sizing: border-box;
+    gap: 12px !important;
+  }
+
+  .tr-left,
+  .tr-right {
+    display: contents !important;
+  }
+
+  .tr-center {
+    order: 2;
+    width: 100%;
+    display: flex;
+    justify-content: center;
   }
 
   .mobile-hero-title {
-    margin: 0 auto 0 !important;
+    order: 1;
+    width: 100%;
+    margin: 0 auto !important;
+    text-align: center;
   }
 
   .mobile-hero-title span {
@@ -3435,22 +3459,37 @@
 
   .tr-logo-wrap,
   .hero-logo-wrap {
+    width: 100%;
     margin: 0 auto !important;
+    display: flex;
+    justify-content: center;
+    text-align: center;
   }
 
   .hero-logo,
   .tr-logo,
   .hero-logo img {
-    width: min(58vw, 270px) !important;
-    max-width: 270px !important;
-    margin: 0 auto 4px !important;
+    width: 220px !important;
+    max-width: 220px !important;
+    margin: 0 auto !important;
   }
 
   .tr-actions,
   .hero-buttons {
-    margin-top: 2px !important;
-    margin-bottom: 8px !important;
-    gap: 10px !important;
+    order: 3;
+    display: flex !important;
+    width: 100% !important;
+    gap: 12px !important;
+    margin: 0 !important;
+    flex-wrap: nowrap !important;
+    align-items: stretch;
+  }
+
+  .tr-actions > *,
+  .hero-buttons > * {
+    flex: 1 1 0 !important;
+    width: auto !important;
+    min-width: 0 !important;
   }
 
   .tr-primary-btn,
@@ -3461,7 +3500,24 @@
   .btn-secondary {
     height: 50px !important;
     min-height: 50px !important;
+    width: auto !important;
+    padding: 0 12px !important;
     font-size: 10.5px !important;
+    border-radius: 14px !important;
+  }
+
+  .tr-primary-btn,
+  .tr-primary-button,
+  .btn-primary {
+    background: #ffd400 !important;
+    color: #111 !important;
+  }
+
+  .tr-secondary-btn,
+  .tr-secondary-button,
+  .btn-secondary {
+    background: transparent !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
   }
 
   .mobile-bottom-nav,
@@ -3474,6 +3530,8 @@
     top: auto !important;
     inset: auto !important;
     width: calc(100% - 32px) !important;
+    max-width: 420px !important;
+    box-sizing: border-box;
     display: grid !important;
     grid-template-columns: repeat(5, 1fr) !important;
     height: 70px !important;
@@ -3514,19 +3572,54 @@
 
   .tr-player-card,
   .players-card {
-    display: grid !important;
-    width: calc(100% - 32px) !important;
-    min-height: 96px !important;
-    margin: 8px auto 12px !important;
+    order: 4;
+    display: flex !important;
+    width: 100% !important;
+    max-width: none !important;
+    min-height: auto !important;
+    margin: 20px 0 0 !important;
+    padding: 16px !important;
+    border-radius: 18px !important;
+    background: rgba(0, 0, 0, 0.6) !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 16px !important;
+    box-sizing: border-box;
     position: relative !important;
     transform: none !important;
     z-index: 10 !important;
   }
 
+  .tr-player-stack {
+    display: flex !important;
+    align-items: center !important;
+  }
+
+  .tr-player-avatar,
+  .player-avatar {
+    width: 36px !important;
+    height: 36px !important;
+    margin-left: -10px !important;
+  }
+
+  .tr-player-avatar:first-child,
+  .player-avatar:first-child {
+    margin-left: 0 !important;
+  }
+
+  .tr-player-copy {
+    align-items: flex-end;
+    text-align: right;
+  }
+
   .tr-quick-card,
   .quick-view {
-    width: calc(100% - 32px) !important;
-    margin: 12px auto 0 !important;
+    order: 5;
+    width: 100% !important;
+    margin: 24px 0 0 !important;
+    padding: 16px !important;
+    border-radius: 18px !important;
+    box-sizing: border-box;
     transform: none !important;
   }
 }
