@@ -4392,13 +4392,17 @@
   .app-main,
   .page,
   .page-shell,
-  .home-main {
-    padding-bottom: calc(120px + env(safe-area-inset-bottom, 0px)) !important;
+  .home-main,
+  .home-page,
+  .app-content {
+    padding-bottom: calc(110px + env(safe-area-inset-bottom, 0px)) !important;
   }
 
   .page,
   .page-shell,
   .app-main,
+  .app-content,
+  .home-page,
   .home-main,
   .tr-hero,
   .tr-hero-inner {
@@ -4804,23 +4808,24 @@
     position: fixed !important;
     left: 50% !important;
     right: auto !important;
-    bottom: 10px !important;
-    inset: auto auto 10px 50% !important;
+    bottom: calc(6px + env(safe-area-inset-bottom, 0px)) !important;
+    inset: auto auto calc(6px + env(safe-area-inset-bottom, 0px)) 50% !important;
     transform: translateX(-50%) !important;
-    width: calc(100% - 32px) !important;
+    width: calc(100% - 24px) !important;
     max-width: 430px !important;
-    height: 78px !important;
-    min-height: 78px !important;
-    max-height: 78px !important;
-    padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px)) !important;
-    border-radius: 24px 24px 0 0 !important;
+    height: 70px !important;
+    min-height: 70px !important;
+    max-height: 70px !important;
+    padding: 8px 10px !important;
+    border-radius: 18px !important;
     border: 1px solid rgba(255, 200, 0, 0.2) !important;
     background: rgba(0, 0, 0, 0.82) !important;
     box-shadow:
       0 -12px 30px rgba(0, 0, 0, 0.45),
       inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
     backdrop-filter: blur(18px) !important;
-    z-index: 999 !important;
+    margin: 0 !important;
+    z-index: 9999 !important;
   }
 
   .mobile-bottom-nav a,
@@ -4837,8 +4842,8 @@
 
   .mobile-bottom-nav svg,
   .bottom-nav-item svg {
-    width: 24px !important;
-    height: 24px !important;
+    width: 20px !important;
+    height: 20px !important;
   }
 
   .mobile-bottom-nav .active,
