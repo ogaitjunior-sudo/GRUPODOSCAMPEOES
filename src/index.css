@@ -4385,7 +4385,16 @@
 
   body,
   main {
-    padding-bottom: 130px !important;
+    padding-bottom: 180px !important;
+  }
+
+  .page,
+  .page-shell,
+  .app-main,
+  .home-main,
+  .tr-hero,
+  .tr-hero-inner {
+    transform: none !important;
   }
 
   .mobile-menu-btn {
@@ -4428,7 +4437,7 @@
   .tr-hero {
     min-height: auto !important;
     padding-top: 100px !important;
-    padding-bottom: calc(130px + env(safe-area-inset-bottom, 0px)) !important;
+    padding-bottom: calc(180px + env(safe-area-inset-bottom, 0px)) !important;
   }
 
   .tr-hero::before {
@@ -4505,7 +4514,7 @@
     width: 100% !important;
     max-width: 382px !important;
     gap: 12px !important;
-    margin: 10px auto 18px !important;
+    margin: 10px auto 24px !important;
   }
 
   .tr-primary-btn,
@@ -4573,7 +4582,7 @@
     width: 100% !important;
     max-width: 382px !important;
     min-height: 150px !important;
-    margin: 18px 0 0 !important;
+    margin: 22px 0 24px !important;
     padding: 18px !important;
     border-radius: 18px !important;
     border: 1px solid rgba(255, 200, 0, 0.25) !important;
@@ -4581,6 +4590,8 @@
     box-shadow:
       0 10px 30px rgba(0, 0, 0, 0.35),
       inset 0 1px 0 rgba(255, 255, 255, 0.03) !important;
+    position: relative !important;
+    z-index: 1 !important;
   }
 
   .tr-player-mobile-shell {
@@ -4785,14 +4796,14 @@
     position: fixed !important;
     left: 50% !important;
     right: auto !important;
-    bottom: 14px !important;
-    inset: auto auto 14px 50% !important;
+    bottom: 8px !important;
+    inset: auto auto 8px 50% !important;
     transform: translateX(-50%) !important;
     width: calc(100% - 32px) !important;
     max-width: 430px !important;
-    height: 82px !important;
-    min-height: 82px !important;
-    max-height: 82px !important;
+    height: 76px !important;
+    min-height: 76px !important;
+    max-height: 76px !important;
     padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px)) !important;
     border-radius: 24px 24px 0 0 !important;
     border: 1px solid rgba(255, 200, 0, 0.2) !important;
@@ -4801,7 +4812,7 @@
       0 -12px 30px rgba(0, 0, 0, 0.45),
       inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
     backdrop-filter: blur(18px) !important;
-    z-index: 50 !important;
+    z-index: 999 !important;
   }
 
   .mobile-bottom-nav a,
