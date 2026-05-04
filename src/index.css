@@ -4383,9 +4383,17 @@
     max-width: 382px !important;
   }
 
-  body,
-  main {
-    padding-bottom: 180px !important;
+  body {
+    min-height: 100vh !important;
+    overflow-x: hidden !important;
+  }
+
+  main,
+  .app-main,
+  .page,
+  .page-shell,
+  .home-main {
+    padding-bottom: calc(120px + env(safe-area-inset-bottom, 0px)) !important;
   }
 
   .page,
@@ -4437,7 +4445,7 @@
   .tr-hero {
     min-height: auto !important;
     padding-top: 100px !important;
-    padding-bottom: calc(180px + env(safe-area-inset-bottom, 0px)) !important;
+    padding-bottom: 24px !important;
   }
 
   .tr-hero::before {
@@ -4796,14 +4804,14 @@
     position: fixed !important;
     left: 50% !important;
     right: auto !important;
-    bottom: 8px !important;
-    inset: auto auto 8px 50% !important;
+    bottom: 10px !important;
+    inset: auto auto 10px 50% !important;
     transform: translateX(-50%) !important;
     width: calc(100% - 32px) !important;
     max-width: 430px !important;
-    height: 76px !important;
-    min-height: 76px !important;
-    max-height: 76px !important;
+    height: 78px !important;
+    min-height: 78px !important;
+    max-height: 78px !important;
     padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px)) !important;
     border-radius: 24px 24px 0 0 !important;
     border: 1px solid rgba(255, 200, 0, 0.2) !important;

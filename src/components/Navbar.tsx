@@ -389,15 +389,17 @@ export function Navbar() {
                 </Link>
               )}
 
-              <button
-                type="button"
-                className="mobile-menu-btn gold-flash-hover gold-hover-scale"
-                aria-expanded={mobileMenuOpen}
-                aria-label="Abrir menu principal"
-                onClick={() => setMobileMenuOpen((current) => !current)}
-              >
-                <Menu className="h-[22px] w-[22px]" />
-              </button>
+              {!isHomeRoute ? (
+                <button
+                  type="button"
+                  className="mobile-menu-btn gold-flash-hover gold-hover-scale"
+                  aria-expanded={mobileMenuOpen}
+                  aria-label="Abrir menu principal"
+                  onClick={() => setMobileMenuOpen((current) => !current)}
+                >
+                  <Menu className="h-[22px] w-[22px]" />
+                </button>
+              ) : null}
             </div>
           ) : isPlayerAuthenticated ? (
             <div className="tr-header-actions header-actions">
