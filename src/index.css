@@ -2991,8 +2991,8 @@
     min-height: 70px !important;
     max-height: 70px !important;
     padding: 6px 10px !important;
-    margin: 30px auto !important;
-    border-radius: 20px !important;
+    margin: 30px auto 24px !important;
+    border-radius: 22px !important;
     border: 1px solid rgba(255, 212, 0, 0.25);
     background: rgba(10, 10, 10, 0.95) !important;
     backdrop-filter: blur(18px);
@@ -3480,8 +3480,8 @@
     min-height: 70px !important;
     max-height: 70px !important;
     padding: 6px 10px !important;
-    margin: 30px auto !important;
-    border-radius: 20px !important;
+    margin: 30px auto 24px !important;
+    border-radius: 22px !important;
     border: 1px solid rgba(255, 212, 0, 0.25) !important;
     background: rgba(10, 10, 10, 0.95) !important;
     transform: none !important;
