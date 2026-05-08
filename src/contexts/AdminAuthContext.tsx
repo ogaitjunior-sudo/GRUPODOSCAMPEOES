@@ -46,7 +46,12 @@ export const ADMIN_SESSION_STORAGE_KEY = "gc_admin_session";
 export const ADMIN_LOGIN_ROUTE = "/login";
 export const ADMIN_DASHBOARD_ROUTE = "/admin/dashboard";
 export const ADMIN_USERNAME = (import.meta.env.VITE_ADMIN_USERNAME ?? "ADMIN").trim();
-const ADMIN_SUPABASE_EMAIL = (import.meta.env.VITE_ADMIN_SUPABASE_EMAIL ?? "").trim().toLowerCase();
+const DEFAULT_ADMIN_SUPABASE_EMAIL = "admin@grupodecampeoes.com";
+const ADMIN_SUPABASE_EMAIL = (
+  import.meta.env.VITE_ADMIN_SUPABASE_EMAIL ?? DEFAULT_ADMIN_SUPABASE_EMAIL
+)
+  .trim()
+  .toLowerCase();
 const ADMIN_PASSWORD_HASH =
   (import.meta.env.VITE_ADMIN_PASSWORD_HASH ??
     "3dbc36f1068ab85bbf98397f0c40a0d4dfcbfaf300fa680205555a6d2de4bb80").trim();
