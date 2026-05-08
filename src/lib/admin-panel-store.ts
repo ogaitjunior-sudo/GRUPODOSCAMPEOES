@@ -221,6 +221,11 @@ export async function saveAdminPanelState(state: AdminPanelState) {
     .single();
 
   if (error) {
+    if (shouldFallbackToLocal(error)) {
+      writeStoredAdminPanelState(normalizedState);
+      return normalizedState;
+    }
+
     throw error;
   }
 
