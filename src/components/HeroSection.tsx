@@ -17,7 +17,6 @@ import {
 import type { AdminPanelState } from "@/admin/types";
 import heroLionsBackdrop from "@/assets/hero-lions-backdrop.png";
 import heroLogoShadow from "@/assets/hero-logo-shadow.png";
-import { MobileBottomNav } from "@/components/MobileBottomNav";
 import { readCachedAdminPanelState } from "@/lib/admin-panel-store";
 
 interface QuickMetric {
@@ -397,8 +396,6 @@ export function HeroSection() {
           </aside>
         </div>
       </div>
-
-      <MobileBottomNav />
 
       <div className="tr-bottom-stats">
         {bottomStats.map((item) => (

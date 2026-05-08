@@ -4395,7 +4395,10 @@
   .home-main,
   .home-page,
   .app-content {
-    padding-bottom: calc(160px + env(safe-area-inset-bottom, 0px)) !important;
+    min-height: 100dvh !important;
+    padding-bottom: calc(180px + env(safe-area-inset-bottom, 0px)) !important;
+    overflow: visible !important;
+    position: relative !important;
   }
 
   .page,
@@ -4407,6 +4410,8 @@
   .tr-hero,
   .tr-hero-inner {
     transform: none !important;
+    overflow: visible !important;
+    height: auto !important;
   }
 
   .mobile-menu-btn {
@@ -4450,6 +4455,7 @@
     min-height: auto !important;
     padding-top: 100px !important;
     padding-bottom: 24px !important;
+    overflow: visible !important;
   }
 
   .tr-hero::before {
@@ -4589,12 +4595,13 @@
   }
 
   .tr-player-card,
-  .players-card {
+  .players-card,
+  .status-card {
     order: 4;
     width: 100% !important;
     max-width: 382px !important;
     min-height: 135px !important;
-    margin: 18px 0 24px !important;
+    margin: 18px 0 110px !important;
     padding: 18px !important;
     border-radius: 18px !important;
     border: 1px solid rgba(255, 200, 0, 0.25) !important;
@@ -4808,8 +4815,8 @@
     position: fixed !important;
     left: 50% !important;
     right: auto !important;
-    bottom: calc(2px + env(safe-area-inset-bottom, 0px)) !important;
-    inset: auto auto calc(2px + env(safe-area-inset-bottom, 0px)) 50% !important;
+    bottom: calc(6px + env(safe-area-inset-bottom, 0px)) !important;
+    inset: auto auto calc(6px + env(safe-area-inset-bottom, 0px)) 50% !important;
     transform: translateX(-50%) !important;
     width: calc(100% - 32px) !important;
     max-width: 430px !important;
@@ -4825,7 +4832,7 @@
       inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
     backdrop-filter: blur(18px) !important;
     margin: 0 !important;
-    z-index: 9999 !important;
+    z-index: 99999 !important;
   }
 
   .mobile-bottom-nav a,

@@ -6,8 +6,12 @@ import { PageShell } from "@/components/PageShell";
 import { ADMIN_LOGIN_ROUTE, useAdminAuth } from "@/contexts/AdminAuthContext";
 
 export function AdminOnlyRoute({ children }: { children: ReactNode }) {
-  const { isAdmin } = useAdminAuth();
+  const { isAdmin, isReady } = useAdminAuth();
   const location = useLocation();
+
+  if (!isReady) {
+    return null;
+  }
 
   if (isAdmin) {
     return <>{children}</>;

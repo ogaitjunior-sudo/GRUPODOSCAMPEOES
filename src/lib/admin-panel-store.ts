@@ -1,6 +1,6 @@
 import type { PostgrestError } from "@supabase/supabase-js";
 import { createDefaultSiteSettings, createInitialAdminPanelState } from "@/admin/context/adminSeed";
-import { isSupabaseConfigured, supabase } from "@/lib/supabase";
+import { adminSupabase, isSupabaseConfigured, supabase } from "@/lib/supabase";
 import type {
   AdminPanelState,
   AuditLog,
@@ -207,24 +207,20 @@ export async function loadAdminPanelState() {
 
 export async function saveAdminPanelState(state: AdminPanelState) {
   const normalizedState = normalizeAdminPanelState(state);
+  const writeClient = adminSupabase ?? supabase;
 
-  if (!supabase) {
+  if (!writeClient) {
     writeStoredAdminPanelState(normalizedState);
     return normalizedState;
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await writeClient
     .from(ADMIN_PANEL_TABLE)
     .upsert(mapStateToRow(normalizedState), { onConflict: "id" })
     .select()
     .single();
 
   if (error) {
-    if (shouldFallbackToLocal(error)) {
-      writeStoredAdminPanelState(normalizedState);
-      return normalizedState;
-    }
-
     throw error;
   }
 
@@ -239,7 +235,7 @@ export function formatAdminPanelStoreError(error: unknown) {
   const errorMessage = postgrestError?.message;
 
   if (errorCode === "42501") {
-    return "O Supabase bloqueou a escrita do painel administrativo com RLS. Ajuste as politicas para remover o fallback local.";
+    return "O Supabase bloqueou a escrita do painel administrativo. Entre com a conta admin autenticada no Supabase ou ajuste as policies da tabela.";
   }
 
   if (errorCode === "42P01") {

@@ -8,7 +8,7 @@ import {
   normalizeChampionshipRegistrationRequests,
   sortChampionships,
 } from "@/lib/championships";
-import { isSupabaseConfigured, supabase } from "@/lib/supabase";
+import { adminSupabase, isSupabaseConfigured, supabase } from "@/lib/supabase";
 import type {
   ChampionshipFormValues,
   ChampionshipRegistrationRequest,
@@ -346,25 +346,21 @@ export async function saveChampionshipRecord(
   options: { mode?: "insert" | "update" } = {},
 ) {
   const mode = options.mode ?? "update";
+  const writeClient = adminSupabase ?? supabase;
 
-  if (isChampionshipStoreTestMode || !supabase) {
+  if (isChampionshipStoreTestMode || !writeClient) {
     persistChampionshipLocally(record);
     return record;
   }
 
   const query =
     mode === "insert"
-      ? supabase.from(CHAMPIONSHIPS_TABLE).insert(mapRecordToRow(record))
-      : supabase.from(CHAMPIONSHIPS_TABLE).update(mapRecordToRow(record)).eq("id", record.id);
+      ? writeClient.from(CHAMPIONSHIPS_TABLE).insert(mapRecordToRow(record))
+      : writeClient.from(CHAMPIONSHIPS_TABLE).update(mapRecordToRow(record)).eq("id", record.id);
 
   const { data, error } = await query.select().single();
 
   if (error) {
-    if (shouldFallbackToLocal(error)) {
-      persistChampionshipLocally(record);
-      return record;
-    }
-
     throw error;
   }
 
@@ -374,19 +370,16 @@ export async function saveChampionshipRecord(
 }
 
 export async function deleteChampionshipRecord(id: string) {
-  if (isChampionshipStoreTestMode || !supabase) {
+  const writeClient = adminSupabase ?? supabase;
+
+  if (isChampionshipStoreTestMode || !writeClient) {
     removeChampionshipLocally(id);
     return;
   }
 
-  const { error } = await supabase.from(CHAMPIONSHIPS_TABLE).delete().eq("id", id);
+  const { error } = await writeClient.from(CHAMPIONSHIPS_TABLE).delete().eq("id", id);
 
   if (error) {
-    if (shouldFallbackToLocal(error)) {
-      removeChampionshipLocally(id);
-      return;
-    }
-
     throw error;
   }
 
@@ -399,7 +392,7 @@ export function formatChampionshipStoreError(error: unknown) {
   const errorMessage = getErrorMessage(error);
 
   if (errorCode === "42501") {
-    return "O Supabase bloqueou a escrita com RLS. O portal vai continuar usando a base local ate a permissao ser ajustada.";
+    return "O Supabase bloqueou a escrita do campeonato. Entre no painel com a conta admin autenticada no Supabase ou ajuste as policies da tabela.";
   }
 
   if (errorCode === "42P01") {
@@ -411,7 +404,7 @@ export function formatChampionshipStoreError(error: unknown) {
   }
 
   if (isSupabaseNetworkError(error)) {
-    return "Nao foi possivel conectar ao Supabase agora. Verifique sua conexao e tente novamente em alguns instantes.";
+    return "Nao foi possivel sincronizar com o Supabase agora. Verifique sua conexao e tente novamente em alguns instantes.";
   }
 
   if (typeof errorMessage === "string" && errorMessage.trim()) {

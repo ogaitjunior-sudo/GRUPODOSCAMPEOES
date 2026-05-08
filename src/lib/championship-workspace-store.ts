@@ -1,6 +1,6 @@
 import type { PostgrestError } from "@supabase/supabase-js";
 import { normalizeChampionshipWorkspace } from "@/lib/championship-runtime";
-import { isSupabaseConfigured, supabase } from "@/lib/supabase";
+import { adminSupabase, isSupabaseConfigured, supabase } from "@/lib/supabase";
 import type { ChampionshipRecord } from "@/types/championship";
 import type { ChampionshipWorkspaceRecord } from "@/types/championship-runtime";
 
@@ -202,24 +202,20 @@ export async function saveChampionshipWorkspaceRecord(
   workspace: ChampionshipWorkspaceRecord,
 ) {
   const normalizedWorkspace = normalizeChampionshipWorkspace(workspace, championship);
+  const writeClient = adminSupabase ?? supabase;
 
-  if (!supabase) {
+  if (!writeClient) {
     persistWorkspaceLocally(normalizedWorkspace);
     return normalizedWorkspace;
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await writeClient
     .from(CHAMPIONSHIP_WORKSPACES_TABLE)
     .upsert(mapRecordToRow(normalizedWorkspace), { onConflict: "championship_id" })
     .select()
     .single();
 
   if (error) {
-    if (shouldFallbackToLocal(error)) {
-      persistWorkspaceLocally(normalizedWorkspace);
-      return normalizedWorkspace;
-    }
-
     throw error;
   }
 
@@ -238,11 +234,11 @@ export function formatChampionshipWorkspaceStoreError(error: unknown) {
   const errorMessage = postgrestError?.message;
 
   if (isSupabaseNetworkError(error)) {
-    return "Nao foi possivel conectar ao Supabase agora. O painel vai tentar usar a base local e voce pode tentar novamente em instantes.";
+    return "Nao foi possivel sincronizar o workspace do campeonato com o Supabase agora. Tente novamente em instantes.";
   }
 
   if (errorCode === "42501") {
-    return "O Supabase bloqueou a escrita do workspace do campeonato com RLS. O portal vai continuar usando a base local ate a permissao ser ajustada.";
+    return "O Supabase bloqueou a escrita do workspace do campeonato. Entre no painel com a conta admin autenticada no Supabase ou ajuste as policies da tabela.";
   }
 
   if (errorCode === "42P01") {

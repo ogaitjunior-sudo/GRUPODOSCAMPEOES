@@ -9,7 +9,11 @@ import {
 
 export function RequireAdminAccess({ children }: { children: ReactNode }) {
   const location = useLocation();
-  const { isPrimaryAdmin } = useAdminAuth();
+  const { isPrimaryAdmin, isReady } = useAdminAuth();
+
+  if (!isReady) {
+    return null;
+  }
 
   if (!isPrimaryAdmin) {
     const redirectPath = `${location.pathname}${location.search}`;
@@ -27,7 +31,11 @@ export function RequireAdminPermission({
   children: ReactNode;
 }) {
   const location = useLocation();
-  const { hasPermission, isPrimaryAdmin } = useAdminAuth();
+  const { hasPermission, isPrimaryAdmin, isReady } = useAdminAuth();
+
+  if (!isReady) {
+    return null;
+  }
 
   if (!isPrimaryAdmin) {
     const redirectPath = `${location.pathname}${location.search}`;

@@ -11,6 +11,7 @@ import { AdminLayout } from "@/admin/layout/AdminLayout";
 import { AdminPanelProvider } from "@/admin/context/AdminPanelContext";
 import { Toaster } from "@/components/ui/toaster";
 import { Footer } from "@/components/Footer";
+import { MobileBottomNav } from "@/components/MobileBottomNav";
 import { Navbar } from "@/components/Navbar";
 import {
   ADMIN_LOGIN_ROUTE,
@@ -251,6 +252,7 @@ function AppRoutes() {
       {!isAdminRoute ? <Navbar /> : null}
       <Toaster />
       {isAdminRoute ? routes : <main className="app-main">{routes}</main>}
+      {!isAdminRoute ? <MobileBottomNav /> : null}
       {!isAdminRoute ? <Footer /> : null}
     </>
   );
