@@ -60,6 +60,8 @@ const ADMIN_SUPABASE_MISSING_EMAIL_MESSAGE =
   "O painel admin ainda nao esta vinculado ao Supabase. Configure VITE_ADMIN_SUPABASE_EMAIL com o e-mail do admin.";
 const ADMIN_SUPABASE_ACCESS_DENIED_MESSAGE =
   "A conta autenticada no Supabase nao tem permissao para abrir o painel administrativo.";
+const ADMIN_SUPABASE_TIMEOUT_MESSAGE =
+  "A autenticacao admin demorou mais que o esperado. Tente novamente em instantes.";
 
 const AdminAuthContext = createContext<AdminAuthContextValue | undefined>(undefined);
 
@@ -195,6 +197,24 @@ async function hashSecret(value: string) {
     .join("");
 }
 
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string) {
+  return new Promise<T>((resolve, reject) => {
+    const timer = window.setTimeout(() => {
+      reject(new Error(message));
+    }, timeoutMs);
+
+    promise
+      .then((value) => {
+        window.clearTimeout(timer);
+        resolve(value);
+      })
+      .catch((error) => {
+        window.clearTimeout(timer);
+        reject(error);
+      });
+  });
+}
+
 export function AdminAuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<AdminSession | null>(() => readStoredSession());
   const [isReady, setIsReady] = useState(!canUseSupabaseAdminAuth);
@@ -282,10 +302,14 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
         };
       }
 
-      const { data, error } = await adminSupabase.auth.signInWithPassword({
-        email: EXPECTED_ADMIN_SUPABASE_EMAIL,
-        password: normalizedPassword,
-      });
+      const { data, error } = await withTimeout(
+        adminSupabase.auth.signInWithPassword({
+          email: EXPECTED_ADMIN_SUPABASE_EMAIL,
+          password: normalizedPassword,
+        }),
+        12000,
+        ADMIN_SUPABASE_TIMEOUT_MESSAGE,
+      );
 
       if (error) {
         return {
@@ -306,6 +330,7 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
       }
 
       setSession(nextSession);
+      setIsReady(true);
       return { success: true };
     }
 

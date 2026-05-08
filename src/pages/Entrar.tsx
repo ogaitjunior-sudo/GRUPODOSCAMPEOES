@@ -75,6 +75,7 @@ export default function Entrar() {
         return;
       }
 
+      setIsSubmitting(false);
       navigate(ADMIN_DASHBOARD_ROUTE, { replace: true });
       return;
     }
@@ -92,6 +93,7 @@ export default function Entrar() {
       description: `Bem-vindo ao portal, ${result.playerName ?? loginName ?? form.identifier.trim()}.`,
     });
 
+    setIsSubmitting(false);
     navigate(redirectTo, { replace: true });
   };
 

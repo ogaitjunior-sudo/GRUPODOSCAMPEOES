@@ -53,6 +53,7 @@ export default function AdminLogin() {
       return;
     }
 
+    setIsSubmitting(false);
     navigate(redirectTo, { replace: true });
   };
 
