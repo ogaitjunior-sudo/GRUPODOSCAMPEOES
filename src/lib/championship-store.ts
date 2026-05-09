@@ -8,7 +8,13 @@ import {
   normalizeChampionshipRegistrationRequests,
   sortChampionships,
 } from "@/lib/championships";
-import { adminSupabase, isSupabaseConfigured, supabase } from "@/lib/supabase";
+import {
+  adminSupabase,
+  isSupabaseConfigured,
+  supabase,
+  supabaseRestAnonKey,
+  supabaseRestUrl,
+} from "@/lib/supabase";
 import type {
   ChampionshipFormValues,
   ChampionshipRegistrationRequest,
@@ -20,6 +26,7 @@ const CHAMPIONSHIPS_STORAGE_KEY = "gc_championships_v2";
 const CHAMPIONSHIPS_TABLE = "championships";
 const CHAMPIONSHIP_WRITE_MAX_ATTEMPTS = 2;
 const CHAMPIONSHIP_WRITE_RETRY_DELAY_MS = 900;
+const CHAMPIONSHIP_REST_WRITE_TIMEOUT_MS = 15_000;
 const CHAMPIONSHIP_SHARED_SUPABASE_REQUIRED_MESSAGE =
   "O painel de campeonatos esta em modo local nesta versao do app. Atualize o app publicado e conecte o Supabase para que todos vejam os campeonatos criados.";
 
@@ -150,9 +157,13 @@ function getErrorMessage(error: unknown) {
 
 function isSupabaseNetworkError(error: unknown) {
   const errorMessage = getErrorMessage(error).toLowerCase();
+  const errorName =
+    error instanceof Error && typeof error.name === "string" ? error.name.toLowerCase() : "";
 
   return (
+    errorName.includes("aborterror") ||
     errorMessage.includes("aborterror") ||
+    errorMessage.includes("operation was aborted") ||
     errorMessage.includes("signal is aborted") ||
     errorMessage.includes("signal aborted") ||
     errorMessage.includes("aborted without reason") ||
@@ -173,6 +184,80 @@ function wait(delayMs: number) {
 
 function logChampionshipStoreError(operation: string, error: unknown) {
   console.error(`[championship-store] ${operation}`, error);
+}
+
+async function getSupabaseWriteAccessToken() {
+  const adminSession = await adminSupabase?.auth.getSession().catch(() => null);
+  const adminAccessToken = adminSession?.data.session?.access_token;
+
+  if (adminAccessToken) {
+    return adminAccessToken;
+  }
+
+  const refreshedAdminSession = await adminSupabase?.auth.refreshSession().catch(() => null);
+  const refreshedAdminAccessToken = refreshedAdminSession?.data.session?.access_token;
+
+  if (refreshedAdminAccessToken) {
+    return refreshedAdminAccessToken;
+  }
+
+  const publicSession = await supabase?.auth.getSession().catch(() => null);
+  const publicAccessToken = publicSession?.data.session?.access_token;
+
+  if (publicAccessToken) {
+    return publicAccessToken;
+  }
+
+  throw new Error(
+    "A sessao autenticada do Supabase nao esta ativa. Saia do painel, entre novamente como ADMIN e tente salvar outra vez.",
+  );
+}
+
+async function requestChampionshipsRest(
+  path: string,
+  options: {
+    method: "POST" | "PATCH" | "DELETE";
+    body?: unknown;
+  },
+) {
+  const accessToken = await getSupabaseWriteAccessToken();
+  const controller = new AbortController();
+  const timeoutId = globalThis.setTimeout(() => {
+    controller.abort();
+  }, CHAMPIONSHIP_REST_WRITE_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(`${supabaseRestUrl}/rest/v1/${path}`, {
+      method: options.method,
+      headers: {
+        apikey: supabaseRestAnonKey,
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+        Prefer: "return=minimal",
+      },
+      body: options.body ? JSON.stringify(options.body) : undefined,
+      signal: controller.signal,
+    });
+
+    if (response.ok) {
+      return;
+    }
+
+    const payload = await response.json().catch(() => null);
+    const message =
+      typeof payload?.message === "string" && payload.message.trim()
+        ? payload.message
+        : `Supabase retornou HTTP ${response.status} ao salvar o campeonato.`;
+
+    throw {
+      code: typeof payload?.code === "string" ? payload.code : `${response.status}`,
+      message,
+      details: payload?.details,
+      hint: payload?.hint,
+    } satisfies Partial<PostgrestError>;
+  } finally {
+    globalThis.clearTimeout(timeoutId);
+  }
 }
 
 async function runSupabaseWriteWithRetry<T>(
@@ -379,30 +464,34 @@ export async function saveChampionshipRecord(
   options: { mode?: "insert" | "update" } = {},
 ) {
   const mode = options.mode ?? "update";
-  const writeClient = adminSupabase ?? supabase;
-  const shouldRefreshAdminSession = writeClient === adminSupabase;
 
   if (isChampionshipStoreTestMode) {
     persistChampionshipLocally(record);
     return record;
   }
 
-  if (!writeClient) {
+  if (!isSupabaseConfigured) {
     throw new Error(CHAMPIONSHIP_SHARED_SUPABASE_REQUIRED_MESSAGE);
   }
 
   const row = mapRecordToRow(record);
-  const { error } = await runSupabaseWriteWithRetry(
+  await runSupabaseWriteWithRetry(
     () =>
       mode === "insert"
-        ? writeClient.from(CHAMPIONSHIPS_TABLE).insert(row)
-        : writeClient
-            .from(CHAMPIONSHIPS_TABLE)
-            .update(row)
-            .eq("id", record.id),
+        ? requestChampionshipsRest(CHAMPIONSHIPS_TABLE, {
+            method: "POST",
+            body: row,
+          })
+        : requestChampionshipsRest(
+            `${CHAMPIONSHIPS_TABLE}?id=eq.${encodeURIComponent(record.id)}`,
+            {
+              method: "PATCH",
+              body: row,
+            },
+          ),
     {
       beforeRetry: async () => {
-        if (!shouldRefreshAdminSession || !adminSupabase) {
+        if (!adminSupabase) {
           return;
         }
 
@@ -410,33 +499,28 @@ export async function saveChampionshipRecord(
       },
     },
   );
-
-  if (error) {
-    logChampionshipStoreError(`${mode} championship failed`, error);
-    throw new Error(formatChampionshipStoreError(error));
-  }
 
   return record;
 }
 
 export async function deleteChampionshipRecord(id: string) {
-  const writeClient = adminSupabase ?? supabase;
-  const shouldRefreshAdminSession = writeClient === adminSupabase;
-
   if (isChampionshipStoreTestMode) {
     removeChampionshipLocally(id);
     return;
   }
 
-  if (!writeClient) {
+  if (!isSupabaseConfigured) {
     throw new Error(CHAMPIONSHIP_SHARED_SUPABASE_REQUIRED_MESSAGE);
   }
 
-  const { error } = await runSupabaseWriteWithRetry(
-    () => writeClient.from(CHAMPIONSHIPS_TABLE).delete().eq("id", id),
+  await runSupabaseWriteWithRetry(
+    () =>
+      requestChampionshipsRest(`${CHAMPIONSHIPS_TABLE}?id=eq.${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      }),
     {
       beforeRetry: async () => {
-        if (!shouldRefreshAdminSession || !adminSupabase) {
+        if (!adminSupabase) {
           return;
         }
 
@@ -444,11 +528,6 @@ export async function deleteChampionshipRecord(id: string) {
       },
     },
   );
-
-  if (error) {
-    logChampionshipStoreError("delete championship failed", error);
-    throw new Error(formatChampionshipStoreError(error));
-  }
 }
 
 export function formatChampionshipStoreError(error: unknown) {

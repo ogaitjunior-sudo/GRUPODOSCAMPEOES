@@ -6,6 +6,7 @@ import {
   type FormEvent,
   type ReactNode,
 } from "react";
+import type { SelectSingleEventHandler } from "react-day-picker";
 import { Link, useParams } from "react-router-dom";
 import {
   ArrowLeft,
@@ -23,6 +24,8 @@ import { AdminSectionCard } from "@/admin/components/AdminSectionCard";
 import { AdminStatusBadge } from "@/admin/components/AdminStatusBadge";
 import { EmptyStateCard } from "@/components/EmptyStateCard";
 import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useChampionships } from "@/contexts/ChampionshipContext";
 import { toast } from "@/hooks/use-toast";
 import {
@@ -50,6 +53,7 @@ const inputClassName =
   "w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none transition-colors placeholder:text-muted-foreground focus:border-primary/60";
 const textareaClassName =
   "min-h-32 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none transition-colors placeholder:text-muted-foreground focus:border-primary/60";
+const SAVE_TIMEOUT_MS = 18_000;
 
 const steps = [
   {
@@ -86,6 +90,65 @@ const initialFormValues: ChampionshipFormValues = {
   status: "REGISTRATION",
   configuration: initialConfiguration,
 };
+
+function parseDateValue(value: string) {
+  const [year, month, day] = value.split("-").map(Number);
+
+  if (!year || !month || !day) {
+    return undefined;
+  }
+
+  const date = new Date(year, month - 1, day);
+
+  if (
+    date.getFullYear() !== year ||
+    date.getMonth() !== month - 1 ||
+    date.getDate() !== day
+  ) {
+    return undefined;
+  }
+
+  return date;
+}
+
+function formatDateValue(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+function formatVisibleDate(value: string) {
+  const date = parseDateValue(value);
+
+  if (!date) {
+    return "dd/mm/aaaa";
+  }
+
+  return new Intl.DateTimeFormat("pt-BR").format(date);
+}
+
+async function withSaveTimeout<T>(operation: Promise<T>) {
+  let timeoutId: ReturnType<typeof window.setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timeoutId = window.setTimeout(() => {
+      reject(
+        new Error(
+          "O Supabase demorou demais para responder. O botao foi liberado; confira a lista e tente novamente se o campeonato nao aparecer.",
+        ),
+      );
+    }, SAVE_TIMEOUT_MS);
+  });
+
+  try {
+    return await Promise.race([operation, timeout]);
+  } finally {
+    if (timeoutId) {
+      window.clearTimeout(timeoutId);
+    }
+  }
+}
 
 function validateStep(step: StepId, form: ChampionshipFormValues) {
   if (step === "tipo") {
@@ -198,6 +261,11 @@ export default function AdminChampionshipForm() {
       setErrorMessage("");
     };
 
+  const updateDateField = (field: "startDate" | "endDate") => (nextValue: string) => {
+    setForm((current) => ({ ...current, [field]: nextValue }));
+    setErrorMessage("");
+  };
+
   const updateConfiguration = (next: Partial<ChampionshipConfiguration>) => {
     setForm((current) => {
       const format = next.format ?? current.configuration.format;
@@ -261,13 +329,13 @@ export default function AdminChampionshipForm() {
 
     try {
       if (isEditing && championshipId) {
-        await updateChampionship(championshipId, payload);
+        await withSaveTimeout(updateChampionship(championshipId, payload));
         toast({
           title: "Campeonato atualizado",
           description: "As alteracoes foram salvas no cadastro principal.",
         });
       } else {
-        await createChampionship(payload);
+        await withSaveTimeout(createChampionship(payload));
         toast({
           title: "Campeonato criado",
           description: "O novo campeonato entrou na grade principal.",
@@ -699,29 +767,19 @@ export default function AdminChampionshipForm() {
               </div>
 
               <div className="grid gap-5 md:grid-cols-2">
-                <Field label="Data de inicio">
-                  <div className="relative">
-                    <CalendarRange className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-electric" />
-                    <input
-                      type="date"
-                      value={form.startDate}
-                      onChange={updateField("startDate")}
-                      className={`${inputClassName} pl-11`}
-                    />
-                  </div>
-                </Field>
+                <DatePickerField
+                  label="Data de inicio"
+                  value={form.startDate}
+                  onChange={updateDateField("startDate")}
+                />
 
-                <Field label="Data de fim (opcional)">
-                  <div className="relative">
-                    <CalendarRange className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-electric" />
-                    <input
-                      type="date"
-                      value={form.endDate}
-                      onChange={updateField("endDate")}
-                      className={`${inputClassName} pl-11`}
-                    />
-                  </div>
-                </Field>
+                <DatePickerField
+                  label="Data de fim (opcional)"
+                  value={form.endDate}
+                  onChange={updateDateField("endDate")}
+                  minDate={parseDateValue(form.startDate)}
+                  allowClear
+                />
               </div>
 
               <div className="grid gap-5 md:grid-cols-2">
@@ -998,6 +1056,80 @@ function Field({
       <span className="mb-2 block text-sm font-semibold text-white">{label}</span>
       {children}
     </label>
+  );
+}
+
+function DatePickerField({
+  label,
+  value,
+  onChange,
+  minDate,
+  allowClear = false,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  minDate?: Date;
+  allowClear?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const selectedDate = parseDateValue(value);
+  const handleSelect: SelectSingleEventHandler = (date) => {
+    if (!date) {
+      return;
+    }
+
+    onChange(formatDateValue(date));
+    setOpen(false);
+  };
+
+  return (
+    <div>
+      <span className="mb-2 block text-sm font-semibold text-white">{label}</span>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            className={`${inputClassName} flex items-center justify-between gap-3 text-left ${
+              value ? "" : "text-muted-foreground"
+            }`}
+          >
+            <span className="flex min-w-0 items-center gap-3">
+              <CalendarRange className="h-4 w-4 shrink-0 text-electric" />
+              <span className="truncate">{formatVisibleDate(value)}</span>
+            </span>
+            <span className="text-xs uppercase tracking-[0.2em] text-primary">Abrir</span>
+          </button>
+        </PopoverTrigger>
+        <PopoverContent
+          align="start"
+          className="w-auto rounded-2xl border-white/10 bg-black/95 p-0 text-white shadow-[0_20px_70px_-30px_rgba(255,211,0,0.45)]"
+        >
+          <Calendar
+            mode="single"
+            selected={selectedDate}
+            onSelect={handleSelect}
+            disabled={minDate ? { before: minDate } : undefined}
+            initialFocus
+          />
+          {allowClear && value ? (
+            <div className="border-t border-white/10 p-3">
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                onClick={() => {
+                  onChange("");
+                  setOpen(false);
+                }}
+              >
+                Limpar data
+              </Button>
+            </div>
+          ) : null}
+        </PopoverContent>
+      </Popover>
+    </div>
   );
 }
 

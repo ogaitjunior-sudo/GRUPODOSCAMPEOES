@@ -9,6 +9,8 @@ const supabaseAnonKey =
   import.meta.env.VITE_SUPABASE_ANON_KEY?.trim() || fallbackSupabaseAnonKey;
 
 export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
+export const supabaseRestUrl = supabaseUrl;
+export const supabaseRestAnonKey = supabaseAnonKey;
 export const supabaseAuthSetupMessage =
   "O acesso oficial está temporariamente indisponível. Tente novamente em instantes.";
 
