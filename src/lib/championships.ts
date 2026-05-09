@@ -384,8 +384,14 @@ export function buildChampionshipRules(configuration: ChampionshipConfiguration)
 }
 
 export function resolveChampionshipEndDate(startDate: string, endDate: string) {
-  void startDate;
-  return typeof endDate === "string" ? endDate.trim() : "";
+  const normalizedStartDate = typeof startDate === "string" ? startDate.trim() : "";
+  const normalizedEndDate = typeof endDate === "string" ? endDate.trim() : "";
+
+  if (normalizedEndDate) {
+    return normalizedEndDate;
+  }
+
+  return normalizedStartDate;
 }
 
 export function formatChampionshipDateRange(startDate: string, endDate: string) {
