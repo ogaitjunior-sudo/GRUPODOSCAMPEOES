@@ -77,6 +77,14 @@ export function ChampionshipProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const ensureSharedChampionshipStorage = () => {
+    if (storageMode !== "supabase") {
+      throw new Error(
+        "O painel de campeonatos esta em modo local nesta versao do app. Atualize o app publicado e conecte o Supabase para que todos vejam os campeonatos criados.",
+      );
+    }
+  };
+
   const commitChampionship = (nextChampionship: ChampionshipRecord) => {
     setChampionships((current) =>
       sortChampionships(
@@ -146,6 +154,7 @@ export function ChampionshipProvider({ children }: { children: ReactNode }) {
 
   const createChampionship = async (values: ChampionshipFormValues) => {
     ensureAdminAccess();
+    ensureSharedChampionshipStorage();
     try {
       const nextChampionship = await createChampionshipRecord(values);
       commitChampionship(nextChampionship);
@@ -157,6 +166,7 @@ export function ChampionshipProvider({ children }: { children: ReactNode }) {
 
   const updateChampionship = async (id: string, values: ChampionshipFormValues) => {
     ensureAdminAccess();
+    ensureSharedChampionshipStorage();
 
     const existingChampionship = getChampionshipById(id);
 
@@ -249,6 +259,7 @@ export function ChampionshipProvider({ children }: { children: ReactNode }) {
     reviewedBy: string;
   }) => {
     ensureAdminAccess();
+    ensureSharedChampionshipStorage();
 
     const championship = getChampionshipById(championshipId);
 
@@ -307,6 +318,7 @@ export function ChampionshipProvider({ children }: { children: ReactNode }) {
 
   const generateChampionshipTable = async (championshipId: string) => {
     ensureAdminAccess();
+    ensureSharedChampionshipStorage();
 
     const championship = getChampionshipById(championshipId);
 
@@ -334,6 +346,7 @@ export function ChampionshipProvider({ children }: { children: ReactNode }) {
 
   const removeChampionship = async (id: string) => {
     ensureAdminAccess();
+    ensureSharedChampionshipStorage();
 
     await deleteChampionshipRecord(id);
     setChampionships((current) => current.filter((item) => item.id !== id));

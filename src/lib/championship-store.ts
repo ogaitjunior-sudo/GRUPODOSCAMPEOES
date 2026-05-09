@@ -20,6 +20,8 @@ const CHAMPIONSHIPS_STORAGE_KEY = "gc_championships_v2";
 const CHAMPIONSHIPS_TABLE = "championships";
 const CHAMPIONSHIP_WRITE_MAX_ATTEMPTS = 2;
 const CHAMPIONSHIP_WRITE_RETRY_DELAY_MS = 900;
+const CHAMPIONSHIP_SHARED_SUPABASE_REQUIRED_MESSAGE =
+  "O painel de campeonatos esta em modo local nesta versao do app. Atualize o app publicado e conecte o Supabase para que todos vejam os campeonatos criados.";
 
 type ChampionshipRow = {
   id: string;
@@ -393,9 +395,13 @@ export async function saveChampionshipRecord(
   const writeClient = adminSupabase ?? supabase;
   const shouldRefreshAdminSession = writeClient === adminSupabase;
 
-  if (isChampionshipStoreTestMode || !writeClient) {
+  if (isChampionshipStoreTestMode) {
     persistChampionshipLocally(record);
     return record;
+  }
+
+  if (!writeClient) {
+    throw new Error(CHAMPIONSHIP_SHARED_SUPABASE_REQUIRED_MESSAGE);
   }
 
   const row = mapRecordToRow(record);
@@ -430,9 +436,13 @@ export async function deleteChampionshipRecord(id: string) {
   const writeClient = adminSupabase ?? supabase;
   const shouldRefreshAdminSession = writeClient === adminSupabase;
 
-  if (isChampionshipStoreTestMode || !writeClient) {
+  if (isChampionshipStoreTestMode) {
     removeChampionshipLocally(id);
     return;
+  }
+
+  if (!writeClient) {
+    throw new Error(CHAMPIONSHIP_SHARED_SUPABASE_REQUIRED_MESSAGE);
   }
 
   const { error } = await runSupabaseWriteWithRetry(
@@ -459,6 +469,10 @@ export function formatChampionshipStoreError(error: unknown) {
   const postgrestError = error as Partial<PostgrestError> | null;
   const errorCode = postgrestError?.code?.toUpperCase();
   const errorMessage = getErrorMessage(error);
+
+  if (errorMessage === CHAMPIONSHIP_SHARED_SUPABASE_REQUIRED_MESSAGE) {
+    return errorMessage;
+  }
 
   if (errorCode === "42501") {
     return "O Supabase bloqueou a escrita do campeonato. Entre no painel com a conta admin autenticada no Supabase ou ajuste as policies da tabela.";

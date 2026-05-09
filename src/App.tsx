@@ -9,6 +9,7 @@ import {
 import { RequireAdminAccess, RequireAdminPermission } from "@/admin/layout/AdminRouteGuards";
 import { AdminLayout } from "@/admin/layout/AdminLayout";
 import { AdminPanelProvider } from "@/admin/context/AdminPanelContext";
+import { AppErrorBoundary } from "@/components/AppErrorBoundary";
 import { Toaster } from "@/components/ui/toaster";
 import { Footer } from "@/components/Footer";
 import { MobileBottomNav } from "@/components/MobileBottomNav";
@@ -86,8 +87,9 @@ function AppRoutes() {
     location.pathname.startsWith("/admin") || location.pathname === ADMIN_LOGIN_ROUTE;
 
   const routes = (
-    <Suspense fallback={<RouteFallback isAdminRoute={isAdminRoute} />}>
-      <Routes>
+    <AppErrorBoundary isAdminRoute={isAdminRoute}>
+      <Suspense fallback={<RouteFallback isAdminRoute={isAdminRoute} />}>
+        <Routes>
         <Route path="/" element={<HomeRoute />} />
         <Route path="/explorar" element={<Pesquisar />} />
         <Route path="/pesquisar" element={<Pesquisar />} />
@@ -243,8 +245,9 @@ function AppRoutes() {
         </Route>
 
         <Route path="*" element={<NotFound />} />
-      </Routes>
-    </Suspense>
+        </Routes>
+      </Suspense>
+    </AppErrorBoundary>
   );
 
   return (

@@ -165,10 +165,6 @@ export default function AdminChampionshipForm() {
   const selectedFormat = getFormatOption(form.configuration.format);
 
   useEffect(() => {
-    void import("@/admin/pages/AdminChampionshipsPage");
-  }, []);
-
-  useEffect(() => {
     if (!existingChampionship) {
       return;
     }
