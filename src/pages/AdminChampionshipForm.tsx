@@ -73,6 +73,7 @@ const steps = [
 ] as const;
 
 type StepId = (typeof steps)[number]["id"];
+type SubmitPhase = "idle" | "saving" | "redirecting";
 
 const initialConfiguration = createDefaultChampionshipConfiguration();
 const initialFormValues: ChampionshipFormValues = {
@@ -137,7 +138,7 @@ export default function AdminChampionshipForm() {
   const [form, setForm] = useState<ChampionshipFormValues>(initialFormValues);
   const [stepIndex, setStepIndex] = useState(0);
   const [errorMessage, setErrorMessage] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitPhase, setSubmitPhase] = useState<SubmitPhase>("idle");
 
   const isEditing = Boolean(championshipId);
   const existingChampionship = championshipId ? getChampionshipById(championshipId) : undefined;
@@ -151,8 +152,21 @@ export default function AdminChampionshipForm() {
     () => buildChampionshipRules(form.configuration),
     [form.configuration],
   );
+  const isSubmitting = submitPhase !== "idle";
+  const submitLabel =
+    submitPhase === "saving"
+      ? "Salvando..."
+      : submitPhase === "redirecting"
+        ? "Abrindo lista..."
+        : isEditing
+          ? "Salvar alteracoes"
+          : "Criar campeonato";
   const groupCountLocked = shouldLockGroupCount(form.configuration.format);
   const selectedFormat = getFormatOption(form.configuration.format);
+
+  useEffect(() => {
+    void import("@/admin/pages/AdminChampionshipsPage");
+  }, []);
 
   useEffect(() => {
     if (!existingChampionship) {
@@ -231,7 +245,7 @@ export default function AdminChampionshipForm() {
       return;
     }
 
-    setIsSubmitting(true);
+    setSubmitPhase("saving");
 
     const payload: ChampionshipFormValues = {
       ...form,
@@ -255,10 +269,11 @@ export default function AdminChampionshipForm() {
         });
       }
 
-      navigate("/admin/campeonatos");
+      setSubmitPhase("redirecting");
+      navigate("/admin/campeonatos", { replace: true });
     } catch (error) {
       setErrorMessage(formatChampionshipStoreError(error));
-      setIsSubmitting(false);
+      setSubmitPhase("idle");
     }
   };
 
@@ -308,7 +323,7 @@ export default function AdminChampionshipForm() {
             ) : (
               <Button type="submit" disabled={isSubmitting}>
                 <Save className="h-4 w-4" />
-                {isSubmitting ? "Salvando..." : isEditing ? "Salvar alteracoes" : "Criar campeonato"}
+                {submitLabel}
               </Button>
             )}
           </>
@@ -956,7 +971,7 @@ export default function AdminChampionshipForm() {
         ) : (
           <Button type="submit" disabled={isSubmitting}>
             <Save className="h-4 w-4" />
-            {isSubmitting ? "Salvando..." : isEditing ? "Salvar alteracoes" : "Criar campeonato"}
+            {submitLabel}
           </Button>
         )}
       </div>
