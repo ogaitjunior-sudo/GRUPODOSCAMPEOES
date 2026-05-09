@@ -215,6 +215,7 @@ async function runSupabaseWriteWithRetry<T>(
     timeoutMessage: string;
     maxAttempts?: number;
     retryDelayMs?: number;
+    beforeRetry?: (attempt: number, error: unknown) => Promise<void> | void;
   },
 ) {
   const maxAttempts = options.maxAttempts ?? CHAMPIONSHIP_WRITE_MAX_ATTEMPTS;
@@ -235,6 +236,7 @@ async function runSupabaseWriteWithRetry<T>(
         throw error;
       }
 
+      await options.beforeRetry?.(attempt, error);
       await wait(retryDelayMs * attempt);
     }
   }
@@ -425,6 +427,7 @@ export async function saveChampionshipRecord(
 ) {
   const mode = options.mode ?? "update";
   const writeClient = adminSupabase ?? supabase;
+  const shouldRefreshAdminSession = writeClient === adminSupabase;
 
   if (isChampionshipStoreTestMode || !writeClient) {
     persistChampionshipLocally(record);
@@ -444,6 +447,13 @@ export async function saveChampionshipRecord(
     {
       timeoutMs: CHAMPIONSHIP_WRITE_TIMEOUT_MS,
       timeoutMessage: CHAMPIONSHIP_WRITE_TIMEOUT_MESSAGE,
+      beforeRetry: async () => {
+        if (!shouldRefreshAdminSession || !adminSupabase) {
+          return;
+        }
+
+        await adminSupabase.auth.refreshSession().catch(() => undefined);
+      },
     },
   );
 
@@ -457,6 +467,7 @@ export async function saveChampionshipRecord(
 
 export async function deleteChampionshipRecord(id: string) {
   const writeClient = adminSupabase ?? supabase;
+  const shouldRefreshAdminSession = writeClient === adminSupabase;
 
   if (isChampionshipStoreTestMode || !writeClient) {
     removeChampionshipLocally(id);
@@ -469,6 +480,13 @@ export async function deleteChampionshipRecord(id: string) {
     {
       timeoutMs: CHAMPIONSHIP_WRITE_TIMEOUT_MS,
       timeoutMessage: CHAMPIONSHIP_WRITE_TIMEOUT_MESSAGE,
+      beforeRetry: async () => {
+        if (!shouldRefreshAdminSession || !adminSupabase) {
+          return;
+        }
+
+        await adminSupabase.auth.refreshSession().catch(() => undefined);
+      },
     },
   );
 
