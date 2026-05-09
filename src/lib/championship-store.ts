@@ -18,6 +18,9 @@ import type {
 
 const CHAMPIONSHIPS_STORAGE_KEY = "gc_championships_v2";
 const CHAMPIONSHIPS_TABLE = "championships";
+const CHAMPIONSHIP_WRITE_TIMEOUT_MS = 12000;
+const CHAMPIONSHIP_WRITE_TIMEOUT_MESSAGE =
+  "A sincronizacao do campeonato demorou mais que o esperado. Tente novamente em instantes.";
 
 type ChampionshipRow = {
   id: string;
@@ -162,6 +165,35 @@ function shouldFallbackToLocal(error: unknown) {
   const errorCode = postgrestError?.code?.toUpperCase();
 
   return isChampionshipTableUnavailable(error) || errorCode === "42501" || isSupabaseNetworkError(error);
+}
+
+async function runSupabaseWriteWithTimeout<T>(
+  execute: (signal: AbortSignal) => Promise<T>,
+  timeoutMs: number,
+  timeoutMessage: string,
+) {
+  const controller = new AbortController();
+  const timer = globalThis.setTimeout(() => {
+    controller.abort();
+  }, timeoutMs);
+
+  try {
+    return await execute(controller.signal);
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new Error(timeoutMessage);
+    }
+
+    const errorMessage = getErrorMessage(error).toLowerCase();
+
+    if (errorMessage.includes("abort")) {
+      throw new Error(timeoutMessage);
+    }
+
+    throw error;
+  } finally {
+    globalThis.clearTimeout(timer);
+  }
 }
 
 function mergeChampionshipCollections(...collections: ChampionshipRecord[][]) {
@@ -353,20 +385,26 @@ export async function saveChampionshipRecord(
     return record;
   }
 
-  const query =
-    mode === "insert"
-      ? writeClient.from(CHAMPIONSHIPS_TABLE).insert(mapRecordToRow(record))
-      : writeClient.from(CHAMPIONSHIPS_TABLE).update(mapRecordToRow(record)).eq("id", record.id);
-
-  const { data, error } = await query.select().single();
+  const row = mapRecordToRow(record);
+  const { error } = await runSupabaseWriteWithTimeout(
+    (signal) =>
+      mode === "insert"
+        ? writeClient.from(CHAMPIONSHIPS_TABLE).insert(row).abortSignal(signal)
+        : writeClient
+            .from(CHAMPIONSHIPS_TABLE)
+            .update(row)
+            .eq("id", record.id)
+            .abortSignal(signal),
+    CHAMPIONSHIP_WRITE_TIMEOUT_MS,
+    CHAMPIONSHIP_WRITE_TIMEOUT_MESSAGE,
+  );
 
   if (error) {
-    throw error;
+    throw new Error(formatChampionshipStoreError(error));
   }
 
-  const savedRecord = mapRowToRecord(data as ChampionshipRow);
-  persistChampionshipLocally(savedRecord);
-  return savedRecord;
+  persistChampionshipLocally(record);
+  return record;
 }
 
 export async function deleteChampionshipRecord(id: string) {
@@ -377,10 +415,15 @@ export async function deleteChampionshipRecord(id: string) {
     return;
   }
 
-  const { error } = await writeClient.from(CHAMPIONSHIPS_TABLE).delete().eq("id", id);
+  const { error } = await runSupabaseWriteWithTimeout(
+    (signal) =>
+      writeClient.from(CHAMPIONSHIPS_TABLE).delete().eq("id", id).abortSignal(signal),
+    CHAMPIONSHIP_WRITE_TIMEOUT_MS,
+    CHAMPIONSHIP_WRITE_TIMEOUT_MESSAGE,
+  );
 
   if (error) {
-    throw error;
+    throw new Error(formatChampionshipStoreError(error));
   }
 
   removeChampionshipLocally(id);
