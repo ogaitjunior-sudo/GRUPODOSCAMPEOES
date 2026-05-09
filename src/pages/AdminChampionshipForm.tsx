@@ -6,7 +6,7 @@ import {
   type FormEvent,
   type ReactNode,
 } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import {
   ArrowLeft,
   ArrowRight,
@@ -125,7 +125,6 @@ function validateStep(step: StepId, form: ChampionshipFormValues) {
 }
 
 export default function AdminChampionshipForm() {
-  const navigate = useNavigate();
   const { championshipId } = useParams();
   const {
     createChampionship,
@@ -163,6 +162,16 @@ export default function AdminChampionshipForm() {
           : "Criar campeonato";
   const groupCountLocked = shouldLockGroupCount(form.configuration.format);
   const selectedFormat = getFormatOption(form.configuration.format);
+
+  const redirectToChampionshipsList = () => {
+    if (typeof window !== "undefined") {
+      const searchParams = new URLSearchParams({
+        refresh: `${Date.now()}`,
+      });
+      window.location.replace(`/admin/campeonatos?${searchParams.toString()}`);
+      return;
+    }
+  };
 
   useEffect(() => {
     if (!existingChampionship) {
@@ -266,7 +275,7 @@ export default function AdminChampionshipForm() {
       }
 
       setSubmitPhase("redirecting");
-      navigate("/admin/campeonatos", { replace: true });
+      redirectToChampionshipsList();
     } catch (error) {
       setErrorMessage(formatChampionshipStoreError(error));
       setSubmitPhase("idle");
