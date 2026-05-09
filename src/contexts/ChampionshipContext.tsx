@@ -146,11 +146,13 @@ export function ChampionshipProvider({ children }: { children: ReactNode }) {
 
   const createChampionship = async (values: ChampionshipFormValues) => {
     ensureAdminAccess();
-
-    const nextChampionship = await createChampionshipRecord(values);
-    commitChampionship(nextChampionship);
-
-    return nextChampionship;
+    try {
+      const nextChampionship = await createChampionshipRecord(values);
+      commitChampionship(nextChampionship);
+      return nextChampionship;
+    } catch (error) {
+      throw new Error(formatChampionshipStoreError(error));
+    }
   };
 
   const updateChampionship = async (id: string, values: ChampionshipFormValues) => {
@@ -162,10 +164,13 @@ export function ChampionshipProvider({ children }: { children: ReactNode }) {
       throw new Error("Campeonato nao encontrado.");
     }
 
-    const updatedChampionship = await updateChampionshipRecord(existingChampionship, values);
-    commitChampionship(updatedChampionship);
-
-    return updatedChampionship;
+    try {
+      const updatedChampionship = await updateChampionshipRecord(existingChampionship, values);
+      commitChampionship(updatedChampionship);
+      return updatedChampionship;
+    } catch (error) {
+      throw new Error(formatChampionshipStoreError(error));
+    }
   };
 
   const submitChampionshipRegistration = async ({

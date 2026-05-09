@@ -43,6 +43,7 @@ import {
   roundTripModeOptions,
   shouldLockGroupCount,
 } from "@/lib/championships";
+import { formatChampionshipStoreError } from "@/lib/championship-store";
 import type { ChampionshipConfiguration, ChampionshipFormValues } from "@/types/championship";
 
 const inputClassName =
@@ -256,9 +257,7 @@ export default function AdminChampionshipForm() {
 
       navigate("/admin/campeonatos");
     } catch (error) {
-      setErrorMessage(
-        error instanceof Error ? error.message : "Nao foi possivel salvar o campeonato.",
-      );
+      setErrorMessage(formatChampionshipStoreError(error));
       setIsSubmitting(false);
     }
   };

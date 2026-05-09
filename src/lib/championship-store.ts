@@ -19,6 +19,8 @@ import type {
 const CHAMPIONSHIPS_STORAGE_KEY = "gc_championships_v2";
 const CHAMPIONSHIPS_TABLE = "championships";
 const CHAMPIONSHIP_WRITE_TIMEOUT_MS = 12000;
+const CHAMPIONSHIP_WRITE_MAX_ATTEMPTS = 2;
+const CHAMPIONSHIP_WRITE_RETRY_DELAY_MS = 900;
 const CHAMPIONSHIP_WRITE_TIMEOUT_MESSAGE =
   "A sincronizacao do campeonato demorou mais que o esperado. Tente novamente em instantes.";
 
@@ -198,6 +200,46 @@ async function runSupabaseWriteWithTimeout<T>(
   } finally {
     globalThis.clearTimeout(timer);
   }
+}
+
+function wait(delayMs: number) {
+  return new Promise((resolve) => {
+    globalThis.setTimeout(resolve, delayMs);
+  });
+}
+
+async function runSupabaseWriteWithRetry<T>(
+  execute: (signal: AbortSignal) => Promise<T>,
+  options: {
+    timeoutMs: number;
+    timeoutMessage: string;
+    maxAttempts?: number;
+    retryDelayMs?: number;
+  },
+) {
+  const maxAttempts = options.maxAttempts ?? CHAMPIONSHIP_WRITE_MAX_ATTEMPTS;
+  const retryDelayMs = options.retryDelayMs ?? CHAMPIONSHIP_WRITE_RETRY_DELAY_MS;
+  let lastError: unknown = null;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      return await runSupabaseWriteWithTimeout(
+        execute,
+        options.timeoutMs,
+        options.timeoutMessage,
+      );
+    } catch (error) {
+      lastError = error;
+
+      if (!isSupabaseNetworkError(error) || attempt === maxAttempts) {
+        throw error;
+      }
+
+      await wait(retryDelayMs * attempt);
+    }
+  }
+
+  throw lastError;
 }
 
 function mergeChampionshipCollections(...collections: ChampionshipRecord[][]) {
@@ -390,7 +432,7 @@ export async function saveChampionshipRecord(
   }
 
   const row = mapRecordToRow(record);
-  const { error } = await runSupabaseWriteWithTimeout(
+  const { error } = await runSupabaseWriteWithRetry(
     (signal) =>
       mode === "insert"
         ? writeClient.from(CHAMPIONSHIPS_TABLE).insert(row).abortSignal(signal)
@@ -399,8 +441,10 @@ export async function saveChampionshipRecord(
             .update(row)
             .eq("id", record.id)
             .abortSignal(signal),
-    CHAMPIONSHIP_WRITE_TIMEOUT_MS,
-    CHAMPIONSHIP_WRITE_TIMEOUT_MESSAGE,
+    {
+      timeoutMs: CHAMPIONSHIP_WRITE_TIMEOUT_MS,
+      timeoutMessage: CHAMPIONSHIP_WRITE_TIMEOUT_MESSAGE,
+    },
   );
 
   if (error) {
@@ -419,11 +463,13 @@ export async function deleteChampionshipRecord(id: string) {
     return;
   }
 
-  const { error } = await runSupabaseWriteWithTimeout(
+  const { error } = await runSupabaseWriteWithRetry(
     (signal) =>
       writeClient.from(CHAMPIONSHIPS_TABLE).delete().eq("id", id).abortSignal(signal),
-    CHAMPIONSHIP_WRITE_TIMEOUT_MS,
-    CHAMPIONSHIP_WRITE_TIMEOUT_MESSAGE,
+    {
+      timeoutMs: CHAMPIONSHIP_WRITE_TIMEOUT_MS,
+      timeoutMessage: CHAMPIONSHIP_WRITE_TIMEOUT_MESSAGE,
+    },
   );
 
   if (error) {
