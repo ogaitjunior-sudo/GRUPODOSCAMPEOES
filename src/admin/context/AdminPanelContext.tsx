@@ -3,6 +3,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -117,6 +118,7 @@ export function AdminPanelProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(getAdminPanelStorageMode() === "supabase");
   const [hasHydrated, setHasHydrated] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
+  const lastPersistedSnapshotRef = useRef<string | null>(null);
   const storageMode = getAdminPanelStorageMode();
 
   const actorName = useMemo(
@@ -130,10 +132,13 @@ export function AdminPanelProvider({ children }: { children: ReactNode }) {
     try {
       const nextState = await loadAdminPanelState();
       setState(nextState);
+      lastPersistedSnapshotRef.current = JSON.stringify(nextState);
       setSyncError(null);
     } catch (error) {
       setSyncError(formatAdminPanelStoreError(error));
-      setState(createInitialAdminPanelState());
+      const fallbackState = createInitialAdminPanelState();
+      setState(fallbackState);
+      lastPersistedSnapshotRef.current = JSON.stringify(fallbackState);
     } finally {
       setIsLoading(false);
       setHasHydrated(true);
@@ -149,26 +154,35 @@ export function AdminPanelProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    const nextSnapshot = JSON.stringify(state);
+
+    if (nextSnapshot === lastPersistedSnapshotRef.current) {
+      return;
+    }
+
     let cancelled = false;
+    const timer = window.setTimeout(() => {
+      const persistState = async () => {
+        try {
+          await saveAdminPanelState(state);
 
-    const persistState = async () => {
-      try {
-        await saveAdminPanelState(state);
-
-        if (!cancelled) {
-          setSyncError(null);
+          if (!cancelled) {
+            lastPersistedSnapshotRef.current = nextSnapshot;
+            setSyncError(null);
+          }
+        } catch (error) {
+          if (!cancelled) {
+            setSyncError(formatAdminPanelStoreError(error));
+          }
         }
-      } catch (error) {
-        if (!cancelled) {
-          setSyncError(formatAdminPanelStoreError(error));
-        }
-      }
-    };
+      };
 
-    void persistState();
+      void persistState();
+    }, 400);
 
     return () => {
       cancelled = true;
+      window.clearTimeout(timer);
     };
   }, [hasHydrated, state]);
 

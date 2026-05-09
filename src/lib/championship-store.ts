@@ -151,6 +151,10 @@ function isSupabaseNetworkError(error: unknown) {
   const errorMessage = getErrorMessage(error).toLowerCase();
 
   return (
+    errorMessage.includes("aborterror") ||
+    errorMessage.includes("signal is aborted") ||
+    errorMessage.includes("signal aborted") ||
+    errorMessage.includes("aborted without reason") ||
     errorMessage.includes("failed to fetch") ||
     errorMessage.includes("fetch failed") ||
     errorMessage.includes("load failed") ||

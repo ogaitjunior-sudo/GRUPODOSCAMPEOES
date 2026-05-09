@@ -18,6 +18,9 @@ import type {
 const ADMIN_PANEL_CACHE_KEY = "gc_admin_panel_state_cache_v1";
 const ADMIN_PANEL_TABLE = "admin_panel_state";
 const ADMIN_PANEL_ROW_ID = "primary";
+const ADMIN_PANEL_WRITE_TIMEOUT_MS = 10000;
+const ADMIN_PANEL_WRITE_TIMEOUT_MESSAGE =
+  "A sincronizacao do painel administrativo demorou mais que o esperado. Tente novamente em instantes.";
 
 type AdminPanelRow = {
   id: string;
@@ -141,6 +144,49 @@ function shouldFallbackToLocal(error: unknown) {
   return isAdminPanelTableUnavailable(error) || errorCode === "42501";
 }
 
+function getErrorMessage(error: unknown) {
+  const postgrestError = error as Partial<PostgrestError> | null;
+
+  if (typeof postgrestError?.message === "string" && postgrestError.message.trim()) {
+    return postgrestError.message.trim();
+  }
+
+  if (error instanceof Error && error.message.trim()) {
+    return error.message.trim();
+  }
+
+  return "";
+}
+
+async function runAdminPanelWriteWithTimeout<T>(
+  execute: (signal: AbortSignal) => Promise<T>,
+  timeoutMs: number,
+  timeoutMessage: string,
+) {
+  const controller = new AbortController();
+  const timer = globalThis.setTimeout(() => {
+    controller.abort();
+  }, timeoutMs);
+
+  try {
+    return await execute(controller.signal);
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new Error(timeoutMessage);
+    }
+
+    const errorMessage = getErrorMessage(error).toLowerCase();
+
+    if (errorMessage.includes("abort")) {
+      throw new Error(timeoutMessage);
+    }
+
+    throw error;
+  } finally {
+    globalThis.clearTimeout(timer);
+  }
+}
+
 function readStoredAdminPanelState() {
   if (typeof window === "undefined") {
     return createInitialAdminPanelState();
@@ -214,11 +260,15 @@ export async function saveAdminPanelState(state: AdminPanelState) {
     return normalizedState;
   }
 
-  const { data, error } = await writeClient
-    .from(ADMIN_PANEL_TABLE)
-    .upsert(mapStateToRow(normalizedState), { onConflict: "id" })
-    .select()
-    .single();
+  const { error } = await runAdminPanelWriteWithTimeout(
+    (signal) =>
+      writeClient
+        .from(ADMIN_PANEL_TABLE)
+        .upsert(mapStateToRow(normalizedState), { onConflict: "id" })
+        .abortSignal(signal),
+    ADMIN_PANEL_WRITE_TIMEOUT_MS,
+    ADMIN_PANEL_WRITE_TIMEOUT_MESSAGE,
+  );
 
   if (error) {
     if (shouldFallbackToLocal(error)) {
@@ -229,15 +279,14 @@ export async function saveAdminPanelState(state: AdminPanelState) {
     throw error;
   }
 
-  const savedState = mapRowToState(data as AdminPanelRow);
-  writeStoredAdminPanelState(savedState);
-  return savedState;
+  writeStoredAdminPanelState(normalizedState);
+  return normalizedState;
 }
 
 export function formatAdminPanelStoreError(error: unknown) {
   const postgrestError = error as Partial<PostgrestError> | null;
   const errorCode = postgrestError?.code?.toUpperCase();
-  const errorMessage = postgrestError?.message;
+  const errorMessage = getErrorMessage(error);
 
   if (errorCode === "42501") {
     return "O Supabase bloqueou a escrita do painel administrativo. Entre com a conta admin autenticada no Supabase ou ajuste as policies da tabela.";
@@ -251,12 +300,12 @@ export function formatAdminPanelStoreError(error: unknown) {
     return "A tabela public.admin_panel_state ainda nao foi publicada no schema cache do Supabase. Rode a migration e atualize o schema.";
   }
 
-  if (typeof errorMessage === "string" && errorMessage.trim()) {
-    return errorMessage;
+  if (errorMessage.toLowerCase().includes("abort")) {
+    return ADMIN_PANEL_WRITE_TIMEOUT_MESSAGE;
   }
 
-  if (error instanceof Error && error.message.trim()) {
-    return error.message;
+  if (typeof errorMessage === "string" && errorMessage.trim()) {
+    return errorMessage;
   }
 
   return "Nao foi possivel sincronizar o painel administrativo com o banco.";
