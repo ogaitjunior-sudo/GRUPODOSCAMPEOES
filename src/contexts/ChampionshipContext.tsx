@@ -61,12 +61,15 @@ interface ChampionshipContextValue {
 }
 
 const ChampionshipContext = createContext<ChampionshipContextValue | undefined>(undefined);
+const CHAMPIONSHIP_PUBLIC_CONFIRMATION_ERROR =
+  "O campeonato foi salvo no Supabase, mas nao voltou na listagem publica. Verifique a leitura anonima e as policies da tabela championships.";
+const canUseLocalChampionshipWrites = import.meta.env.MODE === "test";
 
 export function ChampionshipProvider({ children }: { children: ReactNode }) {
   const { isPrimaryAdmin } = useAdminAuth();
   const storageMode = getChampionshipStorageMode();
   const [championships, setChampionships] = useState<ChampionshipRecord[]>(() =>
-    sortChampionships(readStoredChampionships()),
+    storageMode === "local" ? sortChampionships(readStoredChampionships()) : [],
   );
   const [isLoading, setIsLoading] = useState(storageMode === "supabase");
   const [syncError, setSyncError] = useState<string | null>(null);
@@ -78,7 +81,7 @@ export function ChampionshipProvider({ children }: { children: ReactNode }) {
   };
 
   const ensureSharedChampionshipStorage = () => {
-    if (storageMode !== "supabase") {
+    if (storageMode !== "supabase" && !canUseLocalChampionshipWrites) {
       throw new Error(
         "O painel de campeonatos esta em modo local nesta versao do app. Atualize o app publicado e conecte o Supabase para que todos vejam os campeonatos criados.",
       );
@@ -98,14 +101,33 @@ export function ChampionshipProvider({ children }: { children: ReactNode }) {
 
   const getChampionshipById = (id: string) => championships.find((item) => item.id === id);
 
+  const readChampionshipsFromSupabase = async (expectedChampionshipId?: string) => {
+    const nextChampionships = sortChampionships(await listChampionships());
+
+    if (
+      expectedChampionshipId &&
+      !nextChampionships.some((item) => item.id === expectedChampionshipId)
+    ) {
+      throw new Error(CHAMPIONSHIP_PUBLIC_CONFIRMATION_ERROR);
+    }
+
+    return nextChampionships;
+  };
+
+  const syncChampionshipsFromSupabase = async (expectedChampionshipId?: string) => {
+    const nextChampionships = await readChampionshipsFromSupabase(expectedChampionshipId);
+    setChampionships(nextChampionships);
+    setSyncError(null);
+    return nextChampionships;
+  };
+
   const refreshChampionships = async () => {
     setIsLoading(true);
 
     try {
-      const nextChampionships = await listChampionships();
-      setChampionships(sortChampionships(nextChampionships));
-      setSyncError(null);
+      await syncChampionshipsFromSupabase();
     } catch (error) {
+      console.error("[championship-context] refreshChampionships failed", error);
       setSyncError(formatChampionshipStoreError(error));
     } finally {
       setIsLoading(false);
@@ -114,6 +136,7 @@ export function ChampionshipProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (storageMode === "local") {
+      setChampionships(sortChampionships(readStoredChampionships()));
       setIsLoading(false);
       return;
     }
@@ -124,19 +147,20 @@ export function ChampionshipProvider({ children }: { children: ReactNode }) {
       setIsLoading(true);
 
       try {
-        const nextChampionships = await listChampionships();
+        const nextChampionships = await readChampionshipsFromSupabase();
 
         if (!isActive) {
           return;
         }
 
-        setChampionships(sortChampionships(nextChampionships));
+        setChampionships(nextChampionships);
         setSyncError(null);
       } catch (error) {
         if (!isActive) {
           return;
         }
 
+        console.error("[championship-context] initial Supabase load failed", error);
         setSyncError(formatChampionshipStoreError(error));
       } finally {
         if (isActive) {
@@ -157,9 +181,10 @@ export function ChampionshipProvider({ children }: { children: ReactNode }) {
     ensureSharedChampionshipStorage();
     try {
       const nextChampionship = await createChampionshipRecord(values);
-      commitChampionship(nextChampionship);
-      return nextChampionship;
+      const confirmedChampionships = await syncChampionshipsFromSupabase(nextChampionship.id);
+      return confirmedChampionships.find((item) => item.id === nextChampionship.id) ?? nextChampionship;
     } catch (error) {
+      console.error("[championship-context] createChampionship failed", error);
       throw new Error(formatChampionshipStoreError(error));
     }
   };
@@ -176,9 +201,13 @@ export function ChampionshipProvider({ children }: { children: ReactNode }) {
 
     try {
       const updatedChampionship = await updateChampionshipRecord(existingChampionship, values);
-      commitChampionship(updatedChampionship);
-      return updatedChampionship;
+      const confirmedChampionships = await syncChampionshipsFromSupabase(updatedChampionship.id);
+      return (
+        confirmedChampionships.find((item) => item.id === updatedChampionship.id) ??
+        updatedChampionship
+      );
     } catch (error) {
+      console.error("[championship-context] updateChampionship failed", error);
       throw new Error(formatChampionshipStoreError(error));
     }
   };
@@ -348,9 +377,22 @@ export function ChampionshipProvider({ children }: { children: ReactNode }) {
     ensureAdminAccess();
     ensureSharedChampionshipStorage();
 
-    await deleteChampionshipRecord(id);
-    setChampionships((current) => current.filter((item) => item.id !== id));
-    setSyncError(null);
+    try {
+      await deleteChampionshipRecord(id);
+      const nextChampionships = await readChampionshipsFromSupabase();
+
+      if (nextChampionships.some((item) => item.id === id)) {
+        throw new Error(
+          "O campeonato foi removido localmente, mas ainda voltou na listagem publica do Supabase.",
+        );
+      }
+
+      setChampionships(nextChampionships);
+      setSyncError(null);
+    } catch (error) {
+      console.error("[championship-context] removeChampionship failed", error);
+      throw new Error(formatChampionshipStoreError(error));
+    }
   };
 
   return (

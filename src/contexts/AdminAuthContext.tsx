@@ -64,6 +64,7 @@ const ADMIN_SUPABASE_TIMEOUT_MESSAGE =
   "A autenticacao admin demorou mais que o esperado. Tente novamente em instantes.";
 const ADMIN_SESSION_BOOT_TIMEOUT_MESSAGE =
   "Nao foi possivel validar a sessao administrativa agora.";
+const isAdminAuthTestMode = import.meta.env.MODE === "test";
 
 const AdminAuthContext = createContext<AdminAuthContextValue | undefined>(undefined);
 
@@ -84,7 +85,9 @@ function getExpectedAdminSupabaseEmail() {
 }
 
 const EXPECTED_ADMIN_SUPABASE_EMAIL = getExpectedAdminSupabaseEmail();
-const canUseSupabaseAdminAuth = Boolean(isSupabaseConfigured && adminSupabase && EXPECTED_ADMIN_SUPABASE_EMAIL);
+const canUseSupabaseAdminAuth = Boolean(
+  !isAdminAuthTestMode && isSupabaseConfigured && adminSupabase && EXPECTED_ADMIN_SUPABASE_EMAIL,
+);
 
 function isPrimaryAdminSession(
   session: Pick<AdminSession, "username" | "role" | "provider" | "email"> | null | undefined,

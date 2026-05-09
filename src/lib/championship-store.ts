@@ -165,17 +165,14 @@ function isSupabaseNetworkError(error: unknown) {
   );
 }
 
-function shouldFallbackToLocal(error: unknown) {
-  const postgrestError = error as Partial<PostgrestError> | null;
-  const errorCode = postgrestError?.code?.toUpperCase();
-
-  return isChampionshipTableUnavailable(error) || errorCode === "42501" || isSupabaseNetworkError(error);
-}
-
 function wait(delayMs: number) {
   return new Promise((resolve) => {
     globalThis.setTimeout(resolve, delayMs);
   });
+}
+
+function logChampionshipStoreError(operation: string, error: unknown) {
+  console.error(`[championship-store] ${operation}`, error);
 }
 
 async function runSupabaseWriteWithRetry<T>(
@@ -328,11 +325,13 @@ export function writeStoredChampionships(championships: ChampionshipRecord[]) {
 }
 
 export async function listChampionships() {
-  if (isChampionshipStoreTestMode || !supabase) {
+  if (isChampionshipStoreTestMode) {
     return readStoredChampionships();
   }
 
-  const localChampionships = readStoredChampionships();
+  if (!supabase) {
+    throw new Error(CHAMPIONSHIP_SHARED_SUPABASE_REQUIRED_MESSAGE);
+  }
 
   const { data, error } = await supabase
     .from(CHAMPIONSHIPS_TABLE)
@@ -341,23 +340,11 @@ export async function listChampionships() {
     .order("updated_at", { ascending: false });
 
   if (error) {
-    if (shouldFallbackToLocal(error)) {
-      if (isSupabaseNetworkError(error) && localChampionships.length === 0) {
-        throw new Error(formatChampionshipStoreError(error));
-      }
-
-      return localChampionships;
-    }
-
+    logChampionshipStoreError("listChampionships failed", error);
     throw error;
   }
 
-  const remoteChampionships = sortChampionships(
-    (data ?? []).map((row) => mapRowToRecord(row as ChampionshipRow)),
-  );
-
-  writeStoredChampionships(remoteChampionships);
-  return remoteChampionships;
+  return sortChampionships((data ?? []).map((row) => mapRowToRecord(row as ChampionshipRow)));
 }
 
 export async function createChampionshipRecord(values: ChampionshipFormValues) {
@@ -425,10 +412,10 @@ export async function saveChampionshipRecord(
   );
 
   if (error) {
+    logChampionshipStoreError(`${mode} championship failed`, error);
     throw new Error(formatChampionshipStoreError(error));
   }
 
-  persistChampionshipLocally(record);
   return record;
 }
 
@@ -459,10 +446,9 @@ export async function deleteChampionshipRecord(id: string) {
   );
 
   if (error) {
+    logChampionshipStoreError("delete championship failed", error);
     throw new Error(formatChampionshipStoreError(error));
   }
-
-  removeChampionshipLocally(id);
 }
 
 export function formatChampionshipStoreError(error: unknown) {
