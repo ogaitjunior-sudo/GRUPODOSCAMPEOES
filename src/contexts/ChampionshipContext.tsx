@@ -61,8 +61,6 @@ interface ChampionshipContextValue {
 }
 
 const ChampionshipContext = createContext<ChampionshipContextValue | undefined>(undefined);
-const CHAMPIONSHIP_PUBLIC_CONFIRMATION_ERROR =
-  "O campeonato foi salvo no Supabase, mas nao voltou na listagem publica. Verifique a leitura anonima e as policies da tabela championships.";
 const canUseLocalChampionshipWrites = import.meta.env.MODE === "test";
 
 export function ChampionshipProvider({ children }: { children: ReactNode }) {
@@ -101,24 +99,27 @@ export function ChampionshipProvider({ children }: { children: ReactNode }) {
 
   const getChampionshipById = (id: string) => championships.find((item) => item.id === id);
 
-  const readChampionshipsFromSupabase = async (expectedChampionshipId?: string) => {
+  const readChampionshipsFromSupabase = async () => {
     const nextChampionships = sortChampionships(await listChampionships());
-
-    if (
-      expectedChampionshipId &&
-      !nextChampionships.some((item) => item.id === expectedChampionshipId)
-    ) {
-      throw new Error(CHAMPIONSHIP_PUBLIC_CONFIRMATION_ERROR);
-    }
-
     return nextChampionships;
   };
 
-  const syncChampionshipsFromSupabase = async (expectedChampionshipId?: string) => {
-    const nextChampionships = await readChampionshipsFromSupabase(expectedChampionshipId);
+  const syncChampionshipsFromSupabase = async () => {
+    const nextChampionships = await readChampionshipsFromSupabase();
     setChampionships(nextChampionships);
     setSyncError(null);
     return nextChampionships;
+  };
+
+  const refreshChampionshipsInBackground = () => {
+    if (storageMode !== "supabase") {
+      return;
+    }
+
+    void syncChampionshipsFromSupabase().catch((error) => {
+      console.error("[championship-context] background refresh failed", error);
+      setSyncError(formatChampionshipStoreError(error));
+    });
   };
 
   const refreshChampionships = async () => {
@@ -181,8 +182,9 @@ export function ChampionshipProvider({ children }: { children: ReactNode }) {
     ensureSharedChampionshipStorage();
     try {
       const nextChampionship = await createChampionshipRecord(values);
-      const confirmedChampionships = await syncChampionshipsFromSupabase(nextChampionship.id);
-      return confirmedChampionships.find((item) => item.id === nextChampionship.id) ?? nextChampionship;
+      commitChampionship(nextChampionship);
+      refreshChampionshipsInBackground();
+      return nextChampionship;
     } catch (error) {
       console.error("[championship-context] createChampionship failed", error);
       throw new Error(formatChampionshipStoreError(error));
@@ -201,11 +203,9 @@ export function ChampionshipProvider({ children }: { children: ReactNode }) {
 
     try {
       const updatedChampionship = await updateChampionshipRecord(existingChampionship, values);
-      const confirmedChampionships = await syncChampionshipsFromSupabase(updatedChampionship.id);
-      return (
-        confirmedChampionships.find((item) => item.id === updatedChampionship.id) ??
-        updatedChampionship
-      );
+      commitChampionship(updatedChampionship);
+      refreshChampionshipsInBackground();
+      return updatedChampionship;
     } catch (error) {
       console.error("[championship-context] updateChampionship failed", error);
       throw new Error(formatChampionshipStoreError(error));
@@ -379,16 +379,9 @@ export function ChampionshipProvider({ children }: { children: ReactNode }) {
 
     try {
       await deleteChampionshipRecord(id);
-      const nextChampionships = await readChampionshipsFromSupabase();
-
-      if (nextChampionships.some((item) => item.id === id)) {
-        throw new Error(
-          "O campeonato foi removido localmente, mas ainda voltou na listagem publica do Supabase.",
-        );
-      }
-
-      setChampionships(nextChampionships);
+      setChampionships((current) => current.filter((item) => item.id !== id));
       setSyncError(null);
+      refreshChampionshipsInBackground();
     } catch (error) {
       console.error("[championship-context] removeChampionship failed", error);
       throw new Error(formatChampionshipStoreError(error));
