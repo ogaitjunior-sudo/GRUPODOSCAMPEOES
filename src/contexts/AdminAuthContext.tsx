@@ -62,6 +62,8 @@ const ADMIN_SUPABASE_ACCESS_DENIED_MESSAGE =
   "A conta autenticada no Supabase nao tem permissao para abrir o painel administrativo.";
 const ADMIN_SUPABASE_TIMEOUT_MESSAGE =
   "A autenticacao admin demorou mais que o esperado. Tente novamente em instantes.";
+const ADMIN_SESSION_BOOT_TIMEOUT_MESSAGE =
+  "Nao foi possivel validar a sessao administrativa agora.";
 
 const AdminAuthContext = createContext<AdminAuthContextValue | undefined>(undefined);
 
@@ -236,14 +238,29 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
     let active = true;
 
     const syncSession = async () => {
-      const { data } = await adminSupabase.auth.getSession();
+      try {
+        const { data } = await withTimeout(
+          adminSupabase.auth.getSession(),
+          12000,
+          ADMIN_SESSION_BOOT_TIMEOUT_MESSAGE,
+        );
 
-      if (!active) {
-        return;
+        if (!active) {
+          return;
+        }
+
+        setSession(buildAdminSession(data.session));
+      } catch {
+        if (!active) {
+          return;
+        }
+
+        setSession(null);
+      } finally {
+        if (active) {
+          setIsReady(true);
+        }
       }
-
-      setSession(buildAdminSession(data.session));
-      setIsReady(true);
     };
 
     void syncSession();
