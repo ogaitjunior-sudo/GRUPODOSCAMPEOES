@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import logoGC from "@/assets/logo-gc-fc26.png";
 import { adminRoleLabels } from "@/admin/config/security";
 import { adminNavigation } from "@/admin/config/navigation";
+import { AppRefreshButton } from "@/components/AppRefreshButton";
 import { AdminStatusBadge } from "@/admin/components/AdminStatusBadge";
 import { useAdminPanel } from "@/admin/context/AdminPanelContext";
 import { useAdminAuth } from "@/contexts/AdminAuthContext";
@@ -226,6 +227,9 @@ export function AdminLayout() {
 
               <div className="flex items-center gap-3">
                 <AdminStatusBadge label={platformLabel} tone={platformTone} />
+
+                <AppRefreshButton iconOnly className="sm:hidden" />
+                <AppRefreshButton className="hidden sm:inline-flex" />
 
                 <div className="hidden rounded-[24px] panel-premium-soft px-4 py-3 md:block">
                   <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">

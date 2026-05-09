@@ -12,6 +12,7 @@ import {
   User,
 } from "lucide-react";
 import logoGC from "@/assets/logo-gc-fc26.png";
+import { AppRefreshButton } from "@/components/AppRefreshButton";
 import { PlayerAvatar } from "@/components/profile/PlayerAvatar";
 import { SiteActionLink } from "@/components/SiteActionLink";
 import { usePlayerAuth } from "@/contexts/PlayerAuthContext";
@@ -355,6 +356,11 @@ export function Navbar() {
                 {renderNotificationsPanel()}
               </div>
 
+              <AppRefreshButton
+                iconOnly
+                className="gold-flash-hover gold-hover-scale tr-notification-btn"
+              />
+
               {isPlayerAuthenticated ? (
                 <DropdownMenu open={profileMenuOpen} onOpenChange={setProfileMenuOpen}>
                   <DropdownMenuTrigger asChild>
@@ -403,6 +409,8 @@ export function Navbar() {
             </div>
           ) : isPlayerAuthenticated ? (
             <div className="tr-header-actions header-actions">
+              <AppRefreshButton className="hidden lg:inline-flex" />
+
               <div
                 ref={notificationWrapperRef}
                 className="tr-notification-wrapper hidden sm:block"
@@ -455,6 +463,8 @@ export function Navbar() {
             </div>
           ) : (
             <>
+              <AppRefreshButton className="hidden lg:inline-flex" />
+
               <SiteActionLink
                 to="/criar-conta"
                 variant="ghost"
