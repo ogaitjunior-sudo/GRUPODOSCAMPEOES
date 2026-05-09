@@ -61,6 +61,7 @@ export default function AdminChampionshipsPage() {
   const [searchParams] = useSearchParams();
   const { championships, isLoading, refreshChampionships, removeChampionship, syncError, storageMode } =
     useChampionships();
+  const refreshToken = searchParams.get("refresh") ?? "";
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | ChampionshipStatus>("all");
   const [platformFilter, setPlatformFilter] = useState<"all" | ChampionshipPlatform>("all");
@@ -93,6 +94,14 @@ export default function AdminChampionshipsPage() {
         : "all",
     );
   }, [searchParams]);
+
+  useEffect(() => {
+    if (storageMode !== "supabase" || !refreshToken) {
+      return;
+    }
+
+    void refreshChampionships();
+  }, [refreshToken, storageMode]);
 
   const platformOptions = useMemo(
     () => [

@@ -24,9 +24,10 @@ import type {
 
 const CHAMPIONSHIPS_STORAGE_KEY = "gc_championships_v2";
 const CHAMPIONSHIPS_TABLE = "championships";
-const CHAMPIONSHIP_WRITE_MAX_ATTEMPTS = 2;
+const CHAMPIONSHIP_WRITE_MAX_ATTEMPTS = 1;
 const CHAMPIONSHIP_WRITE_RETRY_DELAY_MS = 900;
-const CHAMPIONSHIP_REST_WRITE_TIMEOUT_MS = 15_000;
+const CHAMPIONSHIP_REST_WRITE_TIMEOUT_MS = 10_000;
+const CHAMPIONSHIP_REST_READ_TIMEOUT_MS = 8_000;
 const CHAMPIONSHIP_SHARED_SUPABASE_REQUIRED_MESSAGE =
   "O painel de campeonatos esta em modo local nesta versao do app. Atualize o app publicado e conecte o Supabase para que todos vejam os campeonatos criados.";
 
@@ -186,6 +187,65 @@ function logChampionshipStoreError(operation: string, error: unknown) {
   console.error(`[championship-store] ${operation}`, error);
 }
 
+async function parseSupabaseRestError(response: Response, fallback: string) {
+  const payload = await response.json().catch(() => null);
+  const message =
+    typeof payload?.message === "string" && payload.message.trim()
+      ? payload.message
+      : fallback;
+
+  return {
+    code: typeof payload?.code === "string" ? payload.code : `${response.status}`,
+    message,
+    details: payload?.details,
+    hint: payload?.hint,
+  } satisfies Partial<PostgrestError>;
+}
+
+async function requestChampionshipsPublicRest(path: string) {
+  const controller = new AbortController();
+  const timeoutId = globalThis.setTimeout(() => {
+    controller.abort();
+  }, CHAMPIONSHIP_REST_READ_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(`${supabaseRestUrl}/rest/v1/${path}`, {
+      method: "GET",
+      headers: {
+        apikey: supabaseRestAnonKey,
+        Authorization: `Bearer ${supabaseRestAnonKey}`,
+      },
+      signal: controller.signal,
+    });
+
+    if (response.ok) {
+      return (await response.json()) as unknown[];
+    }
+
+    throw await parseSupabaseRestError(
+      response,
+      `Supabase retornou HTTP ${response.status} ao ler os campeonatos.`,
+    );
+  } finally {
+    globalThis.clearTimeout(timeoutId);
+  }
+}
+
+async function readChampionshipByIdFromPublicRest(id: string) {
+  const rows = await requestChampionshipsPublicRest(
+    `${CHAMPIONSHIPS_TABLE}?select=*&id=eq.${encodeURIComponent(id)}&limit=1`,
+  );
+  const row = rows[0];
+
+  if (!row) {
+    throw new Error(
+      "O Supabase aceitou o salvamento, mas o campeonato ainda nao voltou na leitura publica. Verifique as policies de SELECT da tabela public.championships.",
+    );
+  }
+
+  return mapRowToRecord(row as ChampionshipRow);
+}
+
 async function getSupabaseWriteAccessToken() {
   const adminSession = await adminSupabase?.auth.getSession().catch(() => null);
   const adminAccessToken = adminSession?.data.session?.access_token;
@@ -218,6 +278,7 @@ async function requestChampionshipsRest(
   options: {
     method: "POST" | "PATCH" | "DELETE";
     body?: unknown;
+    returnRepresentation?: boolean;
   },
 ) {
   const accessToken = await getSupabaseWriteAccessToken();
@@ -233,28 +294,24 @@ async function requestChampionshipsRest(
         apikey: supabaseRestAnonKey,
         Authorization: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
-        Prefer: "return=minimal",
+        Prefer: options.returnRepresentation ? "return=representation" : "return=minimal",
       },
       body: options.body ? JSON.stringify(options.body) : undefined,
       signal: controller.signal,
     });
 
     if (response.ok) {
-      return;
+      if (options.returnRepresentation) {
+        return (await response.json()) as unknown[];
+      }
+
+      return [] as unknown[];
     }
 
-    const payload = await response.json().catch(() => null);
-    const message =
-      typeof payload?.message === "string" && payload.message.trim()
-        ? payload.message
-        : `Supabase retornou HTTP ${response.status} ao salvar o campeonato.`;
-
-    throw {
-      code: typeof payload?.code === "string" ? payload.code : `${response.status}`,
-      message,
-      details: payload?.details,
-      hint: payload?.hint,
-    } satisfies Partial<PostgrestError>;
+    throw await parseSupabaseRestError(
+      response,
+      `Supabase retornou HTTP ${response.status} ao salvar o campeonato.`,
+    );
   } finally {
     globalThis.clearTimeout(timeoutId);
   }
@@ -414,22 +471,20 @@ export async function listChampionships() {
     return readStoredChampionships();
   }
 
-  if (!supabase) {
+  if (!isSupabaseConfigured) {
     throw new Error(CHAMPIONSHIP_SHARED_SUPABASE_REQUIRED_MESSAGE);
   }
 
-  const { data, error } = await supabase
-    .from(CHAMPIONSHIPS_TABLE)
-    .select("*")
-    .order("start_date", { ascending: true })
-    .order("updated_at", { ascending: false });
+  try {
+    const rows = await requestChampionshipsPublicRest(
+      `${CHAMPIONSHIPS_TABLE}?select=*&order=start_date.asc,updated_at.desc`,
+    );
 
-  if (error) {
+    return sortChampionships(rows.map((row) => mapRowToRecord(row as ChampionshipRow)));
+  } catch (error) {
     logChampionshipStoreError("listChampionships failed", error);
     throw error;
   }
-
-  return sortChampionships((data ?? []).map((row) => mapRowToRecord(row as ChampionshipRow)));
 }
 
 export async function createChampionshipRecord(values: ChampionshipFormValues) {
@@ -475,18 +530,20 @@ export async function saveChampionshipRecord(
   }
 
   const row = mapRecordToRow(record);
-  await runSupabaseWriteWithRetry(
+  const rows = await runSupabaseWriteWithRetry(
     () =>
       mode === "insert"
         ? requestChampionshipsRest(CHAMPIONSHIPS_TABLE, {
             method: "POST",
             body: row,
+            returnRepresentation: true,
           })
         : requestChampionshipsRest(
             `${CHAMPIONSHIPS_TABLE}?id=eq.${encodeURIComponent(record.id)}`,
             {
               method: "PATCH",
               body: row,
+              returnRepresentation: true,
             },
           ),
     {
@@ -500,7 +557,8 @@ export async function saveChampionshipRecord(
     },
   );
 
-  return record;
+  const writtenRecord = rows[0] ? mapRowToRecord(rows[0] as ChampionshipRow) : record;
+  return readChampionshipByIdFromPublicRest(writtenRecord.id);
 }
 
 export async function deleteChampionshipRecord(id: string) {

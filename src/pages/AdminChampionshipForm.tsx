@@ -53,7 +53,7 @@ const inputClassName =
   "w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none transition-colors placeholder:text-muted-foreground focus:border-primary/60";
 const textareaClassName =
   "min-h-32 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none transition-colors placeholder:text-muted-foreground focus:border-primary/60";
-const SAVE_TIMEOUT_MS = 18_000;
+const SAVE_TIMEOUT_MS = 24_000;
 
 const steps = [
   {
