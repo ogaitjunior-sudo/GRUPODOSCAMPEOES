@@ -4,6 +4,7 @@ import {
   readCachedAdminPanelState,
   saveAdminPanelState,
 } from "@/lib/admin-panel-store";
+import { upsertPlayerAccount } from "@/lib/player-accounts-store";
 
 interface PlayerLoginResolution {
   email: string | null;
@@ -11,6 +12,7 @@ interface PlayerLoginResolution {
 }
 
 interface SyncPlayerAccessPayload {
+  authUserId?: string | null;
   name: string;
   email: string;
   createdAt?: string;
@@ -146,6 +148,14 @@ export async function syncPlayerAccessDirectoryEntry(payload: SyncPlayerAccessPa
 
   const state = await loadAdminPanelState();
   const timestamp = payload.lastLoginAt ?? payload.createdAt ?? new Date().toISOString();
+  await upsertPlayerAccount({
+    authUserId: payload.authUserId,
+    name: normalizedName,
+    email: normalizedEmail,
+    createdAt: payload.createdAt ?? timestamp,
+    lastLoginAt: payload.lastLoginAt,
+  });
+
   const existingUser = state.users.find((user) => normalizeEmail(user.email) === normalizedEmail);
 
   const nextUser = existingUser

@@ -31,6 +31,11 @@ import { formatDateTime, normalizeSearch } from "@/admin/utils/format";
 import { useChampionships } from "@/contexts/ChampionshipContext";
 import { toast } from "@/hooks/use-toast";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
+import {
+  formatPlayerAccountsStoreError,
+  listPlayerAccounts,
+  type PlayerAccountRecord,
+} from "@/lib/player-accounts-store";
 
 const inputClassName =
   "h-11 rounded-xl border border-white/10 bg-white/5 px-4 text-sm text-white outline-none placeholder:text-muted-foreground";
@@ -85,6 +90,8 @@ function getRequestStatusTone(status: PlayerChampionshipLink["status"]) {
 }
 
 function buildPlayerRows(
+  playerAccounts: PlayerAccountRecord[],
+  users: ReturnType<typeof useAdminPanel>["state"]["users"],
   players: ReturnType<typeof useAdminPanel>["state"]["players"],
   championships: ReturnType<typeof useChampionships>["championships"],
 ) {
@@ -106,6 +113,55 @@ function buildPlayerRows(
       championships: [],
     });
   });
+
+  playerAccounts.forEach((account) => {
+    const key = normalizeEmail(account.email) || account.id;
+
+    if (directory.has(key)) {
+      return;
+    }
+
+    directory.set(key, {
+      key,
+      id: account.id,
+      name: account.name,
+      email: account.email,
+      platform: "Nao definido",
+      status: "pending",
+      linkedTeam: "Sem conta UT",
+      createdAt: account.createdAt,
+      participationHistoryCount: 0,
+      championships: [],
+    });
+  });
+
+  users
+    .filter(
+      (user) =>
+        user.role === "player" ||
+        user.role === "captain" ||
+        user.role === "manager",
+    )
+    .forEach((user) => {
+      const key = normalizeEmail(user.email) || user.id;
+
+      if (directory.has(key)) {
+        return;
+      }
+
+      directory.set(key, {
+        key,
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        platform: "Nao definido",
+        status: user.status === "suspended" ? "blocked" : "pending",
+        linkedTeam: "Sem conta UT",
+        createdAt: user.createdAt,
+        participationHistoryCount: 0,
+        championships: [],
+      });
+    });
 
   championships.forEach((championship) => {
     championship.registrationRequests.forEach((request) => {
@@ -159,6 +215,9 @@ export default function AdminPlayersPage() {
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [pendingSave, setPendingSave] = useState<PendingPlayerSave | null>(null);
   const [passwordResetTarget, setPasswordResetTarget] = useState<PlayerAdminRow | null>(null);
+  const [playerAccounts, setPlayerAccounts] = useState<PlayerAccountRecord[]>([]);
+  const [playerAccountsError, setPlayerAccountsError] = useState("");
+  const [isLoadingPlayerAccounts, setIsLoadingPlayerAccounts] = useState(false);
   const [form, setForm] = useState<PlayerFormState>({
     name: "",
     email: "",
@@ -167,12 +226,51 @@ export default function AdminPlayersPage() {
     linkedTeam: "Sem conta UT",
   });
 
-  const rows = useMemo(() => buildPlayerRows(state.players, championships), [championships, state.players]);
+  const rows = useMemo(
+    () => buildPlayerRows(playerAccounts, state.users, state.players, championships),
+    [championships, playerAccounts, state.players, state.users],
+  );
 
   useEffect(() => {
     setQuery(searchParams.get("q") ?? "");
     setChampionshipFilter(searchParams.get("championship") ?? "all");
   }, [searchParams]);
+
+  useEffect(() => {
+    let active = true;
+
+    const loadPlayerAccounts = async () => {
+      setIsLoadingPlayerAccounts(true);
+
+      try {
+        const accounts = await listPlayerAccounts();
+
+        if (!active) {
+          return;
+        }
+
+        setPlayerAccounts(accounts);
+        setPlayerAccountsError("");
+      } catch (error) {
+        if (!active) {
+          return;
+        }
+
+        setPlayerAccounts([]);
+        setPlayerAccountsError(formatPlayerAccountsStoreError(error));
+      } finally {
+        if (active) {
+          setIsLoadingPlayerAccounts(false);
+        }
+      }
+    };
+
+    void loadPlayerAccounts();
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const championshipOptions = useMemo(
     () =>
@@ -220,6 +318,7 @@ export default function AdminPlayersPage() {
   const pendingPlayers = filteredRows.filter((item) => item.status === "pending").length;
   const linkedToChampionships = filteredRows.filter((item) => item.championships.length > 0).length;
   const approvedPlayers = filteredRows.filter((item) => item.status === "approved").length;
+  const registeredAccesses = filteredRows.filter((item) => item.email.includes("@")).length;
 
   const openEditor = (row: PlayerAdminRow) => {
     setEditingKey(row.key);
@@ -305,10 +404,16 @@ export default function AdminPlayersPage() {
         />
         <AdminMetricCard
           icon={ShieldCheck}
+          label="Acessos criados"
+          value={registeredAccesses}
+          helper="Pessoas que criaram conta no site."
+          accent="electric"
+        />
+        <AdminMetricCard
+          icon={ShieldCheck}
           label="Aprovados"
           value={approvedPlayers}
           helper="Jogadores liberados para competir."
-          accent="electric"
         />
         <AdminMetricCard
           icon={UserRound}
@@ -331,9 +436,19 @@ export default function AdminPlayersPage() {
         </div>
       ) : null}
 
+      {playerAccountsError ? (
+        <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+          {playerAccountsError}
+        </div>
+      ) : null}
+
       <AdminTableCard
         title="Base administrativa de jogadores"
-        description="Use filtros rapidos para localizar cadastros, revisar informacoes e abrir a ficha de cada jogador."
+        description={
+          isLoadingPlayerAccounts
+            ? "Carregando cadastros criados no site..."
+            : "Use filtros rapidos para localizar cadastros, revisar informacoes e abrir a ficha de cada jogador."
+        }
         filters={
           <>
             <input

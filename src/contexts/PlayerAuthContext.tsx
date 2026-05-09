@@ -320,6 +320,7 @@ export function PlayerAuthProvider({ children }: { children: ReactNode }) {
 
     try {
       await syncPlayerAccessDirectoryEntry({
+        authUserId: data.user?.id ?? null,
         name: normalizedName,
         email: normalizedEmail,
         createdAt: data.user?.created_at ?? new Date().toISOString(),
@@ -371,6 +372,7 @@ export function PlayerAuthProvider({ children }: { children: ReactNode }) {
         setSession(fallbackSession);
 
         void syncPlayerAccessDirectoryEntry({
+          authUserId: fallbackSession.id,
           name: fallbackSession.displayName,
           email: fallbackSession.email,
           lastLoginAt: fallbackSession.loginAt,
@@ -440,6 +442,7 @@ export function PlayerAuthProvider({ children }: { children: ReactNode }) {
     setSession(nextSession);
 
     void syncPlayerAccessDirectoryEntry({
+      authUserId: nextSession.id,
       name: nextSession.displayName,
       email: nextSession.email,
       lastLoginAt: nextSession.loginAt,
