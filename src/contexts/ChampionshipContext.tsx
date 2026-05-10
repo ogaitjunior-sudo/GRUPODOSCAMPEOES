@@ -6,6 +6,7 @@ import {
   getChampionshipStorageMode,
   listChampionships,
   readStoredChampionships,
+  saveChampionshipRegistrationReviewRecord,
   saveChampionshipRecord,
   submitChampionshipRegistrationRecord,
   updateChampionshipRecord,
@@ -63,6 +64,29 @@ interface ChampionshipContextValue {
 
 const ChampionshipContext = createContext<ChampionshipContextValue | undefined>(undefined);
 const canUseLocalChampionshipWrites = import.meta.env.MODE === "test";
+
+function syncApprovedRequestsToWorkspace(
+  workspace: ChampionshipWorkspaceRecord,
+  championship: ChampionshipRecord,
+  registrationRequests: ChampionshipRecord["registrationRequests"],
+) {
+  return registrationRequests
+    .filter((request) => request.status === "approved")
+    .reduce((nextWorkspace, request) => {
+      const normalizedEmail = request.playerEmail.trim().toLowerCase();
+      const isAlreadyParticipant = nextWorkspace.teams.some(
+        (team) =>
+          team.playerId === request.playerId ||
+          (normalizedEmail && team.playerEmail?.trim().toLowerCase() === normalizedEmail),
+      );
+
+      if (isAlreadyParticipant) {
+        return nextWorkspace;
+      }
+
+      return addParticipantToChampionshipWorkspace(nextWorkspace, championship, request);
+    }, workspace);
+}
 
 export function ChampionshipProvider({ children }: { children: ReactNode }) {
   const { isPrimaryAdmin } = useAdminAuth();
@@ -306,43 +330,53 @@ export function ChampionshipProvider({ children }: { children: ReactNode }) {
       return championship;
     }
 
-    const timestamp = new Date().toISOString();
-    const reviewedRequest = {
-      ...request,
-      status,
-      reviewedAt: timestamp,
-      reviewedBy: reviewedBy.trim() || "Administrador",
-    };
-    const nextRegistrationRequests = championship.registrationRequests.map((item) =>
-      item.id === requestId ? reviewedRequest : item,
-    );
-    let nextWorkspace: ChampionshipWorkspaceRecord | null = null;
-
-    if (status === "approved") {
-      const currentWorkspace = await loadChampionshipWorkspaceRecord(championship);
-      nextWorkspace = addParticipantToChampionshipWorkspace(
-        currentWorkspace,
-        championship,
-        reviewedRequest,
+    try {
+      const timestamp = new Date().toISOString();
+      const reviewedRequest = {
+        ...request,
+        status,
+        reviewedAt: timestamp,
+        reviewedBy: reviewedBy.trim() || "Administrador",
+      };
+      const nextRegistrationRequests = championship.registrationRequests.map((item) =>
+        item.id === requestId ? reviewedRequest : item,
       );
+      let nextWorkspace: ChampionshipWorkspaceRecord | null = null;
+
+      if (status === "approved") {
+        const currentWorkspace = await loadChampionshipWorkspaceRecord(championship);
+        const workspaceWithReviewedParticipant = addParticipantToChampionshipWorkspace(
+          currentWorkspace,
+          championship,
+          reviewedRequest,
+        );
+        nextWorkspace = syncApprovedRequestsToWorkspace(
+          workspaceWithReviewedParticipant,
+          championship,
+          nextRegistrationRequests,
+        );
+      }
+
+      const participantCount = nextWorkspace
+        ? nextWorkspace.teams.length
+        : nextRegistrationRequests.filter((item) => item.status === "approved").length;
+      const updatedChampionship = await saveChampionshipRegistrationReviewRecord({
+        ...championship,
+        status: getChampionshipParticipantStatus(championship, participantCount),
+        registrationRequests: nextRegistrationRequests,
+        updatedAt: timestamp,
+      });
+
+      if (nextWorkspace) {
+        await saveChampionshipWorkspaceRecord(updatedChampionship, nextWorkspace);
+      }
+
+      commitChampionship(updatedChampionship);
+      return updatedChampionship;
+    } catch (error) {
+      console.error("[championship-context] reviewChampionshipRegistration failed", error);
+      throw new Error(formatChampionshipStoreError(error));
     }
-
-    const participantCount = nextWorkspace
-      ? nextWorkspace.teams.length
-      : nextRegistrationRequests.filter((item) => item.status === "approved").length;
-    const updatedChampionship = await saveChampionshipRecord({
-      ...championship,
-      status: getChampionshipParticipantStatus(championship, participantCount),
-      registrationRequests: nextRegistrationRequests,
-      updatedAt: timestamp,
-    });
-
-    if (nextWorkspace) {
-      await saveChampionshipWorkspaceRecord(updatedChampionship, nextWorkspace);
-    }
-
-    commitChampionship(updatedChampionship);
-    return updatedChampionship;
   };
 
   const generateChampionshipTable = async (championshipId: string) => {

@@ -27,8 +27,8 @@ const CHAMPIONSHIPS_TABLE = "championships";
 const CHAMPIONSHIP_WRITE_MAX_ATTEMPTS = 1;
 const CHAMPIONSHIP_WRITE_RETRY_DELAY_MS = 900;
 const CHAMPIONSHIP_AUTH_TIMEOUT_MS = 4_000;
-const CHAMPIONSHIP_REST_WRITE_TIMEOUT_MS = 10_000;
-const CHAMPIONSHIP_REST_READ_TIMEOUT_MS = 8_000;
+const CHAMPIONSHIP_REST_WRITE_TIMEOUT_MS = 20_000;
+const CHAMPIONSHIP_REST_READ_TIMEOUT_MS = 12_000;
 const CHAMPIONSHIP_SHARED_SUPABASE_REQUIRED_MESSAGE =
   "O painel de campeonatos esta em modo local nesta versao do app. Atualize o app publicado e conecte o Supabase para que todos vejam os campeonatos criados.";
 
@@ -626,6 +626,50 @@ export async function saveChampionshipRecord(
 
   const writtenRecord = rows[0] ? mapRowToRecord(rows[0] as ChampionshipRow) : record;
   return readChampionshipByIdFromPublicRest(writtenRecord.id);
+}
+
+export async function saveChampionshipRegistrationReviewRecord(record: ChampionshipRecord) {
+  if (isChampionshipStoreTestMode) {
+    persistChampionshipLocally(record);
+    return record;
+  }
+
+  if (!isSupabaseConfigured) {
+    throw new Error(CHAMPIONSHIP_SHARED_SUPABASE_REQUIRED_MESSAGE);
+  }
+
+  const rows = await runSupabaseWriteWithRetry(
+    () =>
+      requestChampionshipsRest(`${CHAMPIONSHIPS_TABLE}?id=eq.${encodeURIComponent(record.id)}`, {
+        method: "PATCH",
+        body: {
+          status: record.status,
+          configuration: {
+            settings: record.configuration,
+            registrationRequests: record.registrationRequests,
+          } satisfies ChampionshipConfigurationPayload,
+          updated_at: record.updatedAt,
+        },
+        returnRepresentation: true,
+      }),
+    {
+      beforeRetry: async () => {
+        if (!adminSupabase) {
+          return;
+        }
+
+        await adminSupabase.auth.refreshSession().catch(() => undefined);
+      },
+    },
+  );
+
+  if (!rows[0]) {
+    throw new Error(
+      "O Supabase nao retornou a revisao salva. Verifique as policies de UPDATE da tabela public.championships.",
+    );
+  }
+
+  return mapRowToRecord(rows[0] as ChampionshipRow);
 }
 
 export async function submitChampionshipRegistrationRecord(

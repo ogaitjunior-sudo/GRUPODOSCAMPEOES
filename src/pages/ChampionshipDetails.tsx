@@ -56,6 +56,7 @@ import {
   readStoredPlayerTeamPhoto,
 } from "@/lib/player-profile-store";
 import {
+  addParticipantToChampionshipWorkspace,
   hasChampionshipTable,
   validateChampionshipTableGeneration,
 } from "@/lib/championship-table";
@@ -582,12 +583,33 @@ export function ChampionshipWorkspacePage({
     setReviewingRequestId(requestId);
 
     try {
-      await reviewChampionshipRegistration({
+      const request = championship.registrationRequests.find((item) => item.id === requestId) ?? null;
+      const updatedChampionship = await reviewChampionshipRegistration({
         championshipId: championship.id,
         requestId,
         status,
         reviewedBy: adminDisplayName ?? "Administrador",
       });
+
+      if (status === "approved" && request) {
+        setWorkspace((currentWorkspace) => {
+          if (!currentWorkspace) {
+            return currentWorkspace;
+          }
+
+          try {
+            return addParticipantToChampionshipWorkspace(
+              currentWorkspace,
+              updatedChampionship,
+              request,
+            );
+          } catch {
+            return currentWorkspace;
+          }
+        });
+        setErrorMessage(null);
+      }
+
       toast({
         title: status === "approved" ? "Solicitacao aprovada" : "Solicitacao recusada",
         description:
