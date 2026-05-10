@@ -130,9 +130,8 @@ function mapRecordToRow(record: ChampionshipRecord): ChampionshipRow {
 }
 
 function isChampionshipTableUnavailable(error: unknown) {
-  const postgrestError = error as Partial<PostgrestError> | null;
-  const errorCode = postgrestError?.code?.toUpperCase();
-  const errorMessage = postgrestError?.message?.toLowerCase() ?? "";
+  const errorCode = getErrorCode(error);
+  const errorMessage = getErrorMessage(error).toLowerCase();
 
   return (
     errorCode === "42P01" ||
@@ -155,6 +154,12 @@ function getErrorMessage(error: unknown) {
   }
 
   return "";
+}
+
+function getErrorCode(error: unknown) {
+  const code = (error as Partial<PostgrestError> | null)?.code;
+
+  return typeof code === "string" ? code.toUpperCase() : "";
 }
 
 function isSupabaseNetworkError(error: unknown) {
@@ -790,8 +795,7 @@ export async function deleteChampionshipRecord(id: string) {
 }
 
 export function formatChampionshipStoreError(error: unknown) {
-  const postgrestError = error as Partial<PostgrestError> | null;
-  const errorCode = postgrestError?.code?.toUpperCase();
+  const errorCode = getErrorCode(error);
   const errorMessage = getErrorMessage(error);
 
   if (errorMessage === CHAMPIONSHIP_SHARED_SUPABASE_REQUIRED_MESSAGE) {

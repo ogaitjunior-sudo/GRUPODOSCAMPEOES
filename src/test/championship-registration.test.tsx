@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { AdminAuthProvider } from "@/contexts/AdminAuthContext";
 import { ChampionshipProvider, useChampionships } from "@/contexts/ChampionshipContext";
+import { formatChampionshipStoreError } from "@/lib/championship-store";
 
 function createChampionship(overrides: Record<string, unknown> = {}) {
   return {
@@ -171,5 +172,14 @@ describe("championship registrations", () => {
     const stored = JSON.parse(window.localStorage.getItem("gc_championships_v2") ?? "[]");
     expect(stored[0].registrationRequests[0].status).toBe("approved");
     expect(stored[0].registrationRequests[0].reviewedBy).toBe("Admin");
+  });
+
+  it("formats Supabase errors with non-string codes without masking the real message", () => {
+    expect(
+      formatChampionshipStoreError({
+        code: 400,
+        message: "Pedido de participacao recusado pelo Supabase.",
+      }),
+    ).toBe("Pedido de participacao recusado pelo Supabase.");
   });
 });
