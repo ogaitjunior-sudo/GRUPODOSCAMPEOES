@@ -522,6 +522,15 @@ export function ChampionshipWorkspacePage({
       return;
     }
 
+    if (playerSession.provider !== "supabase") {
+      toast({
+        title: "Login oficial necessario",
+        description:
+          "Para participar e aparecer para o admin, entre com uma conta criada no site antes de enviar o pedido.",
+      });
+      return;
+    }
+
     setIsSubmittingParticipation(true);
 
     try {

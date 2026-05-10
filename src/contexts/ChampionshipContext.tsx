@@ -7,6 +7,7 @@ import {
   listChampionships,
   readStoredChampionships,
   saveChampionshipRecord,
+  submitChampionshipRegistrationRecord,
   updateChampionshipRecord,
 } from "@/lib/championship-store";
 import { useAdminAuth } from "@/contexts/AdminAuthContext";
@@ -254,26 +255,26 @@ export function ChampionshipProvider({ children }: { children: ReactNode }) {
     }
 
     const timestamp = new Date().toISOString();
-    const updatedChampionship = await saveChampionshipRecord({
-      ...championship,
-      registrationRequests: [
-        {
-          id: createChampionshipRegistrationId(),
-          playerId,
-          playerName: playerName.trim() || "Jogador",
-          playerEmail: playerEmail.trim().toLowerCase(),
-          status: "pending",
-          requestedAt: timestamp,
-          reviewedAt: null,
-          reviewedBy: null,
-        },
-        ...championship.registrationRequests,
-      ],
-      updatedAt: timestamp,
-    });
 
-    commitChampionship(updatedChampionship);
-    return updatedChampionship;
+    try {
+      const updatedChampionship = await submitChampionshipRegistrationRecord(championship, {
+        id: createChampionshipRegistrationId(),
+        playerId,
+        playerName: playerName.trim() || "Jogador",
+        playerEmail: playerEmail.trim().toLowerCase(),
+        status: "pending",
+        requestedAt: timestamp,
+        reviewedAt: null,
+        reviewedBy: null,
+      });
+
+      commitChampionship(updatedChampionship);
+      refreshChampionshipsInBackground();
+      return updatedChampionship;
+    } catch (error) {
+      console.error("[championship-context] submitChampionshipRegistration failed", error);
+      throw new Error(formatChampionshipStoreError(error));
+    }
   };
 
   const reviewChampionshipRegistration = async ({

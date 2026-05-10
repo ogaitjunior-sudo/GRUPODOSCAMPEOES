@@ -6,6 +6,9 @@ import type { ChampionshipWorkspaceRecord } from "@/types/championship-runtime";
 
 const CHAMPIONSHIP_WORKSPACES_STORAGE_KEY = "gc_championship_workspaces_v2";
 const CHAMPIONSHIP_WORKSPACES_TABLE = "championship_workspaces";
+const CHAMPIONSHIP_WORKSPACE_READ_TIMEOUT_MS = 5_000;
+const CHAMPIONSHIP_WORKSPACE_WRITE_TIMEOUT_MS = 10_000;
+const isChampionshipWorkspaceStoreTestMode = import.meta.env.MODE === "test";
 
 type ChampionshipWorkspaceRow = {
   championship_id: string;
@@ -135,10 +138,29 @@ function getErrorMessage(error: unknown) {
   return "";
 }
 
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string) {
+  return new Promise<T>((resolve, reject) => {
+    const timeoutId = globalThis.setTimeout(() => {
+      reject(new Error(message));
+    }, timeoutMs);
+
+    promise
+      .then(resolve, reject)
+      .finally(() => {
+        globalThis.clearTimeout(timeoutId);
+      });
+  });
+}
+
 function isSupabaseNetworkError(error: unknown) {
   const errorMessage = getErrorMessage(error).toLowerCase();
+  const errorName =
+    error instanceof Error && typeof error.name === "string" ? error.name.toLowerCase() : "";
 
   return (
+    errorName.includes("aborterror") ||
+    errorMessage.includes("tempo limite") ||
+    errorMessage.includes("timeout") ||
     errorMessage.includes("failed to fetch") ||
     errorMessage.includes("fetch failed") ||
     errorMessage.includes("load failed") ||
@@ -173,15 +195,31 @@ function pickNewestRecord(
 export async function loadChampionshipWorkspaceRecord(championship: ChampionshipRecord) {
   const localWorkspace = getLocalWorkspace(championship.id);
 
-  if (!supabase) {
+  if (isChampionshipWorkspaceStoreTestMode || !supabase) {
     return normalizeChampionshipWorkspace(localWorkspace, championship);
   }
 
-  const { data, error } = await supabase
-    .from(CHAMPIONSHIP_WORKSPACES_TABLE)
-    .select("*")
-    .eq("championship_id", championship.id)
-    .maybeSingle();
+  let response;
+
+  try {
+    response = await withTimeout(
+      supabase
+        .from(CHAMPIONSHIP_WORKSPACES_TABLE)
+        .select("*")
+        .eq("championship_id", championship.id)
+        .maybeSingle(),
+      CHAMPIONSHIP_WORKSPACE_READ_TIMEOUT_MS,
+      "Tempo limite ao carregar o workspace do campeonato.",
+    );
+  } catch (error) {
+    if (shouldFallbackToLocal(error)) {
+      return normalizeChampionshipWorkspace(localWorkspace, championship);
+    }
+
+    throw error;
+  }
+
+  const { data, error } = response;
 
   if (error) {
     if (shouldFallbackToLocal(error)) {
@@ -204,16 +242,20 @@ export async function saveChampionshipWorkspaceRecord(
   const normalizedWorkspace = normalizeChampionshipWorkspace(workspace, championship);
   const writeClient = adminSupabase ?? supabase;
 
-  if (!writeClient) {
+  if (isChampionshipWorkspaceStoreTestMode || !writeClient) {
     persistWorkspaceLocally(normalizedWorkspace);
     return normalizedWorkspace;
   }
 
-  const { data, error } = await writeClient
-    .from(CHAMPIONSHIP_WORKSPACES_TABLE)
-    .upsert(mapRecordToRow(normalizedWorkspace), { onConflict: "championship_id" })
-    .select()
-    .single();
+  const { data, error } = await withTimeout(
+    writeClient
+      .from(CHAMPIONSHIP_WORKSPACES_TABLE)
+      .upsert(mapRecordToRow(normalizedWorkspace), { onConflict: "championship_id" })
+      .select()
+      .single(),
+    CHAMPIONSHIP_WORKSPACE_WRITE_TIMEOUT_MS,
+    "Tempo limite ao salvar o workspace do campeonato.",
+  );
 
   if (error) {
     throw error;

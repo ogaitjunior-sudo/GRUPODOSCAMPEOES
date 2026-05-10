@@ -26,6 +26,7 @@ const CHAMPIONSHIPS_STORAGE_KEY = "gc_championships_v2";
 const CHAMPIONSHIPS_TABLE = "championships";
 const CHAMPIONSHIP_WRITE_MAX_ATTEMPTS = 1;
 const CHAMPIONSHIP_WRITE_RETRY_DELAY_MS = 900;
+const CHAMPIONSHIP_AUTH_TIMEOUT_MS = 4_000;
 const CHAMPIONSHIP_REST_WRITE_TIMEOUT_MS = 10_000;
 const CHAMPIONSHIP_REST_READ_TIMEOUT_MS = 8_000;
 const CHAMPIONSHIP_SHARED_SUPABASE_REQUIRED_MESSAGE =
@@ -183,6 +184,20 @@ function wait(delayMs: number) {
   });
 }
 
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string) {
+  return new Promise<T>((resolve, reject) => {
+    const timeoutId = globalThis.setTimeout(() => {
+      reject(new Error(message));
+    }, timeoutMs);
+
+    promise
+      .then(resolve, reject)
+      .finally(() => {
+        globalThis.clearTimeout(timeoutId);
+      });
+  });
+}
+
 function logChampionshipStoreError(operation: string, error: unknown) {
   console.error(`[championship-store] ${operation}`, error);
 }
@@ -247,21 +262,39 @@ async function readChampionshipByIdFromPublicRest(id: string) {
 }
 
 async function getSupabaseWriteAccessToken() {
-  const adminSession = await adminSupabase?.auth.getSession().catch(() => null);
+  const adminSession = adminSupabase
+    ? await withTimeout(
+        adminSupabase.auth.getSession(),
+        CHAMPIONSHIP_AUTH_TIMEOUT_MS,
+        "Tempo limite ao validar a sessao admin do Supabase.",
+      ).catch(() => null)
+    : null;
   const adminAccessToken = adminSession?.data.session?.access_token;
 
   if (adminAccessToken) {
     return adminAccessToken;
   }
 
-  const refreshedAdminSession = await adminSupabase?.auth.refreshSession().catch(() => null);
+  const refreshedAdminSession = adminSupabase
+    ? await withTimeout(
+        adminSupabase.auth.refreshSession(),
+        CHAMPIONSHIP_AUTH_TIMEOUT_MS,
+        "Tempo limite ao renovar a sessao admin do Supabase.",
+      ).catch(() => null)
+    : null;
   const refreshedAdminAccessToken = refreshedAdminSession?.data.session?.access_token;
 
   if (refreshedAdminAccessToken) {
     return refreshedAdminAccessToken;
   }
 
-  const publicSession = await supabase?.auth.getSession().catch(() => null);
+  const publicSession = supabase
+    ? await withTimeout(
+        supabase.auth.getSession(),
+        CHAMPIONSHIP_AUTH_TIMEOUT_MS,
+        "Tempo limite ao validar a sessao do jogador no Supabase.",
+      ).catch(() => null)
+    : null;
   const publicAccessToken = publicSession?.data.session?.access_token;
 
   if (publicAccessToken) {
@@ -558,6 +591,100 @@ export async function saveChampionshipRecord(
   );
 
   const writtenRecord = rows[0] ? mapRowToRecord(rows[0] as ChampionshipRow) : record;
+  return readChampionshipByIdFromPublicRest(writtenRecord.id);
+}
+
+export async function submitChampionshipRegistrationRecord(
+  currentRecord: ChampionshipRecord,
+  request: ChampionshipRegistrationRequest,
+) {
+  if (isChampionshipStoreTestMode) {
+    const updatedRecord = {
+      ...currentRecord,
+      registrationRequests: [request, ...currentRecord.registrationRequests],
+      updatedAt: request.requestedAt,
+    } satisfies ChampionshipRecord;
+
+    persistChampionshipLocally(updatedRecord);
+    return updatedRecord;
+  }
+
+  if (!isSupabaseConfigured) {
+    throw new Error(CHAMPIONSHIP_SHARED_SUPABASE_REQUIRED_MESSAGE);
+  }
+
+  const freshRecord = await readChampionshipByIdFromPublicRest(currentRecord.id);
+
+  if (freshRecord.status !== "REGISTRATION") {
+    throw new Error("Este campeonato nao esta aceitando pedidos no momento.");
+  }
+
+  if (freshRecord.configuration.registrationMode !== "public") {
+    throw new Error("Este campeonato usa entrada privada pela organizacao.");
+  }
+
+  const normalizedEmail = request.playerEmail.trim().toLowerCase();
+  const existingRequest = freshRecord.registrationRequests.find(
+    (item) =>
+      item.playerId === request.playerId ||
+      item.playerEmail.trim().toLowerCase() === normalizedEmail,
+  );
+
+  if (existingRequest) {
+    return freshRecord;
+  }
+
+  const occupiedSlots = freshRecord.registrationRequests.filter(
+    (item) => item.status === "approved" || item.status === "pending",
+  ).length;
+
+  if (occupiedSlots >= freshRecord.teamCount) {
+    throw new Error("O limite maximo de participantes deste campeonato ja foi atingido.");
+  }
+
+  const nextRegistrationRequests = [
+    {
+      ...request,
+      playerName: request.playerName.trim() || "Jogador",
+      playerEmail: normalizedEmail,
+    },
+    ...freshRecord.registrationRequests,
+  ] satisfies ChampionshipRegistrationRequest[];
+
+  const rows = await runSupabaseWriteWithRetry(
+    () =>
+      requestChampionshipsRest(
+        `${CHAMPIONSHIPS_TABLE}?id=eq.${encodeURIComponent(freshRecord.id)}`,
+        {
+          method: "PATCH",
+          body: {
+            configuration: {
+              settings: freshRecord.configuration,
+              registrationRequests: nextRegistrationRequests,
+            } satisfies ChampionshipConfigurationPayload,
+            updated_at: request.requestedAt,
+          },
+          returnRepresentation: true,
+        },
+      ),
+    {
+      beforeRetry: async () => {
+        if (!adminSupabase) {
+          return;
+        }
+
+        await adminSupabase.auth.refreshSession().catch(() => undefined);
+      },
+    },
+  );
+
+  if (!rows[0]) {
+    throw new Error(
+      "O Supabase nao retornou a inscricao salva. Verifique as policies de UPDATE da tabela public.championships.",
+    );
+  }
+
+  const writtenRecord = mapRowToRecord(rows[0] as ChampionshipRow);
   return readChampionshipByIdFromPublicRest(writtenRecord.id);
 }
 
