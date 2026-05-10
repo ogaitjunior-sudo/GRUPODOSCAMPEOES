@@ -2534,7 +2534,11 @@
     width: calc(100vw - 24px) !important;
     max-width: calc(100vw - 24px) !important;
     max-height: calc(100vh - 24px) !important;
+    overflow-y: auto;
+    overscroll-behavior: contain;
     border-radius: 20px;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
   }
 
   .tr-hero,

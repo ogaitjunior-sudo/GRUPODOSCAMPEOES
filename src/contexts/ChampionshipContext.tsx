@@ -269,7 +269,6 @@ export function ChampionshipProvider({ children }: { children: ReactNode }) {
       });
 
       commitChampionship(updatedChampionship);
-      refreshChampionshipsInBackground();
       return updatedChampionship;
     } catch (error) {
       console.error("[championship-context] submitChampionshipRegistration failed", error);

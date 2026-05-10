@@ -306,15 +306,34 @@ async function getSupabaseWriteAccessToken() {
   );
 }
 
-async function requestChampionshipsRest(
+async function getSupabasePlayerWriteAccessToken() {
+  const publicSession = supabase
+    ? await withTimeout(
+        supabase.auth.getSession(),
+        CHAMPIONSHIP_AUTH_TIMEOUT_MS,
+        "Tempo limite ao validar a sessao do jogador no Supabase.",
+      ).catch(() => null)
+    : null;
+  const publicAccessToken = publicSession?.data.session?.access_token;
+
+  if (publicAccessToken) {
+    return publicAccessToken;
+  }
+
+  throw new Error(
+    "Entre com uma conta criada no site para participar. O pedido precisa de uma sessao oficial do Supabase para aparecer ao admin.",
+  );
+}
+
+async function requestChampionshipsRestWithAccessToken(
   path: string,
   options: {
     method: "POST" | "PATCH" | "DELETE";
     body?: unknown;
     returnRepresentation?: boolean;
   },
+  accessToken: string,
 ) {
-  const accessToken = await getSupabaseWriteAccessToken();
   const controller = new AbortController();
   const timeoutId = globalThis.setTimeout(() => {
     controller.abort();
@@ -348,6 +367,21 @@ async function requestChampionshipsRest(
   } finally {
     globalThis.clearTimeout(timeoutId);
   }
+}
+
+async function requestChampionshipsRest(
+  path: string,
+  options: {
+    method: "POST" | "PATCH" | "DELETE";
+    body?: unknown;
+    returnRepresentation?: boolean;
+  },
+) {
+  return requestChampionshipsRestWithAccessToken(
+    path,
+    options,
+    await getSupabaseWriteAccessToken(),
+  );
 }
 
 async function runSupabaseWriteWithRetry<T>(
@@ -613,7 +647,10 @@ export async function submitChampionshipRegistrationRecord(
     throw new Error(CHAMPIONSHIP_SHARED_SUPABASE_REQUIRED_MESSAGE);
   }
 
-  const freshRecord = await readChampionshipByIdFromPublicRest(currentRecord.id);
+  const [freshRecord, playerAccessToken] = await Promise.all([
+    readChampionshipByIdFromPublicRest(currentRecord.id),
+    getSupabasePlayerWriteAccessToken(),
+  ]);
 
   if (freshRecord.status !== "REGISTRATION") {
     throw new Error("Este campeonato nao esta aceitando pedidos no momento.");
@@ -653,7 +690,7 @@ export async function submitChampionshipRegistrationRecord(
 
   const rows = await runSupabaseWriteWithRetry(
     () =>
-      requestChampionshipsRest(
+      requestChampionshipsRestWithAccessToken(
         `${CHAMPIONSHIPS_TABLE}?id=eq.${encodeURIComponent(freshRecord.id)}`,
         {
           method: "PATCH",
@@ -666,16 +703,9 @@ export async function submitChampionshipRegistrationRecord(
           },
           returnRepresentation: true,
         },
+        playerAccessToken,
       ),
-    {
-      beforeRetry: async () => {
-        if (!adminSupabase) {
-          return;
-        }
-
-        await adminSupabase.auth.refreshSession().catch(() => undefined);
-      },
-    },
+    {},
   );
 
   if (!rows[0]) {
