@@ -18,7 +18,10 @@ import type {
 const ADMIN_PANEL_CACHE_KEY = "gc_admin_panel_state_cache_v1";
 const ADMIN_PANEL_TABLE = "admin_panel_state";
 const ADMIN_PANEL_ROW_ID = "primary";
+const ADMIN_PANEL_READ_TIMEOUT_MS = 6000;
 const ADMIN_PANEL_WRITE_TIMEOUT_MS = 10000;
+const ADMIN_PANEL_READ_TIMEOUT_MESSAGE =
+  "A leitura do painel administrativo demorou mais que o esperado. Tente novamente em instantes.";
 const ADMIN_PANEL_WRITE_TIMEOUT_MESSAGE =
   "A sincronizacao do painel administrativo demorou mais que o esperado. Tente novamente em instantes.";
 
@@ -187,6 +190,14 @@ async function runAdminPanelWriteWithTimeout<T>(
   }
 }
 
+async function runAdminPanelReadWithTimeout<T>(execute: (signal: AbortSignal) => Promise<T>) {
+  return runAdminPanelWriteWithTimeout(
+    execute,
+    ADMIN_PANEL_READ_TIMEOUT_MS,
+    ADMIN_PANEL_READ_TIMEOUT_MESSAGE,
+  );
+}
+
 function readStoredAdminPanelState() {
   if (typeof window === "undefined") {
     return createInitialAdminPanelState();
@@ -222,6 +233,49 @@ function writeStoredAdminPanelState(state: AdminPanelState) {
 
 export function getAdminPanelStorageMode(): AdminPanelStorageMode {
   return isSupabaseConfigured ? "supabase" : "local";
+}
+
+export async function loadAdminPanelLoginDirectory() {
+  if (!supabase) {
+    const cachedState = readCachedAdminPanelState();
+    return {
+      users: cachedState.users,
+      players: cachedState.players,
+    };
+  }
+
+  const { data, error } = await runAdminPanelReadWithTimeout((signal) =>
+    supabase
+      .from(ADMIN_PANEL_TABLE)
+      .select("users, players")
+      .eq("id", ADMIN_PANEL_ROW_ID)
+      .maybeSingle()
+      .abortSignal(signal),
+  );
+
+  if (error) {
+    if (shouldFallbackToLocal(error)) {
+      const cachedState = readCachedAdminPanelState();
+      return {
+        users: cachedState.users,
+        players: cachedState.players,
+      };
+    }
+
+    throw error;
+  }
+
+  const nextState = data
+    ? normalizeAdminPanelState({
+        users: (data as Partial<AdminPanelRow>).users,
+        players: (data as Partial<AdminPanelRow>).players,
+      })
+    : readCachedAdminPanelState();
+
+  return {
+    users: nextState.users,
+    players: nextState.players,
+  };
 }
 
 export async function loadAdminPanelState() {

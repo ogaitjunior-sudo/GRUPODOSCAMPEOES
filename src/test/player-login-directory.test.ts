@@ -1,12 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createInitialAdminPanelState } from "@/admin/context/adminSeed";
 
-const { loadAdminPanelStateMock, readCachedAdminPanelStateMock } = vi.hoisted(() => ({
+const { loadAdminPanelLoginDirectoryMock, loadAdminPanelStateMock, readCachedAdminPanelStateMock } = vi.hoisted(() => ({
+  loadAdminPanelLoginDirectoryMock: vi.fn(),
   loadAdminPanelStateMock: vi.fn(),
   readCachedAdminPanelStateMock: vi.fn(),
 }));
 
 vi.mock("@/lib/admin-panel-store", () => ({
+  loadAdminPanelLoginDirectory: loadAdminPanelLoginDirectoryMock,
   loadAdminPanelState: loadAdminPanelStateMock,
   readCachedAdminPanelState: readCachedAdminPanelStateMock,
   saveAdminPanelState: vi.fn(),
@@ -21,9 +23,11 @@ describe("player login directory", () => {
   beforeEach(() => {
     const emptyState = createInitialAdminPanelState();
 
+    loadAdminPanelLoginDirectoryMock.mockReset();
     loadAdminPanelStateMock.mockReset();
     readCachedAdminPanelStateMock.mockReset();
     readCachedAdminPanelStateMock.mockReturnValue(emptyState);
+    loadAdminPanelLoginDirectoryMock.mockResolvedValue(emptyState);
     loadAdminPanelStateMock.mockResolvedValue(emptyState);
   });
 
@@ -155,11 +159,11 @@ describe("player login directory", () => {
       },
     ];
 
-    loadAdminPanelStateMock.mockResolvedValue(remoteState);
+    loadAdminPanelLoginDirectoryMock.mockResolvedValue(remoteState);
 
     await expect(resolvePlayerLoginEmail("Hunter")).resolves.toEqual({
       email: "hunter@example.com",
     });
-    expect(loadAdminPanelStateMock).toHaveBeenCalledTimes(1);
+    expect(loadAdminPanelLoginDirectoryMock).toHaveBeenCalledTimes(1);
   });
 });

@@ -1,5 +1,6 @@
 import type { AdminPanelState } from "@/admin/types";
 import {
+  loadAdminPanelLoginDirectory,
   loadAdminPanelState,
   readCachedAdminPanelState,
   saveAdminPanelState,
@@ -18,6 +19,8 @@ interface SyncPlayerAccessPayload {
   createdAt?: string;
   lastLoginAt?: string;
 }
+
+type LoginDirectoryState = Pick<AdminPanelState, "users" | "players">;
 
 function createDirectoryId(prefix: string) {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
@@ -46,7 +49,7 @@ function isEmailIdentifier(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 }
 
-function collectMatchingEmails(identifier: string, state: AdminPanelState) {
+function collectMatchingEmails(identifier: string, state: LoginDirectoryState) {
   const normalizedIdentifier = normalizeDirectoryValue(identifier);
   const emails = new Set<string>();
 
@@ -85,7 +88,7 @@ function collectMatchingEmails(identifier: string, state: AdminPanelState) {
 
 export function resolvePlayerLoginEmailFromState(
   identifier: string,
-  state: AdminPanelState,
+  state: LoginDirectoryState,
 ): PlayerLoginResolution {
   const trimmedIdentifier = identifier.trim();
 
@@ -136,7 +139,7 @@ export async function resolvePlayerLoginEmail(identifier: string) {
     return cachedResolution;
   }
 
-  const state = await loadAdminPanelState();
+  const state = await loadAdminPanelLoginDirectory();
   return resolvePlayerLoginEmailFromState(trimmedIdentifier, state);
 }
 
