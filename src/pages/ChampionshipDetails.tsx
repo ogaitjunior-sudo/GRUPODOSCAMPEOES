@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   CalendarClock,
   CheckCircle2,
@@ -295,10 +295,14 @@ export function ChampionshipWorkspacePage({
   mode = "public",
 }: ChampionshipWorkspacePageProps) {
   const { championshipId } = useParams();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const isAdmin = mode === "admin";
+  const isParticipationAction = searchParams.get("acao") === "participar";
+  const shouldUseLightParticipationView = !isAdmin && isParticipationAction;
   const { displayName: adminDisplayName } = useAdminAuth();
   const {
+    isLoading: areChampionshipsLoading,
     getChampionshipById,
     generateChampionshipTable,
     reviewChampionshipRegistration,
@@ -334,7 +338,7 @@ export function ChampionshipWorkspacePage({
   const [isChallengeModalOpen, setIsChallengeModalOpen] = useState(false);
   const [isSubmittingChallenge, setIsSubmittingChallenge] = useState(false);
   const [isParticipationDialogOpen, setIsParticipationDialogOpen] = useState(
-    () => searchParams.get("acao") === "participar",
+    () => isParticipationAction,
   );
   const {
     challenges: friendlyChallenges,
@@ -372,6 +376,13 @@ export function ChampionshipWorkspacePage({
 
   useEffect(() => {
     if (!championship) {
+      setWorkspace(null);
+      setErrorMessage(null);
+      setIsLoading(false);
+      return;
+    }
+
+    if (shouldUseLightParticipationView) {
       setWorkspace(null);
       setErrorMessage(null);
       setIsLoading(false);
@@ -418,7 +429,7 @@ export function ChampionshipWorkspacePage({
     return () => {
       isActive = false;
     };
-  }, [championship, workspaceReloadToken]);
+  }, [championship, shouldUseLightParticipationView, workspaceReloadToken]);
 
   useEffect(() => {
     if (!workspace) {
@@ -439,8 +450,8 @@ export function ChampionshipWorkspacePage({
   }, [championship]);
 
   useEffect(() => {
-    setIsParticipationDialogOpen(searchParams.get("acao") === "participar");
-  }, [searchParams]);
+    setIsParticipationDialogOpen(isParticipationAction);
+  }, [isParticipationAction]);
 
   const openParticipationDialog = () => {
     const nextParams = new URLSearchParams(searchParams);
@@ -449,6 +460,11 @@ export function ChampionshipWorkspacePage({
   };
 
   const closeParticipationDialog = () => {
+    if (shouldUseLightParticipationView) {
+      navigate("/campeonatos", { replace: true });
+      return;
+    }
+
     const nextParams = new URLSearchParams(searchParams);
     nextParams.delete("acao");
     setSearchParams(nextParams, { replace: true });
@@ -1145,6 +1161,21 @@ export function ChampionshipWorkspacePage({
     return `RODADA ${selectedRoundNumber}`;
   }, [selectedGroupRounds, selectedPublicGroupEntry]);
 
+  if (championshipId && !championship && areChampionshipsLoading) {
+    return renderShell(
+      <section className="py-16">
+        <div className="container mx-auto px-4">
+          <EmptyStateCard
+            icon={Trophy}
+            title="Abrindo participacao"
+            description="Carregando os dados do campeonato para liberar o pedido de entrada."
+            className="mx-auto max-w-3xl"
+          />
+        </div>
+      </section>,
+    );
+  }
+
   if (!championshipId || !championship) {
     return renderShell(
         <section className="py-16">
@@ -1159,6 +1190,50 @@ export function ChampionshipWorkspacePage({
             />
           </div>
         </section>
+    );
+  }
+
+  if (shouldUseLightParticipationView) {
+    return renderShell(
+      <>
+        <section className="py-16">
+          <div className="container mx-auto px-4">
+            <div className="mx-auto max-w-3xl rounded-[30px] border border-white/10 bg-metallic-card p-6 shadow-[0_18px_45px_hsl(0_0%_0%_/_0.24)]">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <p className="font-heading text-xs uppercase tracking-[0.28em] text-primary">
+                    Entrada publica
+                  </p>
+                  <h1 className="mt-3 font-heading text-3xl font-black text-foreground">
+                    {championship.name}
+                  </h1>
+                </div>
+                <StatusBadge status={championship.status} />
+              </div>
+              <p className="mt-4 text-sm leading-7 text-muted-foreground">
+                Confirme seu pedido de participacao sem carregar a tabela completa do campeonato.
+              </p>
+              <Button
+                type="button"
+                onClick={() => setIsParticipationDialogOpen(true)}
+                className="mt-6 rounded-full bg-electric px-5 text-[11px] uppercase tracking-[0.18em] text-background hover:bg-electric/90"
+              >
+                Abrir participacao
+              </Button>
+            </div>
+          </div>
+        </section>
+        <ParticipationDialog
+          open={isParticipationDialogOpen}
+          championship={championship}
+          isPlayerAuthenticated={isPlayerAuthenticated}
+          registrationRequest={playerRegistrationRequest}
+          isSubmitting={isSubmittingParticipation}
+          playerName={loginName}
+          onSubmitRequest={handleSubmitParticipationRequest}
+          onClose={closeParticipationDialog}
+        />
+      </>,
     );
   }
 
