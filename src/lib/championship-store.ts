@@ -29,6 +29,8 @@ const CHAMPIONSHIP_WRITE_RETRY_DELAY_MS = 900;
 const CHAMPIONSHIP_AUTH_TIMEOUT_MS = 4_000;
 const CHAMPIONSHIP_REST_WRITE_TIMEOUT_MS = 20_000;
 const CHAMPIONSHIP_REST_READ_TIMEOUT_MS = 12_000;
+const CHAMPIONSHIP_REGISTRATION_REST_WRITE_TIMEOUT_MS = 8_000;
+const CHAMPIONSHIP_REGISTRATION_REST_READ_TIMEOUT_MS = 6_000;
 const CHAMPIONSHIP_SHARED_SUPABASE_REQUIRED_MESSAGE =
   "O painel de campeonatos esta em modo local nesta versao do app. Atualize o app publicado e conecte o Supabase para que todos vejam os campeonatos criados.";
 
@@ -222,11 +224,14 @@ async function parseSupabaseRestError(response: Response, fallback: string) {
   } satisfies Partial<PostgrestError>;
 }
 
-async function requestChampionshipsPublicRest(path: string) {
+async function requestChampionshipsPublicRest(
+  path: string,
+  timeoutMs = CHAMPIONSHIP_REST_READ_TIMEOUT_MS,
+) {
   const controller = new AbortController();
   const timeoutId = globalThis.setTimeout(() => {
     controller.abort();
-  }, CHAMPIONSHIP_REST_READ_TIMEOUT_MS);
+  }, timeoutMs);
 
   try {
     const response = await fetch(`${supabaseRestUrl}/rest/v1/${path}`, {
@@ -251,9 +256,13 @@ async function requestChampionshipsPublicRest(path: string) {
   }
 }
 
-async function readChampionshipByIdFromPublicRest(id: string) {
+async function readChampionshipByIdFromPublicRest(
+  id: string,
+  timeoutMs = CHAMPIONSHIP_REST_READ_TIMEOUT_MS,
+) {
   const rows = await requestChampionshipsPublicRest(
     `${CHAMPIONSHIPS_TABLE}?select=*&id=eq.${encodeURIComponent(id)}&limit=1`,
+    timeoutMs,
   );
   const row = rows[0];
 
@@ -336,13 +345,14 @@ async function requestChampionshipsRestWithAccessToken(
     method: "POST" | "PATCH" | "DELETE";
     body?: unknown;
     returnRepresentation?: boolean;
+    timeoutMs?: number;
   },
   accessToken: string,
 ) {
   const controller = new AbortController();
   const timeoutId = globalThis.setTimeout(() => {
     controller.abort();
-  }, CHAMPIONSHIP_REST_WRITE_TIMEOUT_MS);
+  }, options.timeoutMs ?? CHAMPIONSHIP_REST_WRITE_TIMEOUT_MS);
 
   try {
     const response = await fetch(`${supabaseRestUrl}/rest/v1/${path}`, {
@@ -380,6 +390,7 @@ async function requestChampionshipsRest(
     method: "POST" | "PATCH" | "DELETE";
     body?: unknown;
     returnRepresentation?: boolean;
+    timeoutMs?: number;
   },
 ) {
   return requestChampionshipsRestWithAccessToken(
@@ -697,7 +708,10 @@ export async function submitChampionshipRegistrationRecord(
   }
 
   const [freshRecord, playerAccessToken] = await Promise.all([
-    readChampionshipByIdFromPublicRest(currentRecord.id),
+    readChampionshipByIdFromPublicRest(
+      currentRecord.id,
+      CHAMPIONSHIP_REGISTRATION_REST_READ_TIMEOUT_MS,
+    ),
     getSupabasePlayerWriteAccessToken(),
   ]);
 
@@ -751,6 +765,7 @@ export async function submitChampionshipRegistrationRecord(
             updated_at: request.requestedAt,
           },
           returnRepresentation: true,
+          timeoutMs: CHAMPIONSHIP_REGISTRATION_REST_WRITE_TIMEOUT_MS,
         },
         playerAccessToken,
       ),
@@ -764,7 +779,7 @@ export async function submitChampionshipRegistrationRecord(
   }
 
   const writtenRecord = mapRowToRecord(rows[0] as ChampionshipRow);
-  return readChampionshipByIdFromPublicRest(writtenRecord.id);
+  return writtenRecord;
 }
 
 export async function deleteChampionshipRecord(id: string) {
