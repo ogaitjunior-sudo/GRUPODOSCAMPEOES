@@ -31,6 +31,7 @@ const CHAMPIONSHIP_REST_WRITE_TIMEOUT_MS = 20_000;
 const CHAMPIONSHIP_REST_READ_TIMEOUT_MS = 12_000;
 const CHAMPIONSHIP_REGISTRATION_REST_WRITE_TIMEOUT_MS = 8_000;
 const CHAMPIONSHIP_REGISTRATION_REST_READ_TIMEOUT_MS = 6_000;
+const CHAMPIONSHIP_REGISTRATION_RPC_TIMEOUT_MS = 8_000;
 const CHAMPIONSHIP_SHARED_SUPABASE_REQUIRED_MESSAGE =
   "O painel de campeonatos esta em modo local nesta versao do app. Atualize o app publicado e conecte o Supabase para que todos vejam os campeonatos criados.";
 
@@ -141,6 +142,18 @@ function isChampionshipTableUnavailable(error: unknown) {
     errorMessage.includes("could not find the table") ||
     errorMessage.includes("schema cache") ||
     errorMessage.includes("relation \"public.championships\" does not exist")
+  );
+}
+
+function isChampionshipRegistrationRpcUnavailable(error: unknown) {
+  const errorCode = getErrorCode(error);
+  const errorMessage = getErrorMessage(error).toLowerCase();
+
+  return (
+    errorCode === "42883" ||
+    errorCode === "PGRST202" ||
+    errorMessage.includes("could not find the function") ||
+    errorMessage.includes("submit_championship_registration")
   );
 }
 
@@ -398,6 +411,45 @@ async function requestChampionshipsRest(
     options,
     await getSupabaseWriteAccessToken(),
   );
+}
+
+async function submitChampionshipRegistrationWithRpc(
+  currentRecord: ChampionshipRecord,
+  request: ChampionshipRegistrationRequest,
+) {
+  if (!supabase) {
+    throw new Error(CHAMPIONSHIP_SHARED_SUPABASE_REQUIRED_MESSAGE);
+  }
+
+  const controller = new AbortController();
+  const timeoutId = globalThis.setTimeout(() => {
+    controller.abort();
+  }, CHAMPIONSHIP_REGISTRATION_RPC_TIMEOUT_MS);
+
+  try {
+    const { data, error } = await supabase
+      .rpc("submit_championship_registration", {
+        p_championship_id: currentRecord.id,
+        p_request_id: request.id,
+        p_player_id: request.playerId,
+        p_player_name: request.playerName,
+        p_player_email: request.playerEmail,
+        p_requested_at: request.requestedAt,
+      })
+      .abortSignal(controller.signal);
+
+    if (error) {
+      throw error;
+    }
+
+    if (!data) {
+      throw new Error("O Supabase nao retornou a inscricao salva.");
+    }
+
+    return mapRowToRecord(data as ChampionshipRow);
+  } finally {
+    globalThis.clearTimeout(timeoutId);
+  }
 }
 
 async function runSupabaseWriteWithRetry<T>(
@@ -705,6 +757,19 @@ export async function submitChampionshipRegistrationRecord(
 
   if (!isSupabaseConfigured) {
     throw new Error(CHAMPIONSHIP_SHARED_SUPABASE_REQUIRED_MESSAGE);
+  }
+
+  try {
+    return await submitChampionshipRegistrationWithRpc(currentRecord, request);
+  } catch (error) {
+    if (!isChampionshipRegistrationRpcUnavailable(error)) {
+      throw error;
+    }
+
+    console.warn(
+      "[championship-store] submit_championship_registration RPC unavailable, falling back to REST PATCH.",
+      error,
+    );
   }
 
   const [freshRecord, playerAccessToken] = await Promise.all([
