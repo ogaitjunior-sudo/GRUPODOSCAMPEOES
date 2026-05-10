@@ -32,6 +32,7 @@ const CHAMPIONSHIP_REST_READ_TIMEOUT_MS = 12_000;
 const CHAMPIONSHIP_REGISTRATION_REST_WRITE_TIMEOUT_MS = 8_000;
 const CHAMPIONSHIP_REGISTRATION_REST_READ_TIMEOUT_MS = 6_000;
 const CHAMPIONSHIP_REGISTRATION_RPC_TIMEOUT_MS = 8_000;
+const CHAMPIONSHIP_REGISTRATION_API_TIMEOUT_MS = 12_000;
 const CHAMPIONSHIP_SHARED_SUPABASE_REQUIRED_MESSAGE =
   "O painel de campeonatos esta em modo local nesta versao do app. Atualize o app publicado e conecte o Supabase para que todos vejam os campeonatos criados.";
 
@@ -154,6 +155,16 @@ function isChampionshipRegistrationRpcUnavailable(error: unknown) {
     errorCode === "PGRST202" ||
     errorMessage.includes("could not find the function") ||
     errorMessage.includes("submit_championship_registration")
+  );
+}
+
+function isChampionshipRegistrationServerApiUnavailable(error: unknown) {
+  const errorMessage = getErrorMessage(error).toLowerCase();
+
+  return (
+    errorMessage.includes("registration api unavailable") ||
+    errorMessage.includes("failed to parse registration api response") ||
+    errorMessage.includes("unexpected token '<'")
   );
 }
 
@@ -447,6 +458,82 @@ async function submitChampionshipRegistrationWithRpc(
     }
 
     return mapRowToRecord(data as ChampionshipRow);
+  } finally {
+    globalThis.clearTimeout(timeoutId);
+  }
+}
+
+async function submitChampionshipRegistrationWithServerApi(
+  currentRecord: ChampionshipRecord,
+  request: ChampionshipRegistrationRequest,
+) {
+  if (typeof window === "undefined") {
+    throw new Error("Registration API unavailable outside browser.");
+  }
+
+  const controller = new AbortController();
+  const timeoutId = globalThis.setTimeout(() => {
+    controller.abort();
+  }, CHAMPIONSHIP_REGISTRATION_API_TIMEOUT_MS);
+  const session = supabase
+    ? await withTimeout(
+        supabase.auth.getSession(),
+        CHAMPIONSHIP_AUTH_TIMEOUT_MS,
+        "Tempo limite ao validar a sessao do jogador no Supabase.",
+      ).catch(() => null)
+    : null;
+  const accessToken = session?.data.session?.access_token ?? "";
+
+  try {
+    const response = await fetch("/api/championship-registration", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        championshipId: currentRecord.id,
+        requestId: request.id,
+        playerId: request.playerId,
+        playerName: request.playerName,
+        playerEmail: request.playerEmail,
+        requestedAt: request.requestedAt,
+        accessToken,
+      }),
+      credentials: "same-origin",
+      signal: controller.signal,
+    });
+
+    let payload: unknown = null;
+
+    try {
+      payload = await response.json();
+    } catch (error) {
+      throw new Error("Failed to parse registration API response.");
+    }
+
+    const errorMessage =
+      payload && typeof payload === "object" && "error" in payload
+        ? (payload as { error?: unknown }).error
+        : null;
+
+    if (!response.ok) {
+      throw new Error(
+        typeof errorMessage === "string" && errorMessage.trim()
+          ? errorMessage
+          : `Registration API unavailable: ${response.status}`,
+      );
+    }
+
+    const championship =
+      payload && typeof payload === "object" && "championship" in payload
+        ? (payload as { championship?: unknown }).championship
+        : null;
+
+    if (!championship) {
+      throw new Error("O servidor nao retornou a participacao salva.");
+    }
+
+    return mapRowToRecord(championship as ChampionshipRow);
   } finally {
     globalThis.clearTimeout(timeoutId);
   }
@@ -760,14 +847,27 @@ export async function submitChampionshipRegistrationRecord(
   }
 
   try {
-    return await submitChampionshipRegistrationWithRpc(currentRecord, request);
+    return await submitChampionshipRegistrationWithServerApi(currentRecord, request);
   } catch (error) {
-    if (!isChampionshipRegistrationRpcUnavailable(error)) {
+    if (!isChampionshipRegistrationServerApiUnavailable(error) && !isSupabaseNetworkError(error)) {
       throw error;
     }
 
     console.warn(
-      "[championship-store] submit_championship_registration RPC unavailable, falling back to REST PATCH.",
+      "[championship-store] registration server API unavailable, falling back to Supabase RPC.",
+      error,
+    );
+  }
+
+  try {
+    return await submitChampionshipRegistrationWithRpc(currentRecord, request);
+  } catch (error) {
+    if (!isChampionshipRegistrationRpcUnavailable(error) && !isSupabaseNetworkError(error)) {
+      throw error;
+    }
+
+    console.warn(
+      "[championship-store] submit_championship_registration RPC unavailable or timed out, falling back to REST PATCH.",
       error,
     );
   }
