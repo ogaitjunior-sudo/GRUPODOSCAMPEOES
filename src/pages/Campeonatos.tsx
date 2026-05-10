@@ -7,7 +7,9 @@ import { PageShell } from "@/components/PageShell";
 import { StatusBadge } from "@/components/StatusBadge";
 import { useChampionships } from "@/contexts/ChampionshipContext";
 import {
+  formatChampionshipAvailableSlots,
   formatChampionshipDateRange,
+  getChampionshipAvailability,
   getChampionshipStatusLabel,
   getFormatOption,
 } from "@/lib/championships";
@@ -102,7 +104,10 @@ const Campeonatos = () => {
   const openCount = championships.filter((item) => item.status === "REGISTRATION").length;
   const liveCount = championships.filter((item) => item.status === "STARTED").length;
   const upcomingCount = championships.filter((item) => item.status === "DRAFT" || item.status === "READY").length;
-  const totalSlots = championships.reduce((total, item) => total + item.teamCount, 0);
+  const availableSlots = championships.reduce(
+    (total, item) => total + getChampionshipAvailability(item).available,
+    0,
+  );
 
   return (
     <PageShell>
@@ -139,9 +144,9 @@ const Campeonatos = () => {
                   tone: "text-electric",
                 },
                 {
-                  label: "Vagas previstas",
-                  value: totalSlots,
-                  helper: "Capacidade total publicada",
+                  label: "Vagas disponiveis",
+                  value: availableSlots,
+                  helper: "Livres agora no circuito",
                   icon: Users,
                   tone: "text-electric",
                 },
@@ -349,7 +354,10 @@ const Campeonatos = () => {
                               label="Calendario"
                               value={formatChampionshipDateRange(championship.startDate, championship.endDate)}
                             />
-                            <InfoChip label="Vagas" value={`${championship.teamCount} jogadores`} />
+                            <InfoChip
+                              label="Vagas disponiveis"
+                              value={formatChampionshipAvailableSlots(championship)}
+                            />
                           </div>
 
                           <div className="mt-6 flex flex-wrap gap-3">

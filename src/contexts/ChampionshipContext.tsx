@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import {
   createChampionshipRecord,
   deleteChampionshipRecord,
@@ -11,6 +11,7 @@ import {
   submitChampionshipRegistrationRecord,
   updateChampionshipRecord,
 } from "@/lib/championship-store";
+import { supabase } from "@/lib/supabase";
 import { useAdminAuth } from "@/contexts/AdminAuthContext";
 import {
   createChampionshipRegistrationId,
@@ -96,6 +97,7 @@ export function ChampionshipProvider({ children }: { children: ReactNode }) {
   );
   const [isLoading, setIsLoading] = useState(storageMode === "supabase");
   const [syncError, setSyncError] = useState<string | null>(null);
+  const backgroundRefreshInFlightRef = useRef(false);
 
   const ensureAdminAccess = () => {
     if (!isPrimaryAdmin) {
@@ -137,14 +139,20 @@ export function ChampionshipProvider({ children }: { children: ReactNode }) {
   };
 
   const refreshChampionshipsInBackground = () => {
-    if (storageMode !== "supabase") {
+    if (storageMode !== "supabase" || backgroundRefreshInFlightRef.current) {
       return;
     }
 
-    void syncChampionshipsFromSupabase().catch((error) => {
-      console.error("[championship-context] background refresh failed", error);
-      setSyncError(formatChampionshipStoreError(error));
-    });
+    backgroundRefreshInFlightRef.current = true;
+
+    void syncChampionshipsFromSupabase()
+      .catch((error) => {
+        console.error("[championship-context] background refresh failed", error);
+        setSyncError(formatChampionshipStoreError(error));
+      })
+      .finally(() => {
+        backgroundRefreshInFlightRef.current = false;
+      });
   };
 
   const refreshChampionships = async () => {
@@ -199,6 +207,51 @@ export function ChampionshipProvider({ children }: { children: ReactNode }) {
 
     return () => {
       isActive = false;
+    };
+  }, [storageMode]);
+
+  useEffect(() => {
+    if (storageMode !== "supabase" || typeof window === "undefined") {
+      return;
+    }
+
+    const refreshVisibleCatalog = () => {
+      if (typeof document !== "undefined" && document.visibilityState !== "visible") {
+        return;
+      }
+
+      refreshChampionshipsInBackground();
+    };
+
+    const intervalId = window.setInterval(refreshVisibleCatalog, 15_000);
+    window.addEventListener("focus", refreshVisibleCatalog);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", refreshVisibleCatalog);
+    };
+  }, [storageMode]);
+
+  useEffect(() => {
+    if (storageMode !== "supabase" || !supabase) {
+      return;
+    }
+
+    const channel = supabase
+      .channel("public-championships-live")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "championships" },
+        refreshChampionshipsInBackground,
+      )
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          refreshChampionshipsInBackground();
+        }
+      });
+
+    return () => {
+      void supabase.removeChannel(channel);
     };
   }, [storageMode]);
 

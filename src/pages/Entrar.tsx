@@ -18,6 +18,7 @@ interface LoginForm {
 }
 
 const DEFAULT_LOGIN_REDIRECT = "/perfil";
+const LOGIN_SUBMIT_TIMEOUT_MS = 15_000;
 
 function preloadAdminDashboard() {
   return import("@/admin/pages/AdminDashboardPage");
@@ -29,6 +30,36 @@ function normalizeRedirectTarget(value: string | null) {
   }
 
   return value;
+}
+
+function getLoginSubmitErrorMessage(error: unknown) {
+  if (error && typeof error === "object" && "message" in error) {
+    const message = (error as { message?: unknown }).message;
+
+    if (typeof message === "string" && message.trim()) {
+      return message.trim();
+    }
+  }
+
+  if (error instanceof Error && error.message.trim()) {
+    return error.message.trim();
+  }
+
+  return "Nao foi possivel validar o acesso agora. Verifique sua conexao e tente novamente.";
+}
+
+function withLoginSubmitTimeout<T>(promise: Promise<T>) {
+  return new Promise<T>((resolve, reject) => {
+    const timeoutId = globalThis.setTimeout(() => {
+      reject(new Error("Tempo limite ao validar o acesso. Verifique sua conexao e tente novamente."));
+    }, LOGIN_SUBMIT_TIMEOUT_MS);
+
+    promise
+      .then(resolve, reject)
+      .finally(() => {
+        globalThis.clearTimeout(timeoutId);
+      });
+  });
 }
 
 export default function Entrar() {
@@ -62,39 +93,44 @@ export default function Entrar() {
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setIsSubmitting(true);
+    setErrorMessage("");
 
     const normalizedIdentifier = form.identifier.trim();
 
-    if (normalizedIdentifier === ADMIN_USERNAME) {
-      void preloadAdminDashboard();
-      const adminResult = await loginAdmin(form.identifier, form.password);
+    try {
+      if (normalizedIdentifier === ADMIN_USERNAME) {
+        void preloadAdminDashboard();
+        const adminResult = await withLoginSubmitTimeout(
+          loginAdmin(form.identifier, form.password),
+        );
 
-      if (!adminResult.success) {
-        setErrorMessage(adminResult.message ?? "Usu\u00e1rio ou senha inv\u00e1lidos");
-        setIsSubmitting(false);
+        if (!adminResult.success) {
+          setErrorMessage(adminResult.message ?? "Usuario ou senha invalidos");
+          return;
+        }
+
+        navigate(ADMIN_DASHBOARD_ROUTE, { replace: true });
         return;
       }
 
+      const result = await withLoginSubmitTimeout(login(form.identifier, form.password));
+
+      if (!result.success) {
+        setErrorMessage(result.message ?? "Nao foi possivel entrar.");
+        return;
+      }
+
+      toast({
+        title: "Login liberado",
+        description: `Bem-vindo ao portal, ${result.playerName ?? loginName ?? form.identifier.trim()}.`,
+      });
+
+      navigate(redirectTo, { replace: true });
+    } catch (error) {
+      setErrorMessage(getLoginSubmitErrorMessage(error));
+    } finally {
       setIsSubmitting(false);
-      navigate(ADMIN_DASHBOARD_ROUTE, { replace: true });
-      return;
     }
-
-    const result = await login(form.identifier, form.password);
-
-    if (!result.success) {
-      setErrorMessage(result.message ?? "Não foi possível entrar.");
-      setIsSubmitting(false);
-      return;
-    }
-
-    toast({
-      title: "Login liberado",
-      description: `Bem-vindo ao portal, ${result.playerName ?? loginName ?? form.identifier.trim()}.`,
-    });
-
-    setIsSubmitting(false);
-    navigate(redirectTo, { replace: true });
   };
 
   return (

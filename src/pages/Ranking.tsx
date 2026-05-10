@@ -7,7 +7,10 @@ import { PageShell } from "@/components/PageShell";
 import { StatusBadge } from "@/components/StatusBadge";
 import { useChampionships } from "@/contexts/ChampionshipContext";
 import { champions } from "@/data/siteContent";
-import { formatChampionshipDateRange } from "@/lib/championships";
+import {
+  formatChampionshipAvailableSlots,
+  formatChampionshipDateRange,
+} from "@/lib/championships";
 import type { ChampionshipRecord } from "@/types/championship";
 
 type RankingView = "temporada" | "titulos" | "monitoramento";
@@ -186,8 +189,8 @@ const Ranking = () => {
                               )}
                             />
                             <SeasonInfoCard
-                              label="Vagas"
-                              value={`${championship.teamCount} jogadores`}
+                              label="Vagas disponiveis"
+                              value={formatChampionshipAvailableSlots(championship)}
                             />
                           </div>
                         </Link>

@@ -80,6 +80,7 @@ import {
 } from "@/lib/championship-workspace-store";
 import {
   buildChampionshipDescription,
+  formatChampionshipAvailableSlots,
   getChampionshipRegistrationByPlayer,
   getChampionshipRegistrationStatusLabel,
   buildChampionshipRules,
@@ -2294,7 +2295,10 @@ export function ChampionshipWorkspacePage({
                       label="Periodo"
                       value={formatChampionshipDateRange(championship.startDate, championship.endDate)}
                     />
-                    <InfoRow label="Times previstos" value={String(championship.teamCount)} />
+                    <InfoRow
+                      label="Vagas disponiveis"
+                      value={formatChampionshipAvailableSlots(championship)}
+                    />
                     <InfoRow label="Fase atual" value={workspace.bracket.state.replaceAll("-", " ")} />
                   </CardContent>
                 </Card>

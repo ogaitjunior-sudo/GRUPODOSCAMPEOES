@@ -75,6 +75,22 @@ interface PlayerAuthContextValue {
 
 const PlayerAuthContext = createContext<PlayerAuthContextValue | undefined>(undefined);
 const PLAYER_FALLBACK_SESSION_STORAGE_KEY = "gc_player_fallback_session";
+const PLAYER_LOGIN_DIRECTORY_TIMEOUT_MS = 8_000;
+const PLAYER_LOGIN_SUPABASE_TIMEOUT_MS = 12_000;
+
+function withPlayerAuthTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string) {
+  return new Promise<T>((resolve, reject) => {
+    const timeoutId = globalThis.setTimeout(() => {
+      reject(new Error(message));
+    }, timeoutMs);
+
+    promise
+      .then(resolve, reject)
+      .finally(() => {
+        globalThis.clearTimeout(timeoutId);
+      });
+  });
+}
 
 function normalizeAvatarUrl(value: unknown) {
   if (typeof value !== "string") {
@@ -397,31 +413,53 @@ export function PlayerAuthProvider({ children }: { children: ReactNode }) {
 
     if (!isExplicitEmailIdentifier) {
       try {
-        const resolution = await resolvePlayerLoginEmail(normalizedIdentifier);
+        const resolution = await withPlayerAuthTimeout(
+          resolvePlayerLoginEmail(normalizedIdentifier),
+          PLAYER_LOGIN_DIRECTORY_TIMEOUT_MS,
+          "Tempo limite ao validar o jogador. Tente entrar com o e-mail cadastrado.",
+        );
 
         if (!resolution.email) {
+          return {
+            success: false,
+            message:
+              resolution.error ??
+              "Nao foi possivel localizar esse jogador agora. Tente entrar com o e-mail.",
+          };
+        }
+
+        resolvedEmail = resolution.email;
+      } catch (error) {
         return {
           success: false,
           message:
-            resolution.error ??
-            "Não foi possível localizar esse jogador agora. Tente entrar com o e-mail.",
+            getAuthErrorMessage(error) ||
+            "Nao foi possivel validar o nome do jogador agora. Tente entrar com o e-mail.",
         };
       }
+    }
 
-        resolvedEmail = resolution.email;
-      } catch {
+    let authResponse;
+
+    try {
+      authResponse = await withPlayerAuthTimeout(
+        supabase.auth.signInWithPassword({
+          email: resolvedEmail,
+          password: normalizedPassword,
+        }),
+        PLAYER_LOGIN_SUPABASE_TIMEOUT_MS,
+        "Tempo limite ao entrar no Supabase. Verifique sua conexao e tente novamente.",
+      );
+    } catch (error) {
       return {
         success: false,
-        message: "Não foi possível validar o nome do jogador agora. Tente entrar com o e-mail.",
+        message:
+          getAuthErrorMessage(error) ||
+          "Nao foi possivel entrar agora. Verifique sua conexao e tente novamente.",
       };
     }
 
-    }
-
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: resolvedEmail,
-      password: normalizedPassword,
-    });
+    const { data, error } = authResponse;
 
     if (error) {
       return {

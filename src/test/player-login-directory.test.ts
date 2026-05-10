@@ -57,6 +57,28 @@ describe("player login directory", () => {
     });
   });
 
+  it("accepts underscore aliases for player names", () => {
+    const state = createInitialAdminPanelState();
+
+    state.users = [
+      {
+        id: "user-1",
+        name: "Xandy Godoy",
+        email: "xandy@example.com",
+        role: "player",
+        status: "active",
+        permissions: [],
+        createdAt: "2026-04-01T00:00:00.000Z",
+        lastLoginAt: "",
+        history: [],
+      },
+    ];
+
+    expect(resolvePlayerLoginEmailFromState("Xandy_godoy", state)).toEqual({
+      email: "xandy@example.com",
+    });
+  });
+
   it("asks for email when more than one account shares the same name", () => {
     const state = createInitialAdminPanelState();
 

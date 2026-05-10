@@ -33,6 +33,8 @@ function normalizeDirectoryValue(value: string) {
     .replace(/[\u0300-\u036f]/g, "")
     .trim()
     .replace(/^@+/, "")
+    .replace(/[_\-.]+/g, " ")
+    .replace(/\s+/g, " ")
     .toLocaleLowerCase("pt-BR");
 }
 

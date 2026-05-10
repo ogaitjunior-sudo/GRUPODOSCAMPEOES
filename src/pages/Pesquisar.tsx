@@ -19,6 +19,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { useChampionships } from "@/contexts/ChampionshipContext";
 import { champions } from "@/data/siteContent";
 import {
+  formatChampionshipAvailableSlots,
   formatChampionshipDateRange,
   getChampionshipStatusLabel,
   getFormatOption,
@@ -194,7 +195,7 @@ function ChampionshipDiscoveryCard({
           label="Calendario"
           value={formatChampionshipDateRange(item.startDate, item.endDate)}
         />
-        <DiscoveryInfo label="Vagas" value={`${item.teamCount} jogadores`} />
+        <DiscoveryInfo label="Vagas disponiveis" value={formatChampionshipAvailableSlots(item)} />
       </div>
 
       <div className="mt-6 flex flex-wrap gap-3">

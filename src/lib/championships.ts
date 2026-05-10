@@ -570,6 +570,44 @@ export function getChampionshipRegistrationByPlayer(
   );
 }
 
+export function getChampionshipAvailability(
+  championship: Pick<ChampionshipRecord, "teamCount" | "registrationRequests">,
+) {
+  const total = Math.max(0, Number(championship.teamCount) || 0);
+  const pending = championship.registrationRequests.filter(
+    (request) => request.status === "pending",
+  ).length;
+  const approved = championship.registrationRequests.filter(
+    (request) => request.status === "approved",
+  ).length;
+  const occupied = Math.min(total, pending + approved);
+  const available = Math.max(0, total - occupied);
+
+  return {
+    total,
+    pending,
+    approved,
+    occupied,
+    available,
+  };
+}
+
+export function formatChampionshipAvailableSlots(
+  championship: Pick<ChampionshipRecord, "teamCount" | "registrationRequests">,
+) {
+  const availability = getChampionshipAvailability(championship);
+
+  if (availability.total <= 0) {
+    return "Sem limite definido";
+  }
+
+  if (availability.available === 0) {
+    return `0/${availability.total} disponiveis`;
+  }
+
+  return `${availability.available}/${availability.total} disponiveis`;
+}
+
 export function getChampionshipRegistrationStatusLabel(status: ChampionshipRegistrationStatus) {
   if (status === "approved") {
     return "Aprovado";
