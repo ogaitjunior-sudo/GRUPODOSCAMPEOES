@@ -101,6 +101,10 @@ function getLocalWorkspace(championshipId: string) {
 }
 
 export function readStoredChampionshipWorkspaceRecord(championship: ChampionshipRecord) {
+  if (!isChampionshipWorkspaceStoreTestMode && isSupabaseConfigured) {
+    return null;
+  }
+
   const localWorkspace = getLocalWorkspace(championship.id);
 
   if (!localWorkspace) {
@@ -177,21 +181,6 @@ function shouldFallbackToLocal(error: unknown) {
   return isWorkspaceTableUnavailable(error) || errorCode === "42501" || isSupabaseNetworkError(error);
 }
 
-function pickNewestRecord(
-  left: ChampionshipWorkspaceRecord | undefined,
-  right: ChampionshipWorkspaceRecord | undefined,
-) {
-  if (!left) {
-    return right;
-  }
-
-  if (!right) {
-    return left;
-  }
-
-  return new Date(left.updatedAt).getTime() >= new Date(right.updatedAt).getTime() ? left : right;
-}
-
 export async function loadChampionshipWorkspaceRecord(championship: ChampionshipRecord) {
   const localWorkspace = getLocalWorkspace(championship.id);
 
@@ -229,10 +218,17 @@ export async function loadChampionshipWorkspaceRecord(championship: Championship
     throw error;
   }
 
-  const remoteWorkspace = data ? mapRowToRecord(data as ChampionshipWorkspaceRow) : undefined;
-  const mergedWorkspace = pickNewestRecord(localWorkspace, remoteWorkspace);
+  if (!data) {
+    return normalizeChampionshipWorkspace(undefined, championship);
+  }
 
-  return normalizeChampionshipWorkspace(mergedWorkspace, championship);
+  const remoteWorkspace = normalizeChampionshipWorkspace(
+    mapRowToRecord(data as ChampionshipWorkspaceRow),
+    championship,
+  );
+  persistWorkspaceLocally(remoteWorkspace);
+
+  return remoteWorkspace;
 }
 
 export async function saveChampionshipWorkspaceRecord(
