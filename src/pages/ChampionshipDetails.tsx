@@ -56,8 +56,8 @@ import {
   readStoredPlayerTeamPhoto,
 } from "@/lib/player-profile-store";
 import {
-  addParticipantToChampionshipWorkspace,
   hasChampionshipTable,
+  syncApprovedParticipantsToChampionshipWorkspace,
   validateChampionshipTableGeneration,
 } from "@/lib/championship-table";
 import {
@@ -472,8 +472,14 @@ export function ChampionshipWorkspacePage({
           return;
         }
 
+        const syncedWorkspace = syncApprovedParticipantsToChampionshipWorkspace(
+          nextWorkspace,
+          championship,
+          championship.registrationRequests,
+        );
+
         workspaceChampionshipIdRef.current = championship.id;
-        setWorkspace(nextWorkspace);
+        setWorkspace(syncedWorkspace);
         setErrorMessage(null);
       } catch (error) {
         if (!isActive) {
@@ -664,15 +670,11 @@ export function ChampionshipWorkspacePage({
             return currentWorkspace;
           }
 
-          try {
-            return addParticipantToChampionshipWorkspace(
-              currentWorkspace,
-              updatedChampionship,
-              request,
-            );
-          } catch {
-            return currentWorkspace;
-          }
+          return syncApprovedParticipantsToChampionshipWorkspace(
+            currentWorkspace,
+            updatedChampionship,
+            updatedChampionship.registrationRequests,
+          );
         });
         setErrorMessage(null);
       }

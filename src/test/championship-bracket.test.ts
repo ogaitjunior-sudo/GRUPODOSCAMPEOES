@@ -4,7 +4,10 @@ import {
   createDefaultChampionshipWorkspace,
   updateGroupMatch,
 } from "@/lib/championship-runtime";
-import { generateChampionshipTable } from "@/lib/championship-table";
+import {
+  generateChampionshipTable,
+  syncApprovedParticipantsToChampionshipWorkspace,
+} from "@/lib/championship-table";
 import { createDefaultChampionshipConfiguration } from "@/lib/championships";
 import type { ChampionshipRecord } from "@/types/championship";
 import type { ChampionshipGroupMatch } from "@/types/championship-runtime";
@@ -152,6 +155,52 @@ describe("championship bracket", () => {
     expect(workspace.groups).toHaveLength(0);
     expect(workspace.bracket.matches).toHaveLength(1);
     expect(workspace.bracket.matches[0].stageKey).toBe("final");
+  });
+
+  it("rebuilds workspace participants from approved requests before generating a started table", () => {
+    const championship = createChampionship({
+      status: "STARTED",
+      configuration: {
+        ...createDefaultChampionshipConfiguration(),
+        format: "knockout",
+        groupCount: 0,
+        hasFinalStage: true,
+        knockoutSetupMode: "automatic",
+      },
+      registrationRequests: [
+        {
+          id: "request-1",
+          playerId: "player-1",
+          playerName: "Alpha",
+          playerEmail: "alpha@example.com",
+          status: "approved",
+          requestedAt: "2026-04-01T00:00:00.000Z",
+          reviewedAt: "2026-04-01T00:10:00.000Z",
+          reviewedBy: "Admin",
+        },
+        {
+          id: "request-2",
+          playerId: "player-2",
+          playerName: "Bravo",
+          playerEmail: "bravo@example.com",
+          status: "approved",
+          requestedAt: "2026-04-01T00:00:00.000Z",
+          reviewedAt: "2026-04-01T00:10:00.000Z",
+          reviewedBy: "Admin",
+        },
+      ],
+    });
+    const syncedWorkspace = syncApprovedParticipantsToChampionshipWorkspace(
+      createDefaultChampionshipWorkspace(championship),
+      championship,
+      championship.registrationRequests,
+    );
+
+    expect(syncedWorkspace.teams).toHaveLength(2);
+
+    const generatedWorkspace = generateChampionshipTable(syncedWorkspace, championship);
+
+    expect(generatedWorkspace.bracket.matches).toHaveLength(1);
   });
 
   it("generates the semifinal cross between two groups", () => {

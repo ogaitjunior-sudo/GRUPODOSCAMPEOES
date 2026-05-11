@@ -19,10 +19,10 @@ import {
   sortChampionships,
 } from "@/lib/championships";
 import {
-  addParticipantToChampionshipWorkspace,
   generateChampionshipTable as buildChampionshipTable,
   getChampionshipMaxTeams,
   getChampionshipParticipantStatus,
+  syncApprovedParticipantsToChampionshipWorkspace,
 } from "@/lib/championship-table";
 import {
   loadChampionshipWorkspaceRecord,
@@ -66,29 +66,6 @@ interface ChampionshipContextValue {
 
 const ChampionshipContext = createContext<ChampionshipContextValue | undefined>(undefined);
 const canUseLocalChampionshipWrites = import.meta.env.MODE === "test";
-
-function syncApprovedRequestsToWorkspace(
-  workspace: ChampionshipWorkspaceRecord,
-  championship: ChampionshipRecord,
-  registrationRequests: ChampionshipRecord["registrationRequests"],
-) {
-  return registrationRequests
-    .filter((request) => request.status === "approved")
-    .reduce((nextWorkspace, request) => {
-      const normalizedEmail = request.playerEmail.trim().toLowerCase();
-      const isAlreadyParticipant = nextWorkspace.teams.some(
-        (team) =>
-          team.playerId === request.playerId ||
-          (normalizedEmail && team.playerEmail?.trim().toLowerCase() === normalizedEmail),
-      );
-
-      if (isAlreadyParticipant) {
-        return nextWorkspace;
-      }
-
-      return addParticipantToChampionshipWorkspace(nextWorkspace, championship, request);
-    }, workspace);
-}
 
 export function ChampionshipProvider({ children }: { children: ReactNode }) {
   const { isPrimaryAdmin } = useAdminAuth();
@@ -409,13 +386,8 @@ export function ChampionshipProvider({ children }: { children: ReactNode }) {
 
       if (status === "approved") {
         const currentWorkspace = await loadChampionshipWorkspaceRecord(championship);
-        const workspaceWithReviewedParticipant = addParticipantToChampionshipWorkspace(
+        nextWorkspace = syncApprovedParticipantsToChampionshipWorkspace(
           currentWorkspace,
-          championship,
-          reviewedRequest,
-        );
-        nextWorkspace = syncApprovedRequestsToWorkspace(
-          workspaceWithReviewedParticipant,
           championship,
           nextRegistrationRequests,
         );
@@ -453,7 +425,11 @@ export function ChampionshipProvider({ children }: { children: ReactNode }) {
       throw new Error("Campeonato nao encontrado.");
     }
 
-    const workspace = await loadChampionshipWorkspaceRecord(championship);
+    const workspace = syncApprovedParticipantsToChampionshipWorkspace(
+      await loadChampionshipWorkspaceRecord(championship),
+      championship,
+      championship.registrationRequests,
+    );
     const nextWorkspace = buildChampionshipTable(workspace, championship);
     const timestamp = new Date().toISOString();
     const nextChampionship = await saveChampionshipRecord({

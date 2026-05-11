@@ -129,6 +129,56 @@ export function addParticipantToChampionshipWorkspace(
   );
 }
 
+export function syncApprovedParticipantsToChampionshipWorkspace(
+  workspace: ChampionshipWorkspaceRecord,
+  championship: ChampionshipRecord,
+  registrationRequests: ChampionshipRegistrationRequest[],
+) {
+  const maxTeams = getChampionshipMaxTeams(championship);
+
+  return registrationRequests
+    .filter((request) => request.status === "approved")
+    .reduce((nextWorkspace, request) => {
+      const normalizedEmail = request.playerEmail.trim().toLowerCase();
+      const normalizedName = request.playerName.trim().toLowerCase();
+      const isAlreadyParticipant = nextWorkspace.teams.some(
+        (team) =>
+          team.playerId === request.playerId ||
+          (normalizedEmail && team.playerEmail?.trim().toLowerCase() === normalizedEmail) ||
+          (normalizedName && team.name.trim().toLowerCase() === normalizedName),
+      );
+
+      if (isAlreadyParticipant || nextWorkspace.teams.length >= maxTeams) {
+        return nextWorkspace;
+      }
+
+      const nextSeed =
+        nextWorkspace.teams.reduce((highestSeed, team) => Math.max(highestSeed, team.seed), 0) + 1;
+      const captainName = request.playerName.trim() || null;
+      const nextTeam: ChampionshipTeam = {
+        id: createRuntimeId("team"),
+        name: captainName ?? `Participante ${nextSeed}`,
+        playerId: request.playerId,
+        playerEmail: normalizedEmail || null,
+        seed: nextSeed,
+        groupId: null,
+        pointsAdjustment: 0,
+        flagUrl: null,
+        captainName,
+        roster: captainName ? [captainName] : [],
+      };
+
+      return normalizeChampionshipWorkspace(
+        {
+          ...nextWorkspace,
+          teams: [...nextWorkspace.teams, nextTeam],
+          updatedAt: nowIso(),
+        },
+        championship,
+      );
+    }, normalizeChampionshipWorkspace(workspace, championship));
+}
+
 export function validateChampionshipTableGeneration(
   workspace: ChampionshipWorkspaceRecord,
   championship: ChampionshipRecord,
@@ -141,8 +191,12 @@ export function validateChampionshipTableGeneration(
     return "A tabela deste campeonato ja foi criada.";
   }
 
-  if (championship.status !== "READY" && championship.status !== "REGISTRATION") {
-    return "A tabela so pode ser gerada durante inscricao ou quando o campeonato estiver pronto.";
+  if (
+    championship.status !== "READY" &&
+    championship.status !== "REGISTRATION" &&
+    championship.status !== "STARTED"
+  ) {
+    return "A tabela so pode ser gerada durante inscricao, quando o campeonato estiver pronto ou em andamento sem tabela.";
   }
 
   if (participantCount < minimumTeams) {
