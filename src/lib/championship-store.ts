@@ -712,6 +712,29 @@ export async function listChampionships() {
   }
 }
 
+export async function readChampionshipById(id: string, timeoutMs = CHAMPIONSHIP_REGISTRATION_REST_READ_TIMEOUT_MS) {
+  if (isChampionshipStoreTestMode) {
+    const record = readStoredChampionships().find((item) => item.id === id);
+
+    if (!record) {
+      throw new Error("Campeonato nao encontrado.");
+    }
+
+    return record;
+  }
+
+  if (!isSupabaseConfigured) {
+    throw new Error(CHAMPIONSHIP_SHARED_SUPABASE_REQUIRED_MESSAGE);
+  }
+
+  try {
+    return await readChampionshipByIdFromPublicRest(id, timeoutMs);
+  } catch (error) {
+    logChampionshipStoreError("readChampionshipById failed", error);
+    throw error;
+  }
+}
+
 export async function createChampionshipRecord(values: ChampionshipFormValues) {
   const normalizedValues = normalizeChampionshipFormValues(values);
   const timestamp = new Date().toISOString();

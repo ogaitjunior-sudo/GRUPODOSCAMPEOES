@@ -88,6 +88,10 @@ import {
   getChampionshipStatusLabel,
   getFormatOption,
 } from "@/lib/championships";
+import {
+  formatChampionshipStoreError,
+  readChampionshipById,
+} from "@/lib/championship-store";
 import { toast } from "@/hooks/use-toast";
 import { useAdminAuth } from "@/contexts/AdminAuthContext";
 import { useChampionships } from "@/contexts/ChampionshipContext";
@@ -317,7 +321,11 @@ export function ChampionshipWorkspacePage({
     playerEmail,
     session: playerSession,
   } = usePlayerAuth();
-  const championship = championshipId ? getChampionshipById(championshipId) : undefined;
+  const contextChampionship = championshipId ? getChampionshipById(championshipId) : undefined;
+  const [directChampionship, setDirectChampionship] = useState<ChampionshipRecord | null>(null);
+  const [isDirectChampionshipLoading, setIsDirectChampionshipLoading] = useState(false);
+  const [directChampionshipError, setDirectChampionshipError] = useState<string | null>(null);
+  const championship = contextChampionship ?? directChampionship ?? undefined;
   const initialCachedWorkspace = championship ? readStoredChampionshipWorkspaceRecord(championship) : null;
   const [workspace, setWorkspace] = useState<ChampionshipWorkspaceRecord | null>(initialCachedWorkspace);
   const [isLoading, setIsLoading] = useState(Boolean(championship && !initialCachedWorkspace));
@@ -375,6 +383,54 @@ export function ChampionshipWorkspacePage({
       championship?.registrationRequests.filter((request) => request.status === "approved") ?? [],
     [championship],
   );
+
+  useEffect(() => {
+    if (!shouldUseLightParticipationView || !championshipId) {
+      setDirectChampionship(null);
+      setDirectChampionshipError(null);
+      setIsDirectChampionshipLoading(false);
+      return;
+    }
+
+    if (contextChampionship) {
+      setDirectChampionship(null);
+      setDirectChampionshipError(null);
+      setIsDirectChampionshipLoading(false);
+      return;
+    }
+
+    let isActive = true;
+
+    setIsDirectChampionshipLoading(true);
+    setDirectChampionshipError(null);
+
+    void readChampionshipById(championshipId)
+      .then((record) => {
+        if (!isActive) {
+          return;
+        }
+
+        setDirectChampionship(record);
+        setDirectChampionshipError(null);
+      })
+      .catch((error) => {
+        if (!isActive) {
+          return;
+        }
+
+        setDirectChampionship(null);
+        setDirectChampionshipError(formatChampionshipStoreError(error));
+      })
+      .finally(() => {
+        if (isActive) {
+          setIsDirectChampionshipLoading(false);
+        }
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [championshipId, contextChampionship?.id, shouldUseLightParticipationView, workspaceReloadToken]);
 
   useEffect(() => {
     if (!championship) {
@@ -1187,7 +1243,11 @@ export function ChampionshipWorkspacePage({
     return `RODADA ${selectedRoundNumber}`;
   }, [selectedGroupRounds, selectedPublicGroupEntry]);
 
-  if (championshipId && !championship && areChampionshipsLoading) {
+  if (
+    championshipId &&
+    !championship &&
+    (areChampionshipsLoading || (shouldUseLightParticipationView && isDirectChampionshipLoading))
+  ) {
     return renderShell(
       <section className="py-16">
         <div className="container mx-auto px-4">
@@ -1195,6 +1255,29 @@ export function ChampionshipWorkspacePage({
             icon={Trophy}
             title="Abrindo participacao"
             description="Carregando os dados do campeonato para liberar o pedido de entrada."
+            className="mx-auto max-w-3xl"
+          />
+        </div>
+      </section>,
+    );
+  }
+
+  if (
+    shouldUseLightParticipationView &&
+    championshipId &&
+    !championship &&
+    directChampionshipError &&
+    !isDirectChampionshipLoading
+  ) {
+    return renderShell(
+      <section className="py-16">
+        <div className="container mx-auto px-4">
+          <EmptyStateCard
+            icon={ShieldAlert}
+            title="Nao foi possivel abrir participacao"
+            description={directChampionshipError}
+            actionLabel="Tentar novamente"
+            actionOnClick={() => setWorkspaceReloadToken((current) => current + 1)}
             className="mx-auto max-w-3xl"
           />
         </div>

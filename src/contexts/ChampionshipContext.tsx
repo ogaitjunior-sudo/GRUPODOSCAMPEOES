@@ -5,6 +5,7 @@ import {
   formatChampionshipStoreError,
   getChampionshipStorageMode,
   listChampionships,
+  readChampionshipById,
   readStoredChampionships,
   saveChampionshipRegistrationReviewRecord,
   saveChampionshipRecord,
@@ -301,7 +302,17 @@ export function ChampionshipProvider({ children }: { children: ReactNode }) {
     playerName: string;
     playerEmail: string;
   }) => {
-    const championship = getChampionshipById(championshipId);
+    let championship = getChampionshipById(championshipId);
+
+    if (!championship && storageMode === "supabase") {
+      try {
+        championship = await readChampionshipById(championshipId);
+        commitChampionship(championship);
+      } catch (error) {
+        console.error("[championship-context] submitChampionshipRegistration direct load failed", error);
+        throw new Error(formatChampionshipStoreError(error));
+      }
+    }
 
     if (!championship) {
       throw new Error("Campeonato nao encontrado.");
