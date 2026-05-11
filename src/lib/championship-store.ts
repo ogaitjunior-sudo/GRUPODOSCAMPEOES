@@ -727,9 +727,14 @@ export async function updateChampionshipRecord(
   currentRecord: ChampionshipRecord,
   values: ChampionshipFormValues,
 ) {
+  const latestRecord =
+    !isChampionshipStoreTestMode && isSupabaseConfigured
+      ? await readChampionshipByIdFromPublicRest(currentRecord.id)
+      : currentRecord;
   const updatedRecord: ChampionshipRecord = {
-    ...currentRecord,
+    ...latestRecord,
     ...normalizeChampionshipFormValues(values),
+    registrationRequests: latestRecord.registrationRequests,
     updatedAt: new Date().toISOString(),
   };
 
