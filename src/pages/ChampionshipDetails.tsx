@@ -850,6 +850,8 @@ export function ChampionshipWorkspacePage({
       : isCrossBracketFormat
         ? "Chaves"
         : "Grupos";
+  const defaultChampionshipTab =
+    isKnockoutOnlyFormat && tableAlreadyGenerated ? "finals" : "groups";
   const participantsCardTitle = isKnockoutOnlyFormat
     ? "Participantes do mata-mata"
     : isLeagueFormat
@@ -1471,7 +1473,7 @@ export function ChampionshipWorkspacePage({
             </div>
           ) : null}
 
-            <Tabs defaultValue="groups" className="w-full">
+            <Tabs defaultValue={defaultChampionshipTab} className="w-full">
             {isAdmin ? (
               <TabsList className="h-auto w-full flex-wrap justify-start gap-0 rounded-none border-b border-border/70 bg-transparent p-0">
                 <TabsTrigger value="groups" className="rounded-none border-b-2 border-transparent px-4 py-3 text-sm data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground">
@@ -1511,7 +1513,7 @@ export function ChampionshipWorkspacePage({
                 tabs={
                   <TabsList className="h-auto w-full flex-wrap justify-start gap-1 rounded-none border-b border-white/8 bg-transparent p-0">
                     <TabsTrigger value="groups" className="rounded-none border-b-2 border-transparent px-4 py-3 text-sm font-medium text-slate-400 data-[state=active]:border-electric data-[state=active]:bg-transparent data-[state=active]:text-slate-50">
-                      Grupos
+                      {classificationTabLabel}
                     </TabsTrigger>
                     <TabsTrigger value="finals" className="rounded-none border-b-2 border-transparent px-4 py-3 text-sm font-medium text-slate-400 data-[state=active]:border-electric data-[state=active]:bg-transparent data-[state=active]:text-slate-50">
                       Finais
