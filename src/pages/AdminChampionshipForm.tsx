@@ -189,20 +189,23 @@ function validateStep(step: StepId, form: ChampionshipFormValues) {
 
 export default function AdminChampionshipForm() {
   const { championshipId } = useParams();
+  const isEditing = Boolean(championshipId);
   const {
     createChampionship,
     getChampionshipById,
     isLoading,
+    refreshChampionships,
     storageMode,
     syncError,
     updateChampionship,
   } = useChampionships();
   const [form, setForm] = useState<ChampionshipFormValues>(initialFormValues);
-  const [stepIndex, setStepIndex] = useState(0);
+  const [stepIndex, setStepIndex] = useState(() => (isEditing ? steps.length - 1 : 0));
   const [errorMessage, setErrorMessage] = useState("");
+  const [hasRetriedEditLoad, setHasRetriedEditLoad] = useState(false);
+  const [isResolvingEditRecord, setIsResolvingEditRecord] = useState(false);
   const [submitPhase, setSubmitPhase] = useState<SubmitPhase>("idle");
 
-  const isEditing = Boolean(championshipId);
   const existingChampionship = championshipId ? getChampionshipById(championshipId) : undefined;
   const currentStep = steps[stepIndex];
   const isLastStep = stepIndex === steps.length - 1;
@@ -252,6 +255,45 @@ export default function AdminChampionshipForm() {
       configuration: normalizeChampionshipConfiguration(existingChampionship.configuration),
     });
   }, [existingChampionship]);
+
+  useEffect(() => {
+    setStepIndex(isEditing ? steps.length - 1 : 0);
+    setHasRetriedEditLoad(false);
+    setIsResolvingEditRecord(false);
+  }, [championshipId, isEditing]);
+
+  useEffect(() => {
+    if (
+      !isEditing ||
+      !championshipId ||
+      existingChampionship ||
+      isLoading ||
+      hasRetriedEditLoad
+    ) {
+      return;
+    }
+
+    let isActive = true;
+    setHasRetriedEditLoad(true);
+    setIsResolvingEditRecord(true);
+
+    void refreshChampionships().finally(() => {
+      if (isActive) {
+        setIsResolvingEditRecord(false);
+      }
+    });
+
+    return () => {
+      isActive = false;
+    };
+  }, [
+    championshipId,
+    existingChampionship,
+    hasRetriedEditLoad,
+    isEditing,
+    isLoading,
+    refreshChampionships,
+  ]);
 
   const updateField =
     (field: keyof ChampionshipFormValues) =>
@@ -350,12 +392,16 @@ export default function AdminChampionshipForm() {
     }
   };
 
-  if (isEditing && isLoading) {
+  if (
+    isEditing &&
+    !existingChampionship &&
+    (isLoading || isResolvingEditRecord || !hasRetriedEditLoad)
+  ) {
     return (
       <EmptyStateCard
         icon={Trophy}
         title="Carregando campeonato"
-        description="Buscando dados para liberar a edicao."
+        description="Buscando dados atualizados para liberar a edicao do calendario."
         className="mx-auto max-w-3xl"
       />
     );
