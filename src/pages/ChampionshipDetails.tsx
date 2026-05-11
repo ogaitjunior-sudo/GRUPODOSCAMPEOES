@@ -835,9 +835,10 @@ export function ChampionshipWorkspacePage({
   const tableAlreadyGenerated = workspace ? hasChampionshipTable(workspace) : false;
   const tableGenerationValidationMessage =
     workspace && championship ? validateChampionshipTableGeneration(workspace, championship) : null;
+  const championshipTeamCount = championship?.teamCount ?? workspace?.teams.length ?? 0;
   const participantsProgressLabel = workspace
-    ? `${workspace.teams.length}/${championship.teamCount}`
-    : `0/${championship.teamCount}`;
+    ? `${workspace.teams.length}/${championshipTeamCount}`
+    : `0/${championshipTeamCount}`;
   const championshipFormat = championship?.configuration.format ?? "groups-knockout";
   const isLeagueFormat =
     championshipFormat === "points-league" || championshipFormat === "points-league-knockout";
@@ -865,7 +866,7 @@ export function ChampionshipWorkspacePage({
       ? "Renomeie as equipes, acompanhe a tabela geral e navegue rodada por rodada."
       : "Renomeie as equipes, acompanhe a classificacao por grupo e edite os resultados por rodada.";
   const backPath = isAdmin ? "/admin/campeonatos" : "/campeonatos";
-  const canOpenRegistration = championship.status === "REGISTRATION";
+  const canOpenRegistration = championship?.status === "REGISTRATION";
   const renderShell = (content: ReactNode) =>
     isAdmin ? <>{content}</> : <PageShell>{content}</PageShell>;
 
