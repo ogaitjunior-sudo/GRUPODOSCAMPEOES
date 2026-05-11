@@ -104,6 +104,25 @@ function createWorkspace(championship: ChampionshipRecord) {
   return nextWorkspace;
 }
 
+function createTeams(count: number) {
+  return Array.from({ length: count }, (_, index) => {
+    const seed = index + 1;
+
+    return {
+      id: `team-${seed}`,
+      name: `Time ${seed}`,
+      playerId: null,
+      playerEmail: null,
+      groupId: null,
+      seed,
+      pointsAdjustment: 0,
+      flagUrl: null,
+      captainName: null,
+      roster: [],
+    };
+  });
+}
+
 describe("championship bracket", () => {
   it("does not create table data before table generation", () => {
     const championship = createChampionship();
@@ -201,6 +220,74 @@ describe("championship bracket", () => {
     const generatedWorkspace = generateChampionshipTable(syncedWorkspace, championship);
 
     expect(generatedWorkspace.bracket.matches).toHaveLength(1);
+  });
+
+  it("pairs ten knockout participants into five real opening matches", () => {
+    const championship = createChampionship({
+      teamCount: 10,
+      configuration: {
+        ...createDefaultChampionshipConfiguration(),
+        format: "knockout",
+        groupCount: 0,
+        hasFinalStage: true,
+        knockoutSetupMode: "automatic",
+        thirdPlaceMatch: false,
+      },
+    });
+    const workspace = generateChampionshipTable(
+      {
+        ...createDefaultChampionshipWorkspace(championship),
+        teams: createTeams(10),
+      },
+      championship,
+    );
+    const openingMatches = workspace.bracket.matches.filter((match) => match.roundOrder === 1);
+
+    expect(openingMatches).toHaveLength(5);
+    expect(openingMatches.every((match) => match.homeTeamId && match.awayTeamId)).toBe(true);
+    expect(openingMatches.map((match) => [match.homeTeamId, match.awayTeamId])).toEqual([
+      ["team-1", "team-10"],
+      ["team-2", "team-9"],
+      ["team-3", "team-8"],
+      ["team-4", "team-7"],
+      ["team-5", "team-6"],
+    ]);
+  });
+
+  it("advances five winners from the first knockout round with ten participants", () => {
+    const championship = createChampionship({
+      teamCount: 10,
+      configuration: {
+        ...createDefaultChampionshipConfiguration(),
+        format: "knockout",
+        groupCount: 0,
+        hasFinalStage: true,
+        knockoutSetupMode: "automatic",
+        thirdPlaceMatch: false,
+      },
+    });
+    let workspace = generateChampionshipTable(
+      {
+        ...createDefaultChampionshipWorkspace(championship),
+        teams: createTeams(10),
+      },
+      championship,
+    );
+    const openingMatches = workspace.bracket.matches.filter((match) => match.roundOrder === 1);
+
+    openingMatches.forEach((match) => {
+      workspace = updateBracketMatch(workspace, championship, match.id, {
+        scoreHome: 1,
+        scoreAway: 0,
+        resolution: "normal",
+      });
+    });
+
+    const openingWinners = workspace.bracket.matches
+      .filter((match) => match.roundOrder === 1)
+      .map((match) => match.winnerTeamId);
+
+    expect(openingWinners).toEqual(["team-1", "team-2", "team-3", "team-4", "team-5"]);
   });
 
   it("generates the semifinal cross between two groups", () => {

@@ -26,25 +26,15 @@ function getStageKeyFromMatchCount(matchCount: number): BracketStageKey {
     return "final";
   }
 
-  if (matchCount === 2) {
+  if (matchCount <= 2) {
     return "semifinal";
   }
 
-  if (matchCount === 4) {
+  if (matchCount <= 4) {
     return "quarterfinal";
   }
 
   return "round-of-16";
-}
-
-function nextPowerOfTwo(value: number) {
-  let size = 1;
-
-  while (size < value) {
-    size *= 2;
-  }
-
-  return size;
 }
 
 function ensureUniqueTeamIds(teamIds: Array<string | null>) {
@@ -65,10 +55,22 @@ function ensureUniqueTeamIds(teamIds: Array<string | null>) {
   return true;
 }
 
-function buildSeededPairs<T>(items: Array<T | null>) {
-  const halfSize = items.length / 2;
+function buildDirectSeededPairs<T>(items: T[]) {
+  const pairs: Array<readonly [T | null, T | null]> = [];
+  let leftIndex = 0;
+  let rightIndex = items.length - 1;
 
-  return Array.from({ length: halfSize }, (_, index) => [items[index], items[items.length - 1 - index]] as const);
+  while (leftIndex < rightIndex) {
+    pairs.push([items[leftIndex], items[rightIndex]]);
+    leftIndex += 1;
+    rightIndex -= 1;
+  }
+
+  if (leftIndex === rightIndex) {
+    pairs.push([items[leftIndex], null]);
+  }
+
+  return pairs;
 }
 
 export function validateBracketGeneration(
@@ -128,6 +130,10 @@ function createWinnerSource(matchId: string, label: string): ChampionshipBracket
 
 function createLoserSource(matchId: string, label: string): ChampionshipBracketSource {
   return { type: "match-loser", matchId, label };
+}
+
+function createByeSource(label = "Avanco automatico"): ChampionshipBracketSource {
+  return { type: "manual-team", teamId: null, label };
 }
 
 function buildInitialPairs(
@@ -234,13 +240,7 @@ function buildInitialPairs(
 
       return left.teamName.localeCompare(right.teamName, "pt-BR");
     });
-  const bracketSize = nextPowerOfTwo(sortedQualifiedTeams.length);
-  const padded = [
-    ...sortedQualifiedTeams,
-    ...Array.from({ length: bracketSize - sortedQualifiedTeams.length }, () => null),
-  ];
-
-  return buildSeededPairs(padded);
+  return buildDirectSeededPairs(sortedQualifiedTeams);
 }
 
 export function generateBracket(
@@ -317,12 +317,12 @@ export function generateBracket(
 
   while (currentRoundMatchIds.length > 1) {
     roundOrder += 1;
-    const nextRound = createRound(currentRoundMatchIds.length / 2);
+    const nextRound = createRound(Math.ceil(currentRoundMatchIds.length / 2));
     const nextRoundMatchIds: string[] = [];
 
     for (let index = 0; index < currentRoundMatchIds.length; index += 2) {
       const firstMatchId = currentRoundMatchIds[index];
-      const secondMatchId = currentRoundMatchIds[index + 1];
+      const secondMatchId = currentRoundMatchIds[index + 1] ?? null;
       const matchId = createRuntimeId("bracket-match");
 
       nextRoundMatchIds.push(matchId);
@@ -337,7 +337,9 @@ export function generateBracket(
         homeTeamId: null,
         awayTeamId: null,
         sourceHome: createWinnerSource(firstMatchId, "Vencedor confronto 1"),
-        sourceAway: createWinnerSource(secondMatchId, "Vencedor confronto 2"),
+        sourceAway: secondMatchId
+          ? createWinnerSource(secondMatchId, "Vencedor confronto 2")
+          : createByeSource("Aguardando vencedor"),
         winnerTeamId: null,
         loserTeamId: null,
         nextMatchId: null,
