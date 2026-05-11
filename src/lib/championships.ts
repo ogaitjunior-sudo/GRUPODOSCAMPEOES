@@ -460,9 +460,11 @@ export function normalizeChampionshipConfiguration(
     Number(configuration?.groupCount ?? defaults.groupCount),
   );
   const hasFinalStage =
-    typeof configuration?.hasFinalStage === "boolean"
-      ? configuration.hasFinalStage
-      : nextFormat !== "points-league";
+    nextFormat === "knockout"
+      ? true
+      : typeof configuration?.hasFinalStage === "boolean"
+        ? configuration.hasFinalStage
+        : nextFormat !== "points-league";
 
   return {
     ...defaults,

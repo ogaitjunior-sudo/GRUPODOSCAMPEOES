@@ -112,6 +112,48 @@ describe("championship bracket", () => {
     expect(workspace.bracket.matches).toHaveLength(0);
   });
 
+  it("generates a knockout table even when legacy config saved hasFinalStage as false", () => {
+    const championship = createChampionship({
+      configuration: {
+        ...createDefaultChampionshipConfiguration(),
+        format: "knockout",
+        groupCount: 0,
+        hasFinalStage: false,
+        knockoutSetupMode: "automatic",
+      },
+    });
+    const emptyWorkspace = createDefaultChampionshipWorkspace(championship);
+    const workspaceWithParticipants = {
+      ...emptyWorkspace,
+      teams: [
+        {
+          id: "team-1",
+          name: "Alpha",
+          playerId: null,
+          playerEmail: null,
+          groupId: null,
+          seed: 1,
+          pointsAdjustment: 0,
+        },
+        {
+          id: "team-2",
+          name: "Bravo",
+          playerId: null,
+          playerEmail: null,
+          groupId: null,
+          seed: 2,
+          pointsAdjustment: 0,
+        },
+      ],
+    };
+
+    const workspace = generateChampionshipTable(workspaceWithParticipants, championship);
+
+    expect(workspace.groups).toHaveLength(0);
+    expect(workspace.bracket.matches).toHaveLength(1);
+    expect(workspace.bracket.matches[0].stageKey).toBe("final");
+  });
+
   it("generates the semifinal cross between two groups", () => {
     const championship = createChampionship();
     const workspace = generateBracket(createWorkspace(championship), championship);
