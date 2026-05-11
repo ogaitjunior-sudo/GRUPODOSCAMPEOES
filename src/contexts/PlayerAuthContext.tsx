@@ -101,6 +101,16 @@ function normalizeAvatarUrl(value: unknown) {
   return normalizedValue ? normalizedValue : null;
 }
 
+function isInlineProfileMedia(value: string | null) {
+  return Boolean(value?.startsWith("data:"));
+}
+
+function normalizeMetadataProfileMedia(value: unknown) {
+  const normalizedValue = normalizeAvatarUrl(value);
+
+  return isInlineProfileMedia(normalizedValue) ? null : normalizedValue;
+}
+
 function getAuthErrorMessage(error: unknown) {
   if (error && typeof error === "object" && "message" in error) {
     const message = (error as { message?: unknown }).message;
@@ -122,8 +132,8 @@ function resolveUserAvatar(
   metadata: Record<string, unknown> | undefined,
 ) {
   return (
-    normalizeAvatarUrl(metadata?.avatar_url) ??
-    normalizeAvatarUrl(metadata?.avatarUrl) ??
+    normalizeMetadataProfileMedia(metadata?.avatar_url) ??
+    normalizeMetadataProfileMedia(metadata?.avatarUrl) ??
     normalizeAvatarUrl(metadata?.picture) ??
     readStoredPlayerAvatar(email)
   );
@@ -134,8 +144,8 @@ function resolveUserTeamPhoto(
   metadata: Record<string, unknown> | undefined,
 ) {
   return (
-    normalizeAvatarUrl(metadata?.team_photo_url) ??
-    normalizeAvatarUrl(metadata?.teamPhotoUrl) ??
+    normalizeMetadataProfileMedia(metadata?.team_photo_url) ??
+    normalizeMetadataProfileMedia(metadata?.teamPhotoUrl) ??
     readStoredPlayerTeamPhoto(email)
   );
 }
@@ -667,12 +677,19 @@ export function PlayerAuthProvider({ children }: { children: ReactNode }) {
           return;
         }
 
+        const nextAvatarUrl = normalizeAvatarUrl(currentSession.avatarUrl);
+        const nextTeamPhotoUrl = normalizeAvatarUrl(currentSession.teamPhotoUrl);
+        const nextMetadata = {
+          ...metadata,
+          avatar_url: isInlineProfileMedia(nextAvatarUrl) ? null : nextAvatarUrl,
+          team_photo_url: isInlineProfileMedia(nextTeamPhotoUrl) ? null : nextTeamPhotoUrl,
+        };
+
+        delete nextMetadata.avatarUrl;
+        delete nextMetadata.teamPhotoUrl;
+
         await supabase.auth.updateUser({
-          data: {
-            ...metadata,
-            avatar_url: normalizeAvatarUrl(currentSession.avatarUrl),
-            team_photo_url: normalizeAvatarUrl(currentSession.teamPhotoUrl),
-          },
+          data: nextMetadata,
         });
       });
   };

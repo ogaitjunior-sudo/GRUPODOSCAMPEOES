@@ -33,6 +33,7 @@ const CHAMPIONSHIP_REGISTRATION_REST_WRITE_TIMEOUT_MS = 8_000;
 const CHAMPIONSHIP_REGISTRATION_REST_READ_TIMEOUT_MS = 6_000;
 const CHAMPIONSHIP_REGISTRATION_RPC_TIMEOUT_MS = 8_000;
 const CHAMPIONSHIP_REGISTRATION_API_TIMEOUT_MS = 12_000;
+const CHAMPIONSHIP_REGISTRATION_MAX_ACCESS_TOKEN_LENGTH = 6_000;
 const CHAMPIONSHIP_SHARED_SUPABASE_REQUIRED_MESSAGE =
   "O painel de campeonatos esta em modo local nesta versao do app. Atualize o app publicado e conecte o Supabase para que todos vejam os campeonatos criados.";
 
@@ -483,6 +484,8 @@ async function submitChampionshipRegistrationWithServerApi(
       ).catch(() => null)
     : null;
   const accessToken = session?.data.session?.access_token ?? "";
+  const safeAccessToken =
+    accessToken.length <= CHAMPIONSHIP_REGISTRATION_MAX_ACCESS_TOKEN_LENGTH ? accessToken : "";
 
   try {
     const response = await fetch("/api/championship-registration", {
@@ -497,7 +500,7 @@ async function submitChampionshipRegistrationWithServerApi(
         playerName: request.playerName,
         playerEmail: request.playerEmail,
         requestedAt: request.requestedAt,
-        accessToken,
+        accessToken: safeAccessToken,
       }),
       credentials: "same-origin",
       signal: controller.signal,
