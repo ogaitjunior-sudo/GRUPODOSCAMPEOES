@@ -2,6 +2,7 @@ import type { PostgrestError } from "@supabase/supabase-js";
 import { adminSupabase, isSupabaseConfigured, supabase } from "@/lib/supabase";
 
 const PLAYER_ACCOUNTS_TABLE = "player_accounts";
+const PLAYER_ACCOUNTS_READ_TIMEOUT_MS = 6_000;
 
 export interface PlayerAccountRecord {
   id: string;
@@ -47,6 +48,17 @@ function normalizeEmail(value: string) {
   return value.trim().toLowerCase();
 }
 
+function normalizeDirectoryValue(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .replace(/^@+/, "")
+    .replace(/[_\-.]+/g, " ")
+    .replace(/\s+/g, " ")
+    .toLocaleLowerCase("pt-BR");
+}
+
 function mapRowToPlayerAccount(row: PlayerAccountRow): PlayerAccountRecord {
   return {
     id: row.id,
@@ -74,6 +86,20 @@ function getErrorMessage(error: unknown) {
   return "";
 }
 
+function withPlayerAccountsTimeout<T>(promise: Promise<T>, timeoutMs = PLAYER_ACCOUNTS_READ_TIMEOUT_MS) {
+  return new Promise<T>((resolve, reject) => {
+    const timeoutId = globalThis.setTimeout(() => {
+      reject(new Error("Tempo limite ao consultar os cadastros de jogadores."));
+    }, timeoutMs);
+
+    promise
+      .then(resolve, reject)
+      .finally(() => {
+        globalThis.clearTimeout(timeoutId);
+      });
+  });
+}
+
 export async function listPlayerAccounts() {
   const readClient = adminSupabase ?? supabase;
 
@@ -91,6 +117,80 @@ export async function listPlayerAccounts() {
   }
 
   return (data ?? []).map((row) => mapRowToPlayerAccount(row as PlayerAccountRow));
+}
+
+export async function resolvePlayerAccountLoginEmail(identifier: string) {
+  const readClient = supabase;
+  const normalizedIdentifier = normalizeDirectoryValue(identifier);
+
+  if (!normalizedIdentifier || !isSupabaseConfigured || !readClient) {
+    return { email: null } as const;
+  }
+
+  const rpcResponse = await withPlayerAccountsTimeout(
+    readClient.rpc("resolve_player_login_email", {
+      p_identifier: identifier.trim(),
+    }),
+  ).catch(() => null);
+  const rpcData = rpcResponse?.data as Array<{ email?: unknown; match_count?: unknown }> | null;
+  const rpcError = rpcResponse?.error;
+
+  if (!rpcError && Array.isArray(rpcData) && rpcData[0]) {
+    const matchCount = Number(rpcData[0].match_count) || 0;
+    const email = typeof rpcData[0].email === "string" ? normalizeEmail(rpcData[0].email) : "";
+
+    if (matchCount === 1 && email) {
+      return { email } as const;
+    }
+
+    if (matchCount > 1) {
+      return {
+        email: null,
+        error: "Encontramos mais de uma conta com esse nome. Entre com o e-mail do jogador.",
+      } as const;
+    }
+  }
+
+  const { data, error } = await withPlayerAccountsTimeout(
+    readClient
+      .from(PLAYER_ACCOUNTS_TABLE)
+      .select("name,email")
+      .limit(500),
+  ).catch(() => ({ data: null, error: null }));
+
+  if (error || !Array.isArray(data)) {
+    return { email: null } as const;
+  }
+
+  const matchingEmails = Array.from(
+    new Set(
+      data
+        .filter((row) => row && typeof row === "object")
+        .filter((row) => {
+          const record = row as Pick<PlayerAccountRow, "name" | "email">;
+
+          return (
+            normalizeDirectoryValue(record.name) === normalizedIdentifier ||
+            normalizeDirectoryValue(record.email) === normalizedIdentifier
+          );
+        })
+        .map((row) => normalizeEmail((row as Pick<PlayerAccountRow, "email">).email))
+        .filter(Boolean),
+    ),
+  );
+
+  if (matchingEmails.length === 1) {
+    return { email: matchingEmails[0] } as const;
+  }
+
+  if (matchingEmails.length > 1) {
+    return {
+      email: null,
+      error: "Encontramos mais de uma conta com esse nome. Entre com o e-mail do jogador.",
+    } as const;
+  }
+
+  return { email: null } as const;
 }
 
 export async function upsertPlayerAccount(payload: PlayerAccountPayload) {

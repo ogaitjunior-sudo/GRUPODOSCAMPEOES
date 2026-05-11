@@ -1,10 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createInitialAdminPanelState } from "@/admin/context/adminSeed";
 
-const { loadAdminPanelLoginDirectoryMock, loadAdminPanelStateMock, readCachedAdminPanelStateMock } = vi.hoisted(() => ({
+const {
+  loadAdminPanelLoginDirectoryMock,
+  loadAdminPanelStateMock,
+  readCachedAdminPanelStateMock,
+  resolvePlayerAccountLoginEmailMock,
+  upsertPlayerAccountMock,
+} = vi.hoisted(() => ({
   loadAdminPanelLoginDirectoryMock: vi.fn(),
   loadAdminPanelStateMock: vi.fn(),
   readCachedAdminPanelStateMock: vi.fn(),
+  resolvePlayerAccountLoginEmailMock: vi.fn(),
+  upsertPlayerAccountMock: vi.fn(),
 }));
 
 vi.mock("@/lib/admin-panel-store", () => ({
@@ -12,6 +20,11 @@ vi.mock("@/lib/admin-panel-store", () => ({
   loadAdminPanelState: loadAdminPanelStateMock,
   readCachedAdminPanelState: readCachedAdminPanelStateMock,
   saveAdminPanelState: vi.fn(),
+}));
+
+vi.mock("@/lib/player-accounts-store", () => ({
+  resolvePlayerAccountLoginEmail: resolvePlayerAccountLoginEmailMock,
+  upsertPlayerAccount: upsertPlayerAccountMock,
 }));
 
 import {
@@ -26,9 +39,13 @@ describe("player login directory", () => {
     loadAdminPanelLoginDirectoryMock.mockReset();
     loadAdminPanelStateMock.mockReset();
     readCachedAdminPanelStateMock.mockReset();
+    resolvePlayerAccountLoginEmailMock.mockReset();
+    upsertPlayerAccountMock.mockReset();
     readCachedAdminPanelStateMock.mockReturnValue(emptyState);
     loadAdminPanelLoginDirectoryMock.mockResolvedValue(emptyState);
     loadAdminPanelStateMock.mockResolvedValue(emptyState);
+    resolvePlayerAccountLoginEmailMock.mockResolvedValue({ email: null });
+    upsertPlayerAccountMock.mockResolvedValue(null);
   });
 
   it("keeps direct email login untouched", () => {
@@ -165,5 +182,17 @@ describe("player login directory", () => {
       email: "hunter@example.com",
     });
     expect(loadAdminPanelLoginDirectoryMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("falls back to player accounts when the admin directory is outdated", async () => {
+    resolvePlayerAccountLoginEmailMock.mockResolvedValue({
+      email: "xandy@example.com",
+    });
+
+    await expect(resolvePlayerLoginEmail("Xandy_godoy")).resolves.toEqual({
+      email: "xandy@example.com",
+    });
+    expect(loadAdminPanelLoginDirectoryMock).toHaveBeenCalledTimes(1);
+    expect(resolvePlayerAccountLoginEmailMock).toHaveBeenCalledWith("Xandy_godoy");
   });
 });

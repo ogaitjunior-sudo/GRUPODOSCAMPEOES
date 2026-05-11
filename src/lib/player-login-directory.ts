@@ -5,7 +5,10 @@ import {
   readCachedAdminPanelState,
   saveAdminPanelState,
 } from "@/lib/admin-panel-store";
-import { upsertPlayerAccount } from "@/lib/player-accounts-store";
+import {
+  resolvePlayerAccountLoginEmail,
+  upsertPlayerAccount,
+} from "@/lib/player-accounts-store";
 
 interface PlayerLoginResolution {
   email: string | null;
@@ -140,7 +143,19 @@ export async function resolvePlayerLoginEmail(identifier: string) {
   }
 
   const state = await loadAdminPanelLoginDirectory();
-  return resolvePlayerLoginEmailFromState(trimmedIdentifier, state);
+  const remoteResolution = resolvePlayerLoginEmailFromState(trimmedIdentifier, state);
+
+  if (remoteResolution.email || remoteResolution.error?.includes("mais de uma conta")) {
+    return remoteResolution;
+  }
+
+  const accountResolution = await resolvePlayerAccountLoginEmail(trimmedIdentifier);
+
+  if (accountResolution.email || accountResolution.error) {
+    return accountResolution;
+  }
+
+  return remoteResolution;
 }
 
 export async function syncPlayerAccessDirectoryEntry(payload: SyncPlayerAccessPayload) {
@@ -151,7 +166,6 @@ export async function syncPlayerAccessDirectoryEntry(payload: SyncPlayerAccessPa
     return;
   }
 
-  const state = await loadAdminPanelState();
   const timestamp = payload.lastLoginAt ?? payload.createdAt ?? new Date().toISOString();
   await upsertPlayerAccount({
     authUserId: payload.authUserId,
@@ -160,6 +174,8 @@ export async function syncPlayerAccessDirectoryEntry(payload: SyncPlayerAccessPa
     createdAt: payload.createdAt ?? timestamp,
     lastLoginAt: payload.lastLoginAt,
   });
+
+  const state = await loadAdminPanelState();
 
   const existingUser = state.users.find((user) => normalizeEmail(user.email) === normalizedEmail);
 
