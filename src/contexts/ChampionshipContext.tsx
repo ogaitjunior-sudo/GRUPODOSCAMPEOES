@@ -67,6 +67,144 @@ interface ChampionshipContextValue {
 const ChampionshipContext = createContext<ChampionshipContextValue | undefined>(undefined);
 const canUseLocalChampionshipWrites = import.meta.env.MODE === "test";
 
+type ChampionshipWorkspaceRow = {
+  championship_id: string;
+  teams: unknown;
+  groups: unknown;
+  group_matches: unknown;
+  bracket: unknown;
+  scoring: unknown;
+  created_at: string;
+  updated_at: string;
+};
+
+type ChampionshipRow = {
+  id: string;
+  name: string;
+  description: string;
+  start_date: string;
+  end_date: string;
+  team_count: number;
+  rules: string;
+  status: unknown;
+  configuration?: unknown;
+  created_at: string;
+  updated_at: string;
+};
+
+function mapChampionshipRowToRecord(row: ChampionshipRow): ChampionshipRecord {
+  const configurationPayload =
+    row.configuration && typeof row.configuration === "object"
+      ? (row.configuration as { settings?: unknown; registrationRequests?: unknown })
+      : {};
+
+  return {
+    id: row.id,
+    name: row.name,
+    description: row.description,
+    startDate: row.start_date,
+    endDate: row.end_date,
+    teamCount: row.team_count,
+    rules: row.rules,
+    status: String(row.status ?? "REGISTRATION") as ChampionshipRecord["status"],
+    configuration: (configurationPayload.settings ?? row.configuration) as ChampionshipRecord["configuration"],
+    registrationRequests: Array.isArray(configurationPayload.registrationRequests)
+      ? (configurationPayload.registrationRequests as ChampionshipRecord["registrationRequests"])
+      : [],
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function mapWorkspaceRowToRecord(row: ChampionshipWorkspaceRow): ChampionshipWorkspaceRecord {
+  return {
+    championshipId: row.championship_id,
+    teams: Array.isArray(row.teams) ? (row.teams as ChampionshipWorkspaceRecord["teams"]) : [],
+    groups: Array.isArray(row.groups) ? (row.groups as ChampionshipWorkspaceRecord["groups"]) : [],
+    groupMatches: Array.isArray(row.group_matches)
+      ? (row.group_matches as ChampionshipWorkspaceRecord["groupMatches"])
+      : [],
+    bracket:
+      row.bracket && typeof row.bracket === "object"
+        ? (row.bracket as ChampionshipWorkspaceRecord["bracket"])
+        : {
+            state: "not-generated",
+            consistencyStatus: "idle",
+            consistencyMessage: null,
+            classificationSignature: null,
+            generatedAt: null,
+            rounds: [],
+            matches: [],
+          },
+    scoring:
+      row.scoring && typeof row.scoring === "object"
+        ? (row.scoring as ChampionshipWorkspaceRecord["scoring"])
+        : { winPoints: 3, drawPoints: 1, lossPoints: 0 },
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function shouldFallbackToTableApi(error: unknown) {
+  const message = error instanceof Error ? error.message.toLowerCase() : "";
+
+  return (
+    message.includes("sessao autenticada do supabase nao esta ativa") ||
+    message.includes("tempo limite ao validar a sessao admin") ||
+    message.includes("tempo limite ao renovar a sessao admin")
+  );
+}
+
+async function saveGeneratedTableWithServerApi(
+  championship: ChampionshipRecord,
+  workspace: ChampionshipWorkspaceRecord,
+) {
+  const response = await fetch("/api/admin-championship-table", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    credentials: "same-origin",
+    body: JSON.stringify({
+      championshipId: championship.id,
+      status: "STARTED",
+      workspace,
+    }),
+  });
+  const payload = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    const message =
+      payload && typeof payload === "object" && "error" in payload
+        ? (payload as { error?: unknown }).error
+        : null;
+
+    throw new Error(
+      typeof message === "string" && message.trim()
+        ? message
+        : "Nao foi possivel salvar a tabela no Supabase.",
+    );
+  }
+
+  const championshipPayload =
+    payload && typeof payload === "object" && "championship" in payload
+      ? (payload as { championship?: unknown }).championship
+      : null;
+  const workspacePayload =
+    payload && typeof payload === "object" && "workspace" in payload
+      ? (payload as { workspace?: unknown }).workspace
+      : null;
+
+  if (!championshipPayload || !workspacePayload) {
+    throw new Error("O servidor nao retornou a tabela salva.");
+  }
+
+  return {
+    championship: mapChampionshipRowToRecord(championshipPayload as ChampionshipRow),
+    workspace: mapWorkspaceRowToRecord(workspacePayload as ChampionshipWorkspaceRow),
+  };
+}
+
 export function ChampionshipProvider({ children }: { children: ReactNode }) {
   const { isPrimaryAdmin } = useAdminAuth();
   const storageMode = getChampionshipStorageMode();
@@ -432,12 +570,26 @@ export function ChampionshipProvider({ children }: { children: ReactNode }) {
     );
     const nextWorkspace = buildChampionshipTable(workspace, championship);
     const timestamp = new Date().toISOString();
-    const nextChampionship = await saveChampionshipRecord({
+    const pendingChampionship = {
       ...championship,
       status: "STARTED",
       updatedAt: timestamp,
-    });
-    const savedWorkspace = await saveChampionshipWorkspaceRecord(nextChampionship, nextWorkspace);
+    } satisfies ChampionshipRecord;
+    let nextChampionship: ChampionshipRecord;
+    let savedWorkspace: ChampionshipWorkspaceRecord;
+
+    try {
+      nextChampionship = await saveChampionshipRecord(pendingChampionship);
+      savedWorkspace = await saveChampionshipWorkspaceRecord(nextChampionship, nextWorkspace);
+    } catch (error) {
+      if (!shouldFallbackToTableApi(error)) {
+        throw error;
+      }
+
+      const savedTable = await saveGeneratedTableWithServerApi(pendingChampionship, nextWorkspace);
+      nextChampionship = savedTable.championship;
+      savedWorkspace = savedTable.workspace;
+    }
 
     commitChampionship(nextChampionship);
 
