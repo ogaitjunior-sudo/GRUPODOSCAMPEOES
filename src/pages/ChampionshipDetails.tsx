@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   CalendarClock,
@@ -328,6 +328,8 @@ export function ChampionshipWorkspacePage({
   const championship = contextChampionship ?? directChampionship ?? undefined;
   const initialCachedWorkspace = championship ? readStoredChampionshipWorkspaceRecord(championship) : null;
   const [workspace, setWorkspace] = useState<ChampionshipWorkspaceRecord | null>(initialCachedWorkspace);
+  const workspaceChampionshipIdRef = useRef<string | null>(championship?.id ?? null);
+  const tabChampionshipIdRef = useRef<string | null>(null);
   const [isLoading, setIsLoading] = useState(Boolean(championship && !initialCachedWorkspace));
   const [isSaving, setIsSaving] = useState(false);
   const [isSubmittingParticipation, setIsSubmittingParticipation] = useState(false);
@@ -343,6 +345,7 @@ export function ChampionshipWorkspacePage({
   const [editingGroupMatch, setEditingGroupMatch] = useState<ChampionshipGroupMatch | null>(null);
   const [editingBracketMatch, setEditingBracketMatch] = useState<ChampionshipBracketMatch | null>(null);
   const [selectedGroupRounds, setSelectedGroupRounds] = useState<Record<string, number>>({});
+  const [activeChampionshipTab, setActiveChampionshipTab] = useState("groups");
   const [selectedPublicGroupId, setSelectedPublicGroupId] = useState<string | null>(null);
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const [isChallengeModalOpen, setIsChallengeModalOpen] = useState(false);
@@ -434,6 +437,7 @@ export function ChampionshipWorkspacePage({
 
   useEffect(() => {
     if (!championship) {
+      workspaceChampionshipIdRef.current = null;
       setWorkspace(null);
       setErrorMessage(null);
       setIsLoading(false);
@@ -441,6 +445,7 @@ export function ChampionshipWorkspacePage({
     }
 
     if (shouldUseLightParticipationView) {
+      workspaceChampionshipIdRef.current = null;
       setWorkspace(null);
       setErrorMessage(null);
       setIsLoading(false);
@@ -448,10 +453,14 @@ export function ChampionshipWorkspacePage({
     }
 
     const cachedWorkspace = readStoredChampionshipWorkspaceRecord(championship);
+    const isSameChampionship = workspaceChampionshipIdRef.current === championship.id;
 
-    setWorkspace(cachedWorkspace);
+    if (!isSameChampionship) {
+      setWorkspace(cachedWorkspace);
+      setIsLoading(!cachedWorkspace);
+    }
+
     setErrorMessage(null);
-    setIsLoading(!cachedWorkspace);
 
     let isActive = true;
 
@@ -463,6 +472,7 @@ export function ChampionshipWorkspacePage({
           return;
         }
 
+        workspaceChampionshipIdRef.current = championship.id;
         setWorkspace(nextWorkspace);
         setErrorMessage(null);
       } catch (error) {
@@ -470,7 +480,7 @@ export function ChampionshipWorkspacePage({
           return;
         }
 
-        if (!cachedWorkspace) {
+        if (!isSameChampionship && !cachedWorkspace) {
           setWorkspace(null);
         }
 
@@ -487,7 +497,7 @@ export function ChampionshipWorkspacePage({
     return () => {
       isActive = false;
     };
-  }, [championship, shouldUseLightParticipationView, workspaceReloadToken]);
+  }, [championship?.id, championship?.updatedAt, shouldUseLightParticipationView, workspaceReloadToken]);
 
   useEffect(() => {
     if (!workspace) {
@@ -925,6 +935,19 @@ export function ChampionshipWorkspacePage({
   const canOpenRegistration = championship?.status === "REGISTRATION";
   const renderShell = (content: ReactNode) =>
     isAdmin ? <>{content}</> : <PageShell>{content}</PageShell>;
+
+  useEffect(() => {
+    if (!championship?.id || !workspace) {
+      return;
+    }
+
+    if (tabChampionshipIdRef.current === championship.id) {
+      return;
+    }
+
+    tabChampionshipIdRef.current = championship.id;
+    setActiveChampionshipTab(defaultChampionshipTab);
+  }, [championship?.id, defaultChampionshipTab, workspace]);
 
   useEffect(() => {
     setSelectedGroupRounds((current) => {
@@ -1557,7 +1580,11 @@ export function ChampionshipWorkspacePage({
             </div>
           ) : null}
 
-            <Tabs defaultValue={defaultChampionshipTab} className="w-full">
+            <Tabs
+              value={activeChampionshipTab}
+              onValueChange={setActiveChampionshipTab}
+              className="w-full"
+            >
             {isAdmin ? (
               <TabsList className="h-auto w-full flex-wrap justify-start gap-0 rounded-none border-b border-border/70 bg-transparent p-0">
                 <TabsTrigger value="groups" className="rounded-none border-b-2 border-transparent px-4 py-3 text-sm data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground">
