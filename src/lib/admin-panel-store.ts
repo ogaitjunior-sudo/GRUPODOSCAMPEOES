@@ -127,9 +127,8 @@ function mapStateToRow(state: AdminPanelState) {
 }
 
 function isAdminPanelTableUnavailable(error: unknown) {
-  const postgrestError = error as Partial<PostgrestError> | null;
-  const errorCode = postgrestError?.code?.toUpperCase();
-  const errorMessage = postgrestError?.message?.toLowerCase() ?? "";
+  const errorCode = getErrorCode(error);
+  const errorMessage = getErrorMessage(error).toLowerCase();
 
   return (
     errorCode === "42P01" ||
@@ -141,10 +140,15 @@ function isAdminPanelTableUnavailable(error: unknown) {
 }
 
 function shouldFallbackToLocal(error: unknown) {
-  const postgrestError = error as Partial<PostgrestError> | null;
-  const errorCode = postgrestError?.code?.toUpperCase();
+  const errorCode = getErrorCode(error);
 
   return isAdminPanelTableUnavailable(error) || errorCode === "42501";
+}
+
+function getErrorCode(error: unknown) {
+  const code = (error as Partial<PostgrestError> | null)?.code;
+
+  return typeof code === "string" ? code.toUpperCase() : "";
 }
 
 function getErrorMessage(error: unknown) {
@@ -159,6 +163,24 @@ function getErrorMessage(error: unknown) {
   }
 
   return "";
+}
+
+function isAdminPanelNetworkError(error: unknown) {
+  const errorMessage = getErrorMessage(error).toLowerCase();
+  const errorName =
+    error instanceof Error && typeof error.name === "string" ? error.name.toLowerCase() : "";
+
+  return (
+    errorName.includes("typeerror") ||
+    errorName.includes("aborterror") ||
+    errorMessage.includes("failed to fetch") ||
+    errorMessage.includes("fetch failed") ||
+    errorMessage.includes("network error") ||
+    errorMessage.includes("networkerror") ||
+    errorMessage.includes("network request failed") ||
+    errorMessage.includes("load failed") ||
+    errorMessage.includes("abort")
+  );
 }
 
 async function runAdminPanelWriteWithTimeout<T>(
@@ -283,11 +305,14 @@ export async function loadAdminPanelState() {
     return readCachedAdminPanelState();
   }
 
-  const { data, error } = await supabase
-    .from(ADMIN_PANEL_TABLE)
-    .select("*")
-    .eq("id", ADMIN_PANEL_ROW_ID)
-    .maybeSingle();
+  const { data, error } = await runAdminPanelReadWithTimeout((signal) =>
+    supabase
+      .from(ADMIN_PANEL_TABLE)
+      .select("*")
+      .eq("id", ADMIN_PANEL_ROW_ID)
+      .maybeSingle()
+      .abortSignal(signal),
+  );
 
   if (error) {
     if (shouldFallbackToLocal(error)) {
@@ -338,8 +363,7 @@ export async function saveAdminPanelState(state: AdminPanelState) {
 }
 
 export function formatAdminPanelStoreError(error: unknown) {
-  const postgrestError = error as Partial<PostgrestError> | null;
-  const errorCode = postgrestError?.code?.toUpperCase();
+  const errorCode = getErrorCode(error);
   const errorMessage = getErrorMessage(error);
 
   if (errorCode === "42501") {
@@ -354,7 +378,7 @@ export function formatAdminPanelStoreError(error: unknown) {
     return "A tabela public.admin_panel_state ainda nao foi publicada no schema cache do Supabase. Rode a migration e atualize o schema.";
   }
 
-  if (errorMessage.toLowerCase().includes("abort")) {
+  if (isAdminPanelNetworkError(error)) {
     return ADMIN_PANEL_WRITE_TIMEOUT_MESSAGE;
   }
 
