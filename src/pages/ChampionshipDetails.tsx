@@ -2294,65 +2294,64 @@ export function ChampionshipWorkspacePage({
                     />
                   ) : (
                     <>
-                      <div className="overflow-x-auto pb-2">
-                        <div className="flex min-w-max items-start gap-4">
+                      <div className="rounded-[28px] border border-border/80 bg-background/35 p-3 shadow-inner sm:p-4">
+                        <div className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-4">
                           {bracketColumns.map((column, index) => (
-                            <div key={column.round.id} className="flex items-start gap-4">
-                              <div className="w-[290px] rounded-2xl border border-border bg-card p-4">
-                                <div className="mb-4 flex items-center justify-between">
-                                  <div>
-                                    <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">
-                                      Fase
-                                    </p>
-                                    <h3 className="text-lg font-semibold text-foreground">
-                                      {column.round.stageName}
-                                    </h3>
-                                  </div>
-                                  <Badge variant="outline">{column.matches.length} jogos</Badge>
+                            <section
+                              key={column.round.id}
+                              className="min-w-0 rounded-3xl border border-border bg-card/80 p-4 shadow-[0_16px_40px_hsl(0_0%_0%_/_0.18)]"
+                            >
+                              <div className="mb-4 flex items-start justify-between gap-3 border-b border-border/60 pb-3">
+                                <div className="min-w-0">
+                                  <p className="text-[11px] uppercase tracking-[0.24em] text-primary">
+                                    Fase {index + 1}
+                                  </p>
+                                  <h3 className="mt-1 truncate text-lg font-semibold text-foreground">
+                                    {column.round.stageName}
+                                  </h3>
                                 </div>
-                                <div className="space-y-4">
-                                  {column.matches.map((match) => (
-                                    <MatchCard
-                                      key={match.id}
-                                      title={`${match.stageName} ${match.matchOrder}`}
-                                      homeLabel={getTeamName(workspace.teams, match.homeTeamId)}
-                                      awayLabel={getTeamName(workspace.teams, match.awayTeamId)}
-                                      scoreHome={match.scoreHome}
-                                      scoreAway={match.scoreAway}
-                                      statusLabel={
-                                        match.winnerTeamId
-                                          ? "Concluido"
-                                          : match.homeTeamId && match.awayTeamId
-                                          ? "Pronto"
-                                          : "Pendente"
-                                      }
-                                      metaLabel={formatMatchDateTime(match.playedAt)}
-                                      secondaryMeta={match.venue || "Local a definir"}
-                                      winnerTeamId={match.winnerTeamId}
-                                      homeTeamId={match.homeTeamId}
-                                      awayTeamId={match.awayTeamId}
-                                      homeFlagUrl={teamsById.get(match.homeTeamId ?? "")?.flagUrl ?? null}
-                                      awayFlagUrl={teamsById.get(match.awayTeamId ?? "")?.flagUrl ?? null}
-                                      onOpenTeamProfile={openTeamProfile}
-                                      onClick={
-                                        isAdmin ? () => setEditingBracketMatch(match) : undefined
-                                      }
-                                    />
-                                  ))}
-                                </div>
+                                <Badge variant="outline" className="shrink-0">
+                                  {column.matches.length} jogos
+                                </Badge>
                               </div>
-                              {index < bracketColumns.length - 1 ? (
-                                <div className="hidden self-center pt-10 lg:block">
-                                  <ChevronRight className="h-8 w-8 text-muted-foreground/50" />
-                                </div>
-                              ) : null}
-                            </div>
+
+                              <div className="grid gap-3">
+                                {column.matches.map((match) => (
+                                  <MatchCard
+                                    key={match.id}
+                                    title={`${match.stageName} ${match.matchOrder}`}
+                                    homeLabel={getTeamName(workspace.teams, match.homeTeamId)}
+                                    awayLabel={getTeamName(workspace.teams, match.awayTeamId)}
+                                    scoreHome={match.scoreHome}
+                                    scoreAway={match.scoreAway}
+                                    statusLabel={
+                                      match.winnerTeamId
+                                        ? "Concluido"
+                                        : match.homeTeamId && match.awayTeamId
+                                        ? "Pronto"
+                                        : "Pendente"
+                                    }
+                                    metaLabel={formatMatchDateTime(match.playedAt)}
+                                    secondaryMeta={match.venue || "Local a definir"}
+                                    winnerTeamId={match.winnerTeamId}
+                                    homeTeamId={match.homeTeamId}
+                                    awayTeamId={match.awayTeamId}
+                                    homeFlagUrl={teamsById.get(match.homeTeamId ?? "")?.flagUrl ?? null}
+                                    awayFlagUrl={teamsById.get(match.awayTeamId ?? "")?.flagUrl ?? null}
+                                    onOpenTeamProfile={openTeamProfile}
+                                    onClick={
+                                      isAdmin ? () => setEditingBracketMatch(match) : undefined
+                                    }
+                                  />
+                                ))}
+                              </div>
+                            </section>
                           ))}
                         </div>
                       </div>
 
                       {thirdPlaceMatch ? (
-                        <div className="rounded-2xl border border-border bg-card p-4">
+                        <div className="rounded-3xl border border-border bg-card/80 p-4 shadow-[0_16px_40px_hsl(0_0%_0%_/_0.18)] lg:max-w-2xl">
                           <div className="mb-4 flex items-center justify-between">
                             <div>
                               <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">
@@ -3313,62 +3312,99 @@ function MatchCard({
   const awayTeam = awayTeamId ? { id: awayTeamId, name: awayLabel, flagUrl: awayFlagUrl ?? null } : null;
 
   return (
-    <article className="rounded-2xl border border-border bg-muted/20 p-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">{title}</p>
-          <div className="mt-4 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-4">
-            <TeamNameBlock
-              team={homeTeam}
-              fallbackName={homeLabel}
-              align="right"
-              size="sm"
-              highlighted={Boolean(winnerTeamId && winnerTeamId === homeTeamId)}
-              onOpenTeamProfile={onOpenTeamProfile}
-            />
-
-            <div className="flex items-center gap-1">
-              <ScoreBox score={scoreHome} highlighted={Boolean(winnerTeamId && winnerTeamId === homeTeamId)} />
-              <ScoreBox score={scoreAway} highlighted={Boolean(winnerTeamId && winnerTeamId === awayTeamId)} />
-            </div>
-
-            <TeamNameBlock
-              team={awayTeam}
-              fallbackName={awayLabel}
-              align="left"
-              size="sm"
-              highlighted={Boolean(winnerTeamId && winnerTeamId === awayTeamId)}
-              onOpenTeamProfile={onOpenTeamProfile}
-            />
-          </div>
+    <article className="rounded-2xl border border-border/80 bg-background/70 p-3 text-left shadow-[0_10px_24px_hsl(0_0%_0%_/_0.16)]">
+      <div className="mb-3 flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="truncate text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+            {title}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">{metaLabel}</p>
         </div>
+        <Badge
+          variant={winnerTeamId ? "secondary" : "outline"}
+          className="shrink-0 text-[10px] uppercase tracking-[0.14em]"
+        >
+          {statusLabel}
+        </Badge>
+      </div>
 
+      <div className="space-y-2">
+        <BracketTeamLine
+          team={homeTeam}
+          fallbackName={homeLabel}
+          score={scoreHome}
+          highlighted={Boolean(winnerTeamId && winnerTeamId === homeTeamId)}
+          onOpenTeamProfile={onOpenTeamProfile}
+        />
+        <BracketTeamLine
+          team={awayTeam}
+          fallbackName={awayLabel}
+          score={scoreAway}
+          highlighted={Boolean(winnerTeamId && winnerTeamId === awayTeamId)}
+          onOpenTeamProfile={onOpenTeamProfile}
+        />
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-border/60 pt-3 text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+        <span className="min-w-0 truncate">{secondaryMeta}</span>
         {onClick ? (
-          <Button variant="outline" size="sm" onClick={onClick}>
-            Editar confronto
+          <Button variant="outline" size="sm" onClick={onClick} className="h-8 rounded-full px-3 text-[11px]">
+            Editar
           </Button>
         ) : null}
       </div>
-
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-        <span>{metaLabel}</span>
-        <span>{secondaryMeta}</span>
-        <span>{statusLabel}</span>
-      </div>
     </article>
+  );
+}
+
+function BracketTeamLine({
+  team,
+  fallbackName,
+  score,
+  highlighted,
+  onOpenTeamProfile,
+}: {
+  team: TeamSummary | null;
+  fallbackName: string;
+  score: number | null;
+  highlighted: boolean;
+  onOpenTeamProfile?: (teamId: string | null) => void;
+}) {
+  return (
+    <div
+      className={`flex min-w-0 items-center justify-between gap-3 rounded-xl border px-3 py-2 ${
+        highlighted
+          ? "border-primary/35 bg-primary/10"
+          : "border-border/70 bg-muted/20"
+      }`}
+    >
+      <TeamNameBlock
+        team={team}
+        fallbackName={fallbackName}
+        align="left"
+        size="sm"
+        highlighted={highlighted}
+        onOpenTeamProfile={onOpenTeamProfile}
+      />
+      <ScoreBox score={score} highlighted={highlighted} size="sm" />
+    </div>
   );
 }
 
 function ScoreBox({
   score,
   highlighted,
+  size = "md",
 }: {
   score: number | null;
   highlighted: boolean;
+  size?: "sm" | "md";
 }) {
+  const sizeClass = size === "sm" ? "h-9 w-10 rounded-lg text-base" : "h-11 w-11 rounded-sm text-lg";
+
   return (
     <span
-      className={`inline-flex h-11 w-11 items-center justify-center rounded-sm border text-lg font-semibold ${
+      className={`inline-flex shrink-0 items-center justify-center border font-semibold ${sizeClass} ${
         highlighted
           ? "border-primary/30 bg-primary/12 text-primary"
           : "border-border bg-background/70 text-foreground"
