@@ -3665,8 +3665,14 @@ function MatchCard({
       <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-border/60 pt-3 text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
         <span className="min-w-0 truncate">{secondaryMeta}</span>
         {onClick ? (
-          <Button variant="outline" size="sm" onClick={onClick} className="h-8 rounded-full px-3 text-[11px]">
-            Editar
+          <Button
+            type="button"
+            size="sm"
+            onClick={onClick}
+            className="h-9 rounded-full bg-primary px-3 font-heading text-[10px] font-black uppercase tracking-[0.14em] text-primary-foreground shadow-[0_10px_24px_hsl(51_100%_50%_/_0.22)] hover:bg-primary/90"
+          >
+            <Save className="mr-1.5 h-3.5 w-3.5" />
+            Lancar placar
           </Button>
         ) : null}
       </div>
@@ -3790,10 +3796,10 @@ function GroupMatchDialog({
     <Dialog open={Boolean(match)} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="mobile-dialog sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle>Editar partida da fase de grupos</DialogTitle>
+          <DialogTitle>Lancar placar da partida</DialogTitle>
           <DialogDescription>
             {match
-              ? `${getTeamName(teams, match.homeTeamId)} x ${getTeamName(teams, match.awayTeamId)}`
+              ? `${getTeamName(teams, match.homeTeamId)} x ${getTeamName(teams, match.awayTeamId)} - preencha gols, data e local do jogo.`
               : ""}
           </DialogDescription>
         </DialogHeader>
@@ -3911,9 +3917,11 @@ function BracketMatchDialog({
     <Dialog open={Boolean(match)} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="mobile-dialog sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Editar confronto do mata-mata</DialogTitle>
+          <DialogTitle>Lancar placar do mata-mata</DialogTitle>
           <DialogDescription>
-            {match ? `${match.stageName} ${match.matchOrder}` : ""}
+            {match
+              ? `${match.stageName} ${match.matchOrder} - informe gols, criterio de desempate e vencedor.`
+              : ""}
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4">
