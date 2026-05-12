@@ -8,6 +8,7 @@ import type { FriendlyChallengeRecord } from "@/types/friendly-challenge";
 
 const FRIENDLY_CHALLENGES_STORAGE_KEY = "gc_friendly_challenges_v1";
 const FRIENDLY_CHALLENGES_TABLE = "friendly_challenges";
+const FRIENDLY_CHALLENGES_READ_TIMEOUT_MS = 4_000;
 
 type FriendlyChallengeRow = {
   id: string;
@@ -102,6 +103,52 @@ function shouldFallbackToLocal(error: unknown) {
   return isFriendlyChallengesTableUnavailable(error) || errorCode === "42501";
 }
 
+function getErrorMessage(error: unknown) {
+  const postgrestError = error as Partial<PostgrestError> | null;
+
+  if (typeof postgrestError?.message === "string" && postgrestError.message.trim()) {
+    return postgrestError.message.trim();
+  }
+
+  if (error instanceof Error && error.message.trim()) {
+    return error.message.trim();
+  }
+
+  return "";
+}
+
+function isFriendlyChallengeNetworkError(error: unknown) {
+  const errorMessage = getErrorMessage(error).toLowerCase();
+  const errorName =
+    error instanceof Error && typeof error.name === "string" ? error.name.toLowerCase() : "";
+
+  return (
+    errorName.includes("aborterror") ||
+    errorMessage.includes("tempo limite") ||
+    errorMessage.includes("timeout") ||
+    errorMessage.includes("failed to fetch") ||
+    errorMessage.includes("fetch failed") ||
+    errorMessage.includes("load failed") ||
+    errorMessage.includes("network error") ||
+    errorMessage.includes("networkerror") ||
+    errorMessage.includes("network request failed")
+  );
+}
+
+function withTimeout<T>(promise: PromiseLike<T>, timeoutMs: number, message: string) {
+  return new Promise<T>((resolve, reject) => {
+    const timeoutId = globalThis.setTimeout(() => {
+      reject(new Error(message));
+    }, timeoutMs);
+
+    Promise.resolve(promise)
+      .then(resolve, reject)
+      .finally(() => {
+        globalThis.clearTimeout(timeoutId);
+      });
+  });
+}
+
 function mergeFriendlyChallengeCollections(...collections: FriendlyChallengeRecord[][]) {
   const registry = new Map<string, FriendlyChallengeRecord>();
 
@@ -177,13 +224,29 @@ export async function listFriendlyChallenges() {
     return readStoredFriendlyChallenges();
   }
 
-  const { data, error } = await supabase
-    .from(FRIENDLY_CHALLENGES_TABLE)
-    .select("*")
-    .order("created_at", { ascending: false });
+  let response;
+
+  try {
+    response = await withTimeout(
+      supabase
+        .from(FRIENDLY_CHALLENGES_TABLE)
+        .select("*")
+        .order("created_at", { ascending: false }),
+      FRIENDLY_CHALLENGES_READ_TIMEOUT_MS,
+      "Tempo limite ao carregar os desafios amistosos.",
+    );
+  } catch (error) {
+    if (shouldFallbackToLocal(error) || isFriendlyChallengeNetworkError(error)) {
+      return readStoredFriendlyChallenges();
+    }
+
+    throw error;
+  }
+
+  const { data, error } = response;
 
   if (error) {
-    if (shouldFallbackToLocal(error)) {
+    if (shouldFallbackToLocal(error) || isFriendlyChallengeNetworkError(error)) {
       return readStoredFriendlyChallenges();
     }
 
@@ -256,12 +319,14 @@ export function formatFriendlyChallengeStoreError(error: unknown) {
     return "A tabela public.friendly_challenges ainda nao foi publicada no schema cache do Supabase. Rode a migration e atualize o schema.";
   }
 
-  if (typeof errorMessage === "string" && errorMessage.trim()) {
-    return errorMessage;
+  if (isFriendlyChallengeNetworkError(error)) {
+    return "Nao foi possivel sincronizar os desafios amistosos agora. O portal liberou a tela usando o cache local.";
   }
 
-  if (error instanceof Error && error.message.trim()) {
-    return error.message;
+  const safeMessage = getErrorMessage(error);
+
+  if (safeMessage) {
+    return safeMessage;
   }
 
   return "Nao foi possivel sincronizar os desafios amistosos.";

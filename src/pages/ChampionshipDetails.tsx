@@ -1207,11 +1207,11 @@ export function ChampionshipWorkspacePage({
     if (isLoadingFriendlyChallenges) {
       return {
         visible: true,
-        disabled: true,
-        isLoading: true,
+        disabled: false,
+        isLoading: false,
         isPending: false,
-        helperText: "Verificando se ja existe um amistoso pendente com este adversario.",
-        onOpen: () => undefined,
+        helperText: "Verificacao em segundo plano. Se ja existir um pendente, o portal avisa ao enviar.",
+        onOpen: () => setIsChallengeModalOpen(true),
       };
     }
 
