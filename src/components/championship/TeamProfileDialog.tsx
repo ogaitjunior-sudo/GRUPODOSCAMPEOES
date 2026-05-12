@@ -1,10 +1,14 @@
 import { useEffect, useState, type ChangeEvent } from "react";
 import {
+  Award,
   Flag,
   History,
   Loader2,
+  Medal,
   ShieldCheck,
+  TrendingUp,
   Trash2,
+  Trophy,
   Upload,
   Users,
 } from "lucide-react";
@@ -271,26 +275,38 @@ export function TeamProfileDialog({
                     />
                   ) : null}
 
-                  <div className={`${challengeAction?.visible && !isOwnTeam ? "mt-4" : ""} grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-2`}>
+                  <div className={`${challengeAction?.visible && !isOwnTeam ? "mt-4" : ""} grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-2`}>
                     {[
-                      { label: "Jogos", value: profile.stats.played },
-                      { label: "Vitorias", value: profile.stats.wins },
-                      { label: "Empates", value: profile.stats.draws },
-                      { label: "Derrotas", value: profile.stats.losses },
-                      { label: "GP", value: profile.stats.goalsFor },
-                      { label: "GC", value: profile.stats.goalsAgainst },
-                      { label: "Saldo", value: profile.stats.goalDifference },
+                      { label: "Pontuacao", value: profile.rankingPoints, icon: TrendingUp, tone: "text-electric" },
+                      { label: "Titulos", value: profile.titlesCount, icon: Trophy, tone: "text-primary" },
+                      { label: "Vice", value: profile.viceTitlesCount, icon: Medal, tone: "text-slate-200" },
+                      { label: "3o lugar", value: profile.thirdPlacesCount, icon: Award, tone: "text-amber-200" },
+                      { label: "Jogos", value: profile.stats.played, icon: Users, tone: "text-slate-200" },
+                      {
+                        label: "Aproveit.",
+                        value: `${
+                          profile.stats.played > 0
+                            ? Math.round((profile.matchRankingPoints / (profile.stats.played * 2)) * 100)
+                            : 0
+                        }%`,
+                        icon: ShieldCheck,
+                        tone: "text-emerald-200",
+                      },
                     ].map((stat) => (
                       <div
                         key={stat.label}
                         className="rounded-2xl border border-white/8 bg-white/[0.035] px-3 py-3 shadow-[inset_0_1px_0_hsl(0_0%_100%_/_0.03)]"
                       >
-                        <p className="text-[10px] uppercase tracking-[0.18em] text-slate-400">
-                          {stat.label}
-                        </p>
+                        <div className={`flex items-center gap-2 ${stat.tone}`}>
+                          <stat.icon className="h-3.5 w-3.5" />
+                          <p className="text-[10px] uppercase tracking-[0.18em]">{stat.label}</p>
+                        </div>
                         <p className="mt-1.5 text-xl font-semibold text-white">{stat.value}</p>
                       </div>
                     ))}
+                  </div>
+                  <div className="mt-3 rounded-2xl border border-white/8 bg-black/20 px-3 py-3 text-xs leading-5 text-slate-400">
+                    Pontos: {profile.matchRankingPoints} por partidas + {profile.achievementRankingPoints} por conquistas.
                   </div>
                 </div>
               </div>

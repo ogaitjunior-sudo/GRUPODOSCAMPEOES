@@ -52,6 +52,7 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { generateBracket, updateBracketMatch, validateBracketGeneration } from "@/lib/championship-bracket";
+import { buildChampionshipRankingByTeamId } from "@/lib/championship-ranking";
 import { buildChampionshipTeamProfileLookup } from "@/lib/championship-team-profile";
 import { findPendingFriendlyChallenge } from "@/lib/friendly-challenges";
 import {
@@ -1118,6 +1119,13 @@ export function ChampionshipWorkspacePage({
     );
   }, [playerEmail, playerSession?.id, workspace]);
   const ownedTeam = ownedTeamId ? teamsById.get(ownedTeamId) ?? null : null;
+  const rankingByTeamId = useMemo(() => {
+    if (!championship || !workspace) {
+      return new Map();
+    }
+
+    return buildChampionshipRankingByTeamId({ championship, workspace });
+  }, [championship, workspace]);
   const teamProfilesById = useMemo(() => {
     if (!workspace) {
       return new Map<string, ChampionshipTeamProfile>();
@@ -1128,6 +1136,7 @@ export function ChampionshipWorkspacePage({
     return new Map(
       Array.from(baseProfiles.entries()).map(([teamId, profile]) => {
         const meta = publicTeamMetaById.get(teamId);
+        const ranking = rankingByTeamId.get(teamId);
 
         return [
           teamId,
@@ -1135,11 +1144,17 @@ export function ChampionshipWorkspacePage({
             ...profile,
             captainName: profile.captainName ?? meta?.captainName ?? null,
             roster: profile.roster.length > 0 ? profile.roster : meta?.roster ?? [],
+            rankingPoints: ranking?.rankingPoints ?? 0,
+            matchRankingPoints: ranking?.matchRankingPoints ?? 0,
+            achievementRankingPoints: ranking?.achievementRankingPoints ?? 0,
+            titlesCount: ranking?.titlesCount ?? 0,
+            viceTitlesCount: ranking?.viceTitlesCount ?? 0,
+            thirdPlacesCount: ranking?.thirdPlacesCount ?? 0,
           } satisfies ChampionshipTeamProfile,
         ] as const;
       }),
     );
-  }, [publicTeamMetaById, workspace]);
+  }, [publicTeamMetaById, rankingByTeamId, workspace]);
   const selectedTeamProfile = selectedTeamId ? teamProfilesById.get(selectedTeamId) ?? null : null;
   const selectedTeamCanEdit = Boolean(isAdmin || (selectedTeamId && selectedTeamId === ownedTeamId));
   const selectedPendingFriendlyChallenge = useMemo(() => {

@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { BarChart3, Crown, ShieldCheck, Swords, Trophy } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { BarChart3, Crown, ShieldCheck, Swords, TrendingUp, Trophy } from "lucide-react";
 import { Link } from "react-router-dom";
 import { EmptyStateCard } from "@/components/EmptyStateCard";
 import { PageHeader } from "@/components/PageHeader";
@@ -11,7 +11,10 @@ import {
   formatChampionshipAvailableSlots,
   formatChampionshipDateRange,
 } from "@/lib/championships";
+import { buildChampionshipRanking } from "@/lib/championship-ranking";
+import { loadChampionshipWorkspaceRecord } from "@/lib/championship-workspace-store";
 import type { ChampionshipRecord } from "@/types/championship";
+import type { ChampionshipWorkspaceRecord } from "@/types/championship-runtime";
 
 type RankingView = "temporada" | "titulos" | "monitoramento";
 
@@ -54,12 +57,74 @@ function SeasonInfoCard({ label, value }: { label: string; value: string }) {
 const Ranking = () => {
   const [activeView, setActiveView] = useState<RankingView>("temporada");
   const { championships } = useChampionships();
+  const [rankingWorkspaces, setRankingWorkspaces] = useState<
+    Record<string, ChampionshipWorkspaceRecord>
+  >({});
+  const [isRankingLoading, setIsRankingLoading] = useState(false);
+
+  useEffect(() => {
+    let isActive = true;
+
+    const loadRankingWorkspaces = async () => {
+      setIsRankingLoading(championships.length > 0);
+
+      try {
+        const results = await Promise.allSettled(
+          championships.map(async (championship) => ({
+            championshipId: championship.id,
+            workspace: await loadChampionshipWorkspaceRecord(championship),
+          })),
+        );
+
+        if (!isActive) {
+          return;
+        }
+
+        const nextWorkspaces: Record<string, ChampionshipWorkspaceRecord> = {};
+
+        results.forEach((result) => {
+          if (result.status === "fulfilled") {
+            nextWorkspaces[result.value.championshipId] = result.value.workspace;
+          }
+        });
+
+        setRankingWorkspaces(nextWorkspaces);
+      } finally {
+        if (isActive) {
+          setIsRankingLoading(false);
+        }
+      }
+    };
+
+    void loadRankingWorkspaces();
+
+    return () => {
+      isActive = false;
+    };
+  }, [championships]);
+
   const monitors = buildRankingMonitors(championships);
+  const rankingInputs = useMemo(
+    () =>
+      championships
+        .map((championship) => {
+          const workspace = rankingWorkspaces[championship.id];
+
+          return workspace ? { championship, workspace } : null;
+        })
+        .filter((item): item is { championship: ChampionshipRecord; workspace: ChampionshipWorkspaceRecord } =>
+          Boolean(item),
+        ),
+    [championships, rankingWorkspaces],
+  );
+  const rankingRows = useMemo(() => buildChampionshipRanking(rankingInputs), [rankingInputs]);
   const openCount = championships.filter((item) => item.status === "REGISTRATION").length;
   const liveCount = championships.filter((item) => item.status === "STARTED").length;
   const finalCount = championships.filter((item) => item.status === "FINISHED").length;
-  const totalTitles = champions.reduce((sum, player) => sum + player.titles, 0);
-  const topThree = champions.slice(0, 3);
+  const dynamicTitleCount = rankingRows.reduce((sum, player) => sum + player.titlesCount, 0);
+  const totalTitles =
+    dynamicTitleCount || champions.reduce((sum, player) => sum + player.titles, 0);
+  const topThree = rankingRows.slice(0, 3);
 
   return (
     <PageShell>
@@ -72,7 +137,7 @@ const Ranking = () => {
               description="Pagina mais operacional para monitorar a temporada, o historico por titulos e os rankings abastecidos pelo calendario publico."
             />
 
-            <div className="mt-10 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <div className="mt-10 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
               {[
                 {
                   label: "Campeonatos monitorados",
@@ -98,8 +163,17 @@ const Ranking = () => {
                 {
                   label: "Titulos oficiais",
                   value: totalTitles,
-                  helper: "Arquivo historico visivel no portal",
+                  helper: dynamicTitleCount
+                    ? "Conquistas calculadas dos campeonatos finalizados"
+                    : "Arquivo historico visivel no portal",
                   icon: Crown,
+                  tone: "text-electric",
+                },
+                {
+                  label: "Pontos de ranking",
+                  value: rankingRows.reduce((sum, player) => sum + player.rankingPoints, 0),
+                  helper: "Partidas + conquistas oficiais",
+                  icon: TrendingUp,
                   tone: "text-electric",
                 },
               ].map((item) => (
@@ -122,7 +196,7 @@ const Ranking = () => {
             <div className="mt-8 flex flex-wrap justify-center gap-3">
               {[
                 { key: "temporada", label: "Temporada" },
-                { key: "titulos", label: "Por titulos" },
+                { key: "titulos", label: "Conquistas" },
                 { key: "monitoramento", label: "Monitoramento" },
               ].map((view) => (
                 <button
@@ -141,7 +215,132 @@ const Ranking = () => {
             </div>
 
             {activeView === "temporada" && (
-              <div className="mt-10 grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+              <>
+                <section className="mt-10 overflow-hidden rounded-[32px] border border-primary/15 bg-[radial-gradient(circle_at_top_left,hsl(51_100%_50%_/_0.16),transparent_28%),linear-gradient(180deg,hsl(220_26%_12%_/_0.96),hsl(222_24%_8%_/_0.98))] shadow-[0_28px_80px_hsl(222_45%_2%_/_0.48)]">
+                  <div className="flex flex-col gap-5 border-b border-white/8 px-5 py-6 md:flex-row md:items-end md:justify-between md:px-6">
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.28em] text-primary">
+                        Ranking geral do clube
+                      </p>
+                      <h2 className="mt-2 font-heading text-3xl text-foreground">
+                        Pontuacao oficial EA FC
+                      </h2>
+                      <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
+                        Vitoria vale 2 pontos, empate vale 1 ponto. Campeao recebe +15,
+                        vice +8 e terceiro lugar +5 quando o campeonato e finalizado oficialmente.
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {[
+                        "Vitoria +2",
+                        "Empate +1",
+                        "Campeao +15",
+                        "Vice +8",
+                        "3o lugar +5",
+                      ].map((rule) => (
+                        <span
+                          key={rule}
+                          className="rounded-full border border-primary/20 bg-primary/10 px-3 py-1.5 text-[11px] uppercase tracking-[0.16em] text-primary"
+                        >
+                          {rule}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  {rankingRows.length > 0 ? (
+                    <div className="overflow-x-auto">
+                      <table className="min-w-[980px] w-full border-separate border-spacing-0 text-sm">
+                        <thead>
+                          <tr className="text-left text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+                            <th className="px-5 py-4">#</th>
+                            <th className="px-4 py-4">Time</th>
+                            <th className="px-4 py-4 text-center">Pontos</th>
+                            <th className="px-4 py-4 text-center">Titulos</th>
+                            <th className="px-4 py-4 text-center">Vice</th>
+                            <th className="px-4 py-4 text-center">3o</th>
+                            <th className="px-4 py-4 text-center">Jogos</th>
+                            <th className="px-4 py-4 text-center">V</th>
+                            <th className="px-4 py-4 text-center">SG</th>
+                            <th className="px-5 py-4 text-center">Aprov.</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {rankingRows.map((player, index) => (
+                            <tr
+                              key={player.key}
+                              className="group border-t border-white/8 transition-colors hover:bg-white/[0.035]"
+                            >
+                              <td className="border-t border-white/8 px-5 py-4">
+                                <span
+                                  className={`inline-flex h-10 w-10 items-center justify-center rounded-2xl border font-heading text-sm font-black ${
+                                    index === 0
+                                      ? "border-primary/35 bg-primary/15 text-primary"
+                                      : "border-white/10 bg-white/[0.04] text-slate-200"
+                                  }`}
+                                >
+                                  {index + 1}
+                                </span>
+                              </td>
+                              <td className="border-t border-white/8 px-4 py-4">
+                                <div>
+                                  <p className="font-heading text-lg uppercase tracking-[0.06em] text-foreground">
+                                    {player.name}
+                                  </p>
+                                  <p className="mt-1 text-xs uppercase tracking-[0.16em] text-muted-foreground">
+                                    {player.championshipsCount} campeonato(s) no circuito
+                                  </p>
+                                </div>
+                              </td>
+                              <td className="border-t border-white/8 px-4 py-4 text-center">
+                                <span className="font-heading text-2xl text-primary">
+                                  {player.rankingPoints}
+                                </span>
+                                <p className="mt-1 text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+                                  {player.matchRankingPoints} jogos + {player.achievementRankingPoints} conquistas
+                                </p>
+                              </td>
+                              <td className="border-t border-white/8 px-4 py-4 text-center font-semibold text-foreground">
+                                {player.titlesCount}
+                              </td>
+                              <td className="border-t border-white/8 px-4 py-4 text-center text-slate-300">
+                                {player.viceTitlesCount}
+                              </td>
+                              <td className="border-t border-white/8 px-4 py-4 text-center text-slate-300">
+                                {player.thirdPlacesCount}
+                              </td>
+                              <td className="border-t border-white/8 px-4 py-4 text-center text-slate-300">
+                                {player.played}
+                              </td>
+                              <td className="border-t border-white/8 px-4 py-4 text-center text-slate-300">
+                                {player.wins}
+                              </td>
+                              <td className="border-t border-white/8 px-4 py-4 text-center text-slate-300">
+                                {player.goalDifference}
+                              </td>
+                              <td className="border-t border-white/8 px-5 py-4 text-center text-slate-300">
+                                {player.efficiency}%
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <EmptyStateCard
+                      icon={TrendingUp}
+                      title={isRankingLoading ? "Calculando ranking" : "Ranking ainda sem pontuacao"}
+                      description={
+                        isRankingLoading
+                          ? "Buscando os workspaces dos campeonatos para montar a classificacao geral."
+                          : "Assim que houver partidas ou campeonatos finalizados, a tabela geral aparece aqui."
+                      }
+                      className="mx-auto my-8 max-w-3xl"
+                    />
+                  )}
+                </section>
+
+                <div className="mt-10 grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
                 <section className="rounded-[30px] border border-white/8 bg-metallic-card p-6 shadow-[0_18px_45px_hsl(0_0%_0%_/_0.24)]">
                   <div className="flex flex-wrap items-end justify-between gap-4">
                     <div>
@@ -238,7 +437,8 @@ const Ranking = () => {
                     </div>
                   </section>
                 </aside>
-              </div>
+                </div>
+              </>
             )}
 
             {activeView === "titulos" && (
@@ -252,7 +452,11 @@ const Ranking = () => {
                   </h2>
 
                   <div className="mt-8 grid gap-4 md:grid-cols-3">
-                    {topThree.map((player, index) => (
+                    {(topThree.length > 0 ? topThree : champions.slice(0, 3)).map((player, index) => {
+                      const position = "rankingPoints" in player ? index + 1 : player.rank;
+                      const titleCount = "rankingPoints" in player ? player.titlesCount : player.titles;
+
+                      return (
                       <article
                         key={player.name}
                         className={`rounded-[24px] border p-5 ${
@@ -262,40 +466,47 @@ const Ranking = () => {
                         }`}
                       >
                         <p className="text-xs uppercase tracking-[0.22em] text-primary">
-                          Posicao #{player.rank}
+                          Posicao #{position}
                         </p>
                         <h3 className="mt-3 font-heading text-2xl text-foreground">
                           {player.name}
                         </h3>
                         <p className="mt-3 text-sm text-muted-foreground">
-                          {player.titles} titulo(s) oficiais registrados.
+                          {titleCount} titulo(s) oficiais registrados.
                         </p>
                       </article>
-                    ))}
+                    );
+                    })}
                   </div>
 
                   <div className="mt-8 space-y-3">
-                    {champions.map((player) => (
+                    {(rankingRows.length > 0 ? rankingRows : champions).map((player, index) => {
+                      const position = "rankingPoints" in player ? index + 1 : player.rank;
+                      const titleCount = "rankingPoints" in player ? player.titlesCount : player.titles;
+                      const points = "rankingPoints" in player ? player.rankingPoints : titleCount * 15;
+
+                      return (
                       <div
                         key={player.name}
                         className="flex items-center justify-between rounded-2xl border border-white/8 bg-background/55 px-5 py-4"
                       >
                         <div className="flex items-center gap-4">
                           <span className="flex h-10 w-10 items-center justify-center rounded-full border border-primary/20 bg-primary/10 font-heading text-sm font-black text-primary">
-                            {player.rank}
+                            {position}
                           </span>
                           <div>
                             <p className="text-sm font-semibold text-foreground">{player.name}</p>
                             <p className="mt-1 text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                              Registro historico oficial
+                              {points} pontos totais
                             </p>
                           </div>
                         </div>
                         <span className="font-heading text-xl font-black text-primary">
-                          {player.titles}x
+                          {titleCount}x
                         </span>
                       </div>
-                    ))}
+                    );
+                    })}
                   </div>
                 </section>
 
@@ -304,9 +515,9 @@ const Ranking = () => {
                     Leitura
                   </p>
                   <div className="mt-5 space-y-3 text-sm leading-7 text-muted-foreground">
-                    <p>Esta visao usa o arquivo oficial do hall de campeoes.</p>
-                    <p>Ela fica secundaria no produto, mas continua disponivel para referencia.</p>
-                    <p>Use a aba de temporada para o fluxo principal do circuito.</p>
+                    <p>Campeao soma +15 pontos, vice +8 e terceiro lugar +5.</p>
+                    <p>A visao recalcula automaticamente quando o resultado final muda.</p>
+                    <p>Se ainda nao houver campeonatos finalizados, aparece o arquivo historico do hall.</p>
                   </div>
                 </aside>
               </div>

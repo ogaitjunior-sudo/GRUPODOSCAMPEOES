@@ -109,6 +109,12 @@ export function buildChampionshipTeamProfileLookup(
         roster: team.roster,
         stats: createEmptyStats(),
         recentMatches: [],
+        rankingPoints: 0,
+        matchRankingPoints: 0,
+        achievementRankingPoints: 0,
+        titlesCount: 0,
+        viceTitlesCount: 0,
+        thirdPlacesCount: 0,
       } satisfies ChampionshipTeamProfile,
     ]),
   );

@@ -186,6 +186,12 @@ export interface ChampionshipTeamProfile {
   roster: string[];
   stats: ChampionshipTeamStats;
   recentMatches: ChampionshipTeamRecentMatch[];
+  rankingPoints: number;
+  matchRankingPoints: number;
+  achievementRankingPoints: number;
+  titlesCount: number;
+  viceTitlesCount: number;
+  thirdPlacesCount: number;
 }
 
 export interface GroupMatchUpdateInput {
