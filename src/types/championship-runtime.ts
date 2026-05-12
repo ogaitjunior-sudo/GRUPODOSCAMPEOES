@@ -2,6 +2,7 @@ export type GroupMatchStatus = "scheduled" | "completed";
 export type BracketMatchStatus = "pending" | "ready" | "completed";
 export type BracketProgressState = "not-generated" | "generated" | "in-progress" | "completed";
 export type BracketConsistencyStatus = "idle" | "fresh" | "outdated" | "frozen";
+export type BracketRoundTripMode = "single-leg" | "home-away";
 export type BracketStageKey =
   | "round-of-16"
   | "quarterfinal"
@@ -116,12 +117,17 @@ export interface ChampionshipBracketMatch {
   nextSlot: BracketSlot | null;
   loserNextMatchId: string | null;
   loserNextSlot: BracketSlot | null;
+  roundTripMode: BracketRoundTripMode;
   scoreHome: number | null;
   scoreAway: number | null;
+  scoreHomeSecondLeg: number | null;
+  scoreAwaySecondLeg: number | null;
   penaltiesHome: number | null;
   penaltiesAway: number | null;
   playedAt: string | null;
   venue: string;
+  secondLegPlayedAt: string | null;
+  secondLegVenue: string;
   resolution: MatchResolutionType | null;
   status: BracketMatchStatus;
 }
@@ -207,6 +213,10 @@ export interface BracketMatchUpdateInput {
   venue?: string;
   scoreHome?: number | null;
   scoreAway?: number | null;
+  scoreHomeSecondLeg?: number | null;
+  scoreAwaySecondLeg?: number | null;
+  secondLegPlayedAt?: string | null;
+  secondLegVenue?: string;
   penaltiesHome?: number | null;
   penaltiesAway?: number | null;
   resolution?: MatchResolutionType | null;

@@ -5,7 +5,10 @@ import {
   computeGroupStandings,
   createRuntimeId,
   deriveBracketProgressState,
+  getBracketAggregate,
+  getBracketRoundTripMode,
   getQualifiedTeams,
+  isBracketMatchHomeAway,
   normalizeChampionshipWorkspace,
   nowIso,
   resolveBracketState,
@@ -134,6 +137,40 @@ function createLoserSource(matchId: string, label: string): ChampionshipBracketS
 
 function createByeSource(label = "Avanco automatico"): ChampionshipBracketSource {
   return { type: "manual-team", teamId: null, label };
+}
+
+function createBracketResultDefaults(
+  stageKey: BracketStageKey,
+  championship: ChampionshipRecord,
+) {
+  return {
+    roundTripMode: getBracketRoundTripMode(stageKey, championship),
+    scoreHome: null,
+    scoreAway: null,
+    scoreHomeSecondLeg: null,
+    scoreAwaySecondLeg: null,
+    penaltiesHome: null,
+    penaltiesAway: null,
+    playedAt: null,
+    venue: "",
+    secondLegPlayedAt: null,
+    secondLegVenue: "",
+    resolution: null,
+  } satisfies Pick<
+    ChampionshipBracketMatch,
+    | "roundTripMode"
+    | "scoreHome"
+    | "scoreAway"
+    | "scoreHomeSecondLeg"
+    | "scoreAwaySecondLeg"
+    | "penaltiesHome"
+    | "penaltiesAway"
+    | "playedAt"
+    | "venue"
+    | "secondLegPlayedAt"
+    | "secondLegVenue"
+    | "resolution"
+  >;
 }
 
 function buildInitialPairs(
@@ -304,13 +341,7 @@ export function generateBracket(
       nextSlot: null,
       loserNextMatchId: null,
       loserNextSlot: null,
-      scoreHome: null,
-      scoreAway: null,
-      penaltiesHome: null,
-      penaltiesAway: null,
-      playedAt: null,
-      venue: "",
-      resolution: null,
+      ...createBracketResultDefaults(firstRound.stageKey, championship),
       status: "pending",
     });
   });
@@ -346,13 +377,7 @@ export function generateBracket(
         nextSlot: null,
         loserNextMatchId: null,
         loserNextSlot: null,
-        scoreHome: null,
-        scoreAway: null,
-        penaltiesHome: null,
-        penaltiesAway: null,
-        playedAt: null,
-        venue: "",
-        resolution: null,
+        ...createBracketResultDefaults(nextRound.stageKey, championship),
         status: "pending",
       });
 
@@ -405,13 +430,7 @@ export function generateBracket(
       nextSlot: null,
       loserNextMatchId: null,
       loserNextSlot: null,
-      scoreHome: null,
-      scoreAway: null,
-      penaltiesHome: null,
-      penaltiesAway: null,
-      playedAt: null,
-      venue: "",
-      resolution: null,
+      ...createBracketResultDefaults("third-place", championship),
       status: "pending",
     });
 
@@ -458,7 +477,10 @@ export function generateBracket(
   };
 }
 
-function validateSavedBracketMatch(match: ChampionshipBracketMatch) {
+function validateSavedBracketMatch(
+  match: ChampionshipBracketMatch,
+  championship: ChampionshipRecord,
+) {
   if (!match.homeTeamId || !match.awayTeamId) {
     if (match.homeTeamId || match.awayTeamId) {
       return null;
@@ -467,11 +489,91 @@ function validateSavedBracketMatch(match: ChampionshipBracketMatch) {
     return "Nao e possivel concluir um confronto sem equipes definidas.";
   }
 
+  const isHomeAway = isBracketMatchHomeAway(match, championship);
+
   if ((match.scoreHome === null) !== (match.scoreAway === null)) {
-    return "Informe os dois placares do confronto.";
+    return "Informe os dois placares do jogo de ida.";
   }
 
-  if (match.scoreHome === null && match.scoreAway === null) {
+  if ((match.scoreHomeSecondLeg === null) !== (match.scoreAwaySecondLeg === null)) {
+    return "Informe os dois placares do jogo de volta.";
+  }
+
+  if (
+    match.scoreHome === null &&
+    match.scoreAway === null &&
+    (!isHomeAway || (match.scoreHomeSecondLeg === null && match.scoreAwaySecondLeg === null))
+  ) {
+    return null;
+  }
+
+  if (isHomeAway) {
+    const hasFirstLeg =
+      typeof match.scoreHome === "number" && typeof match.scoreAway === "number";
+    const hasSecondLeg =
+      typeof match.scoreHomeSecondLeg === "number" &&
+      typeof match.scoreAwaySecondLeg === "number";
+
+    if (!hasSecondLeg) {
+      return null;
+    }
+
+    if (!hasFirstLeg) {
+      return "Para ida e volta, preencha o placar do jogo de ida antes da volta.";
+    }
+
+    const aggregate = getBracketAggregate(match);
+
+    if (aggregate.complete && aggregate.home !== aggregate.away) {
+      const inferredWinnerTeamId =
+        aggregate.home > aggregate.away ? match.homeTeamId : match.awayTeamId;
+
+      if (match.winnerTeamId && match.winnerTeamId !== inferredWinnerTeamId) {
+        return "O vencedor informado nao corresponde ao placar agregado.";
+      }
+
+      return null;
+    }
+
+    if (normalizeChampionshipConfiguration(championship.configuration).awayGoalsRule) {
+      const homeAwayGoals = match.scoreHomeSecondLeg;
+      const awayAwayGoals = match.scoreAway;
+
+      if (homeAwayGoals !== awayAwayGoals) {
+        const inferredWinnerTeamId =
+          homeAwayGoals > awayAwayGoals ? match.homeTeamId : match.awayTeamId;
+
+        if (match.winnerTeamId && match.winnerTeamId !== inferredWinnerTeamId) {
+          return "O vencedor informado nao corresponde ao criterio de gols fora.";
+        }
+
+        return null;
+      }
+    }
+
+    if (match.resolution === "penalties") {
+      if (
+        match.penaltiesHome === null ||
+        match.penaltiesAway === null ||
+        match.penaltiesHome === match.penaltiesAway
+      ) {
+        return "Informe os penaltis com vencedor definido.";
+      }
+
+      const inferredWinnerTeamId =
+        match.penaltiesHome > match.penaltiesAway ? match.homeTeamId : match.awayTeamId;
+
+      if (match.winnerTeamId && match.winnerTeamId !== inferredWinnerTeamId) {
+        return "O vencedor informado nao corresponde ao resultado dos penaltis.";
+      }
+
+      return null;
+    }
+
+    if (!match.winnerTeamId) {
+      return "Agregado empatado: defina criterio de desempate e vencedor.";
+    }
+
     return null;
   }
 
@@ -536,6 +638,18 @@ export function updateBracketMatch(
       venue: patch.venue === undefined ? match.venue : patch.venue,
       scoreHome: patch.scoreHome === undefined ? match.scoreHome : patch.scoreHome,
       scoreAway: patch.scoreAway === undefined ? match.scoreAway : patch.scoreAway,
+      scoreHomeSecondLeg:
+        patch.scoreHomeSecondLeg === undefined
+          ? match.scoreHomeSecondLeg
+          : patch.scoreHomeSecondLeg,
+      scoreAwaySecondLeg:
+        patch.scoreAwaySecondLeg === undefined
+          ? match.scoreAwaySecondLeg
+          : patch.scoreAwaySecondLeg,
+      secondLegPlayedAt:
+        patch.secondLegPlayedAt === undefined ? match.secondLegPlayedAt : patch.secondLegPlayedAt,
+      secondLegVenue:
+        patch.secondLegVenue === undefined ? match.secondLegVenue : patch.secondLegVenue,
       penaltiesHome:
         patch.penaltiesHome === undefined ? match.penaltiesHome : patch.penaltiesHome,
       penaltiesAway:
@@ -596,7 +710,7 @@ export function updateBracketMatch(
     throw new Error("Confronto nao encontrado.");
   }
 
-  const validationMessage = validateSavedBracketMatch(targetMatch);
+  const validationMessage = validateSavedBracketMatch(targetMatch, championship);
 
   if (validationMessage) {
     throw new Error(validationMessage);

@@ -65,8 +65,10 @@ import {
 } from "@/lib/championship-table";
 import {
   computeGroupStandings,
+  getBracketAggregate,
   getChampionshipProgressSummary,
   getQualifiedTeams,
+  isBracketMatchHomeAway,
   normalizeChampionshipWorkspace,
   rebuildGroupsAndSchedule,
   renameTeam,
@@ -1353,7 +1355,7 @@ export function ChampionshipWorkspacePage({
     return `RODADA ${selectedRoundNumber}`;
   }, [selectedGroupRounds, selectedPublicGroupEntry]);
   const myGameEntries = useMemo(() => {
-    if (!workspace || !ownedTeamId) {
+    if (!workspace || !ownedTeamId || !championship) {
       return [];
     }
 
@@ -1368,6 +1370,9 @@ export function ChampionshipWorkspacePage({
         awayLabel: getTeamName(workspace.teams, match.awayTeamId),
         scoreHome: match.scoreHome,
         scoreAway: match.scoreAway,
+        scoreHomeSecondLeg: null,
+        scoreAwaySecondLeg: null,
+        isTwoLegged: false,
         statusLabel: match.status === "completed" ? "Encerrada" : "Pendente",
         metaLabel: formatMatchDateTime(match.playedAt),
         secondaryMeta: `${groupNameById.get(match.groupId) ?? "Fase de grupos"} • ${
@@ -1391,6 +1396,9 @@ export function ChampionshipWorkspacePage({
         awayLabel: getTeamName(workspace.teams, match.awayTeamId),
         scoreHome: match.scoreHome,
         scoreAway: match.scoreAway,
+        scoreHomeSecondLeg: match.scoreHomeSecondLeg,
+        scoreAwaySecondLeg: match.scoreAwaySecondLeg,
+        isTwoLegged: isBracketMatchHomeAway(match, championship),
         statusLabel: match.winnerTeamId
           ? "Concluido"
           : match.homeTeamId && match.awayTeamId
@@ -1408,7 +1416,7 @@ export function ChampionshipWorkspacePage({
       }));
 
     return [...groupEntries, ...bracketEntries].sort((left, right) => left.sortOrder - right.sortOrder);
-  }, [ownedTeamId, publicTeamMetaById, teamsById, workspace]);
+  }, [championship, ownedTeamId, publicTeamMetaById, teamsById, workspace]);
 
   if (
     championshipId &&
@@ -2493,6 +2501,9 @@ export function ChampionshipWorkspacePage({
                                     awayLabel={getTeamName(workspace.teams, match.awayTeamId)}
                                     scoreHome={match.scoreHome}
                                     scoreAway={match.scoreAway}
+                                    scoreHomeSecondLeg={match.scoreHomeSecondLeg}
+                                    scoreAwaySecondLeg={match.scoreAwaySecondLeg}
+                                    isTwoLegged={isBracketMatchHomeAway(match, championship)}
                                     statusLabel={
                                       match.winnerTeamId
                                         ? "Concluido"
@@ -2547,6 +2558,9 @@ export function ChampionshipWorkspacePage({
                             awayLabel={getTeamName(workspace.teams, thirdPlaceMatch.awayTeamId)}
                             scoreHome={thirdPlaceMatch.scoreHome}
                             scoreAway={thirdPlaceMatch.scoreAway}
+                            scoreHomeSecondLeg={thirdPlaceMatch.scoreHomeSecondLeg}
+                            scoreAwaySecondLeg={thirdPlaceMatch.scoreAwaySecondLeg}
+                            isTwoLegged={isBracketMatchHomeAway(thirdPlaceMatch, championship)}
                             statusLabel={
                               thirdPlaceMatch.winnerTeamId
                                 ? "Concluido"
@@ -2629,6 +2643,9 @@ export function ChampionshipWorkspacePage({
                             awayLabel={match.awayLabel}
                             scoreHome={match.scoreHome}
                             scoreAway={match.scoreAway}
+                            scoreHomeSecondLeg={match.scoreHomeSecondLeg}
+                            scoreAwaySecondLeg={match.scoreAwaySecondLeg}
+                            isTwoLegged={match.isTwoLegged}
                             statusLabel={match.statusLabel}
                             metaLabel={match.metaLabel}
                             secondaryMeta={match.secondaryMeta}
@@ -2883,6 +2900,7 @@ export function ChampionshipWorkspacePage({
       />
       <BracketMatchDialog
         match={editingBracketMatch}
+        championship={championship}
         teams={workspace.teams}
         qualifiedTeams={qualifiedTeams}
         onClose={() => setEditingBracketMatch(null)}
@@ -3580,6 +3598,9 @@ function MatchCard({
   awayLabel,
   scoreHome,
   scoreAway,
+  scoreHomeSecondLeg,
+  scoreAwaySecondLeg,
+  isTwoLegged = false,
   statusLabel,
   metaLabel,
   secondaryMeta,
@@ -3598,6 +3619,9 @@ function MatchCard({
   awayLabel: string;
   scoreHome: number | null;
   scoreAway: number | null;
+  scoreHomeSecondLeg?: number | null;
+  scoreAwaySecondLeg?: number | null;
+  isTwoLegged?: boolean;
   statusLabel: string;
   metaLabel: string;
   secondaryMeta: string;
@@ -3627,6 +3651,17 @@ function MatchCard({
         teamPhotoUrl: awayTeamPhotoUrl ?? null,
       }
     : null;
+  const aggregate =
+    isTwoLegged &&
+    typeof scoreHome === "number" &&
+    typeof scoreAway === "number" &&
+    typeof scoreHomeSecondLeg === "number" &&
+    typeof scoreAwaySecondLeg === "number"
+      ? {
+          home: scoreHome + scoreHomeSecondLeg,
+          away: scoreAway + scoreAwaySecondLeg,
+        }
+      : null;
 
   return (
     <article className="rounded-2xl border border-border/80 bg-background/70 p-3 text-left shadow-[0_10px_24px_hsl(0_0%_0%_/_0.16)]">
@@ -3650,6 +3685,8 @@ function MatchCard({
           team={homeTeam}
           fallbackName={homeLabel}
           score={scoreHome}
+          secondLegScore={isTwoLegged ? scoreHomeSecondLeg ?? null : undefined}
+          aggregateScore={aggregate?.home ?? null}
           highlighted={Boolean(winnerTeamId && winnerTeamId === homeTeamId)}
           onOpenTeamProfile={onOpenTeamProfile}
         />
@@ -3657,10 +3694,24 @@ function MatchCard({
           team={awayTeam}
           fallbackName={awayLabel}
           score={scoreAway}
+          secondLegScore={isTwoLegged ? scoreAwaySecondLeg ?? null : undefined}
+          aggregateScore={aggregate?.away ?? null}
           highlighted={Boolean(winnerTeamId && winnerTeamId === awayTeamId)}
           onOpenTeamProfile={onOpenTeamProfile}
         />
       </div>
+
+      {isTwoLegged ? (
+        <div className="mt-3 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+          <span className="text-primary">Ida e volta</span>
+          <span className="mx-2 text-border">|</span>
+          Ida {scoreHome ?? "-"} x {scoreAway ?? "-"}
+          <span className="mx-2 text-border">|</span>
+          Volta {scoreHomeSecondLeg ?? "-"} x {scoreAwaySecondLeg ?? "-"}
+          <span className="mx-2 text-border">|</span>
+          Agregado {aggregate ? `${aggregate.home} x ${aggregate.away}` : "-"}
+        </div>
+      ) : null}
 
       <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-border/60 pt-3 text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
         <span className="min-w-0 truncate">{secondaryMeta}</span>
@@ -3672,7 +3723,7 @@ function MatchCard({
             className="h-9 rounded-full bg-primary px-3 font-heading text-[10px] font-black uppercase tracking-[0.14em] text-primary-foreground shadow-[0_10px_24px_hsl(51_100%_50%_/_0.22)] hover:bg-primary/90"
           >
             <Save className="mr-1.5 h-3.5 w-3.5" />
-            Lancar placar
+            {isTwoLegged ? "Lancar ida/volta" : "Lancar placar"}
           </Button>
         ) : null}
       </div>
@@ -3684,15 +3735,20 @@ function BracketTeamLine({
   team,
   fallbackName,
   score,
+  secondLegScore,
+  aggregateScore,
   highlighted,
   onOpenTeamProfile,
 }: {
   team: TeamSummary | null;
   fallbackName: string;
   score: number | null;
+  secondLegScore?: number | null;
+  aggregateScore?: number | null;
   highlighted: boolean;
   onOpenTeamProfile?: (teamId: string | null) => void;
 }) {
+  const isTwoLegged = secondLegScore !== undefined;
   const canOpenProfile = Boolean(team?.id && onOpenTeamProfile);
   const content = (
     <>
@@ -3704,7 +3760,24 @@ function BracketTeamLine({
         highlighted={highlighted}
         onOpenTeamProfile={canOpenProfile ? undefined : onOpenTeamProfile}
       />
-      <ScoreBox score={score} highlighted={highlighted} size="sm" />
+      <div className="flex shrink-0 items-center gap-1">
+        <ScoreBox score={score} highlighted={highlighted} size="sm" title={isTwoLegged ? "Ida" : undefined} />
+        {isTwoLegged ? (
+          <>
+            <ScoreBox score={secondLegScore ?? null} highlighted={highlighted} size="sm" title="Volta" />
+            <span
+              title="Agregado"
+              className={`inline-flex h-9 min-w-10 items-center justify-center rounded-lg border px-2 text-base font-black ${
+                highlighted
+                  ? "border-primary/40 bg-primary/15 text-primary"
+                  : "border-border/80 bg-background/80 text-foreground"
+              }`}
+            >
+              {aggregateScore ?? "-"}
+            </span>
+          </>
+        ) : null}
+      </div>
     </>
   );
   const className = `flex min-w-0 items-center justify-between gap-3 rounded-xl border px-3 py-2 text-left transition ${
@@ -3741,15 +3814,18 @@ function ScoreBox({
   score,
   highlighted,
   size = "md",
+  title,
 }: {
   score: number | null;
   highlighted: boolean;
   size?: "sm" | "md";
+  title?: string;
 }) {
   const sizeClass = size === "sm" ? "h-9 w-10 rounded-lg text-base" : "h-11 w-11 rounded-sm text-lg";
 
   return (
     <span
+      title={title}
       className={`inline-flex shrink-0 items-center justify-center border font-semibold ${sizeClass} ${
         highlighted
           ? "border-primary/30 bg-primary/12 text-primary"
@@ -3870,12 +3946,14 @@ function GroupMatchDialog({
 
 function BracketMatchDialog({
   match,
+  championship,
   teams,
   qualifiedTeams,
   onClose,
   onSave,
 }: {
   match: ChampionshipBracketMatch | null;
+  championship: ChampionshipRecord;
   teams: ChampionshipTeam[];
   qualifiedTeams: ReturnType<typeof getQualifiedTeams>;
   onClose: () => void;
@@ -3886,6 +3964,10 @@ function BracketMatchDialog({
     venue: "",
     scoreHome: null,
     scoreAway: null,
+    scoreHomeSecondLeg: null,
+    scoreAwaySecondLeg: null,
+    secondLegPlayedAt: null,
+    secondLegVenue: "",
     penaltiesHome: null,
     penaltiesAway: null,
     resolution: null,
@@ -3904,6 +3986,10 @@ function BracketMatchDialog({
       venue: match.venue,
       scoreHome: match.scoreHome,
       scoreAway: match.scoreAway,
+      scoreHomeSecondLeg: match.scoreHomeSecondLeg,
+      scoreAwaySecondLeg: match.scoreAwaySecondLeg,
+      secondLegPlayedAt: match.secondLegPlayedAt,
+      secondLegVenue: match.secondLegVenue,
       penaltiesHome: match.penaltiesHome,
       penaltiesAway: match.penaltiesAway,
       resolution: match.resolution,
@@ -3913,6 +3999,18 @@ function BracketMatchDialog({
     });
   }, [match]);
 
+  const isTwoLegged = match ? isBracketMatchHomeAway(match, championship) : false;
+  const aggregate = match
+    ? getBracketAggregate({
+        scoreHome: form.scoreHome ?? null,
+        scoreAway: form.scoreAway ?? null,
+        scoreHomeSecondLeg: form.scoreHomeSecondLeg ?? null,
+        scoreAwaySecondLeg: form.scoreAwaySecondLeg ?? null,
+      })
+    : null;
+  const homeName = match ? getTeamName(teams, match.homeTeamId) : "Mandante";
+  const awayName = match ? getTeamName(teams, match.awayTeamId) : "Visitante";
+
   return (
     <Dialog open={Boolean(match)} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="mobile-dialog sm:max-w-2xl">
@@ -3920,7 +4018,11 @@ function BracketMatchDialog({
           <DialogTitle>Lancar placar do mata-mata</DialogTitle>
           <DialogDescription>
             {match
-              ? `${match.stageName} ${match.matchOrder} - informe gols, criterio de desempate e vencedor.`
+              ? `${match.stageName} ${match.matchOrder} - ${
+                  isTwoLegged
+                    ? "informe os placares da ida e da volta; o agregado decide quem avanca."
+                    : "informe gols, criterio de desempate e vencedor."
+                }`
               : ""}
           </DialogDescription>
         </DialogHeader>
@@ -3960,61 +4062,174 @@ function BracketMatchDialog({
             </div>
           ) : null}
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <label className="space-y-2">
-              <span className="text-sm font-medium text-foreground">Data e horario</span>
-              <input
-                type="datetime-local"
-                value={toDateTimeLocalValue(form.playedAt ?? null)}
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    playedAt: event.target.value ? new Date(event.target.value).toISOString() : null,
-                  }))
-                }
-                className={inputClassName}
-              />
-            </label>
-            <label className="space-y-2">
-              <span className="text-sm font-medium text-foreground">Local</span>
-              <input
-                value={form.venue ?? ""}
-                onChange={(event) => setForm((current) => ({ ...current, venue: event.target.value }))}
-                className={inputClassName}
-              />
-            </label>
+          <div className={isTwoLegged ? "grid gap-4 lg:grid-cols-2" : "grid gap-4"}>
+            <div className="rounded-2xl border border-border bg-muted/15 p-4">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.22em] text-primary">
+                    {isTwoLegged ? "Jogo de ida" : "Jogo unico"}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {homeName} x {awayName}
+                  </p>
+                </div>
+                {isTwoLegged ? <Badge variant="outline">Ida</Badge> : null}
+              </div>
+              <div className="grid gap-4">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <label className="space-y-2">
+                    <span className="text-sm font-medium text-foreground">Data e horario</span>
+                    <input
+                      type="datetime-local"
+                      value={toDateTimeLocalValue(form.playedAt ?? null)}
+                      onChange={(event) =>
+                        setForm((current) => ({
+                          ...current,
+                          playedAt: event.target.value ? new Date(event.target.value).toISOString() : null,
+                        }))
+                      }
+                      className={inputClassName}
+                    />
+                  </label>
+                  <label className="space-y-2">
+                    <span className="text-sm font-medium text-foreground">Local</span>
+                    <input
+                      value={form.venue ?? ""}
+                      onChange={(event) => setForm((current) => ({ ...current, venue: event.target.value }))}
+                      className={inputClassName}
+                    />
+                  </label>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <label className="space-y-2">
+                    <span className="text-sm font-medium text-foreground">
+                      Placar {homeName}
+                    </span>
+                    <input
+                      type="number"
+                      value={form.scoreHome ?? ""}
+                      onChange={(event) =>
+                        setForm((current) => ({
+                          ...current,
+                          scoreHome: event.target.value === "" ? null : Number(event.target.value),
+                        }))
+                      }
+                      className={inputClassName}
+                    />
+                  </label>
+                  <label className="space-y-2">
+                    <span className="text-sm font-medium text-foreground">
+                      Placar {awayName}
+                    </span>
+                    <input
+                      type="number"
+                      value={form.scoreAway ?? ""}
+                      onChange={(event) =>
+                        setForm((current) => ({
+                          ...current,
+                          scoreAway: event.target.value === "" ? null : Number(event.target.value),
+                        }))
+                      }
+                      className={inputClassName}
+                    />
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            {isTwoLegged ? (
+              <div className="rounded-2xl border border-primary/25 bg-primary/5 p-4">
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[11px] uppercase tracking-[0.22em] text-primary">
+                      Jogo de volta
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Informe os gols de cada equipe na volta
+                    </p>
+                  </div>
+                  <Badge variant="outline">Volta</Badge>
+                </div>
+                <div className="grid gap-4">
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <label className="space-y-2">
+                      <span className="text-sm font-medium text-foreground">Data e horario</span>
+                      <input
+                        type="datetime-local"
+                        value={toDateTimeLocalValue(form.secondLegPlayedAt ?? null)}
+                        onChange={(event) =>
+                          setForm((current) => ({
+                            ...current,
+                            secondLegPlayedAt: event.target.value
+                              ? new Date(event.target.value).toISOString()
+                              : null,
+                          }))
+                        }
+                        className={inputClassName}
+                      />
+                    </label>
+                    <label className="space-y-2">
+                      <span className="text-sm font-medium text-foreground">Local</span>
+                      <input
+                        value={form.secondLegVenue ?? ""}
+                        onChange={(event) =>
+                          setForm((current) => ({ ...current, secondLegVenue: event.target.value }))
+                        }
+                        className={inputClassName}
+                      />
+                    </label>
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <label className="space-y-2">
+                      <span className="text-sm font-medium text-foreground">
+                        Placar {homeName}
+                      </span>
+                      <input
+                        type="number"
+                        value={form.scoreHomeSecondLeg ?? ""}
+                        onChange={(event) =>
+                          setForm((current) => ({
+                            ...current,
+                            scoreHomeSecondLeg:
+                              event.target.value === "" ? null : Number(event.target.value),
+                          }))
+                        }
+                        className={inputClassName}
+                      />
+                    </label>
+                    <label className="space-y-2">
+                      <span className="text-sm font-medium text-foreground">
+                        Placar {awayName}
+                      </span>
+                      <input
+                        type="number"
+                        value={form.scoreAwaySecondLeg ?? ""}
+                        onChange={(event) =>
+                          setForm((current) => ({
+                            ...current,
+                            scoreAwaySecondLeg:
+                              event.target.value === "" ? null : Number(event.target.value),
+                          }))
+                        }
+                        className={inputClassName}
+                      />
+                    </label>
+                  </div>
+                </div>
+              </div>
+            ) : null}
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <label className="space-y-2">
-              <span className="text-sm font-medium text-foreground">Placar mandante</span>
-              <input
-                type="number"
-                value={form.scoreHome ?? ""}
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    scoreHome: event.target.value === "" ? null : Number(event.target.value),
-                  }))
-                }
-                className={inputClassName}
-              />
-            </label>
-            <label className="space-y-2">
-              <span className="text-sm font-medium text-foreground">Placar visitante</span>
-              <input
-                type="number"
-                value={form.scoreAway ?? ""}
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    scoreAway: event.target.value === "" ? null : Number(event.target.value),
-                  }))
-                }
-                className={inputClassName}
-              />
-            </label>
-          </div>
+          {isTwoLegged ? (
+            <div className="rounded-2xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm text-muted-foreground">
+              <span className="font-semibold text-primary">Agregado:</span>{" "}
+              {aggregate?.complete
+                ? `${homeName} ${aggregate.home} x ${aggregate.away} ${awayName}`
+                : "preencha ida e volta para o sistema decidir quem avanca."}
+            </div>
+          ) : null}
 
           <div className="grid gap-4 md:grid-cols-3">
             <SelectField

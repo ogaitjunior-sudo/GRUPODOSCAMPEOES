@@ -194,57 +194,104 @@ export function buildChampionshipTeamProfileLookup(
     }
 
     const hasScore = isCompletedScore(match.scoreHome, match.scoreAway);
+    const hasSecondLegScore = isCompletedScore(match.scoreHomeSecondLeg, match.scoreAwaySecondLeg);
 
-    if (!hasScore && !match.winnerTeamId) {
+    if (!hasScore && !hasSecondLegScore && !match.winnerTeamId) {
       return;
     }
 
-    const scoreHome = match.scoreHome ?? 0;
-    const scoreAway = match.scoreAway ?? 0;
     const phaseLabel = `${match.stageName} ${match.matchOrder}`;
     const resolutionLabel = buildResolutionLabel(match.resolution);
-    const homeResult = getRecentMatchResult({
-      teamId: homeTeam.id,
-      opponentTeamId: awayTeam.id,
-      winnerTeamId: match.winnerTeamId,
-      scoreFor: scoreHome,
-      scoreAgainst: scoreAway,
-    });
-    const awayResult = getRecentMatchResult({
-      teamId: awayTeam.id,
-      opponentTeamId: homeTeam.id,
-      winnerTeamId: match.winnerTeamId,
-      scoreFor: scoreAway,
-      scoreAgainst: scoreHome,
-    });
+    const applyBracketLeg = (params: {
+      id: string;
+      label: string;
+      scoreHome: number;
+      scoreAway: number;
+      playedAt: string | null;
+      venue: string;
+      winnerTeamId?: string | null;
+      resolutionLabel?: string | null;
+    }) => {
+      const homeResult = getRecentMatchResult({
+        teamId: homeTeam.id,
+        opponentTeamId: awayTeam.id,
+        winnerTeamId: params.winnerTeamId,
+        scoreFor: params.scoreHome,
+        scoreAgainst: params.scoreAway,
+      });
+      const awayResult = getRecentMatchResult({
+        teamId: awayTeam.id,
+        opponentTeamId: homeTeam.id,
+        winnerTeamId: params.winnerTeamId,
+        scoreFor: params.scoreAway,
+        scoreAgainst: params.scoreHome,
+      });
 
-    applyStats(homeProfile, homeResult, scoreHome, scoreAway);
-    applyStats(awayProfile, awayResult, scoreAway, scoreHome);
+      applyStats(homeProfile, homeResult, params.scoreHome, params.scoreAway);
+      applyStats(awayProfile, awayResult, params.scoreAway, params.scoreHome);
 
-    homeProfile.recentMatches.push({
+      homeProfile.recentMatches.push({
+        id: params.id,
+        phaseLabel: params.label,
+        opponentTeamId: awayTeam.id,
+        opponentName: awayTeam.name,
+        opponentFlagUrl: awayTeam.flagUrl,
+        scoreFor: params.scoreHome,
+        scoreAgainst: params.scoreAway,
+        result: homeResult,
+        playedAt: params.playedAt,
+        venue: params.venue,
+        resolutionLabel: params.resolutionLabel ?? null,
+      });
+      awayProfile.recentMatches.push({
+        id: params.id,
+        phaseLabel: params.label,
+        opponentTeamId: homeTeam.id,
+        opponentName: homeTeam.name,
+        opponentFlagUrl: homeTeam.flagUrl,
+        scoreFor: params.scoreAway,
+        scoreAgainst: params.scoreHome,
+        result: awayResult,
+        playedAt: params.playedAt,
+        venue: params.venue,
+        resolutionLabel: params.resolutionLabel ?? null,
+      });
+    };
+
+    if (match.roundTripMode === "home-away") {
+      if (hasScore) {
+        applyBracketLeg({
+          id: `${match.id}-first-leg`,
+          label: `${phaseLabel} - Ida`,
+          scoreHome: match.scoreHome ?? 0,
+          scoreAway: match.scoreAway ?? 0,
+          playedAt: match.playedAt,
+          venue: match.venue,
+        });
+      }
+
+      if (hasSecondLegScore) {
+        applyBracketLeg({
+          id: `${match.id}-second-leg`,
+          label: `${phaseLabel} - Volta`,
+          scoreHome: match.scoreHomeSecondLeg ?? 0,
+          scoreAway: match.scoreAwaySecondLeg ?? 0,
+          playedAt: match.secondLegPlayedAt,
+          venue: match.secondLegVenue,
+        });
+      }
+
+      return;
+    }
+
+    applyBracketLeg({
       id: match.id,
-      phaseLabel,
-      opponentTeamId: awayTeam.id,
-      opponentName: awayTeam.name,
-      opponentFlagUrl: awayTeam.flagUrl,
-      scoreFor: scoreHome,
-      scoreAgainst: scoreAway,
-      result: homeResult,
+      label: phaseLabel,
+      scoreHome: match.scoreHome ?? 0,
+      scoreAway: match.scoreAway ?? 0,
       playedAt: match.playedAt,
       venue: match.venue,
-      resolutionLabel,
-    });
-    awayProfile.recentMatches.push({
-      id: match.id,
-      phaseLabel,
-      opponentTeamId: homeTeam.id,
-      opponentName: homeTeam.name,
-      opponentFlagUrl: homeTeam.flagUrl,
-      scoreFor: scoreAway,
-      scoreAgainst: scoreHome,
-      result: awayResult,
-      playedAt: match.playedAt,
-      venue: match.venue,
+      winnerTeamId: match.winnerTeamId,
       resolutionLabel,
     });
   });

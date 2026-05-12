@@ -1,4 +1,4 @@
-import { computeGroupStandings } from "@/lib/championship-runtime";
+import { computeGroupStandings, isBracketMatchHomeAway } from "@/lib/championship-runtime";
 import type { ChampionshipRecord } from "@/types/championship";
 import type {
   ChampionshipBracketMatch,
@@ -315,6 +315,7 @@ function applyGroupMatch(
 function applyBracketMatch(
   registry: Map<string, ChampionshipRankingTeamRecord>,
   teamsById: Map<string, ChampionshipTeam>,
+  championship: ChampionshipRecord,
   championshipId: string,
   match: ChampionshipBracketMatch,
 ) {
@@ -323,8 +324,9 @@ function applyBracketMatch(
   }
 
   const hasScore = isCompletedScore(match.scoreHome, match.scoreAway);
+  const hasSecondLegScore = isCompletedScore(match.scoreHomeSecondLeg, match.scoreAwaySecondLeg);
 
-  if (!hasScore && !match.winnerTeamId) {
+  if (!hasScore && !hasSecondLegScore && !match.winnerTeamId) {
     return;
   }
 
@@ -335,10 +337,42 @@ function applyBracketMatch(
     return;
   }
 
-  const scoreHome = match.scoreHome ?? 0;
-  const scoreAway = match.scoreAway ?? 0;
   const homeRecord = ensureRankingRecord(registry, homeTeam, championshipId);
   const awayRecord = ensureRankingRecord(registry, awayTeam, championshipId);
+  const applyLeg = (scoreHome: number, scoreAway: number, winnerTeamId?: string | null) => {
+    const homeResult = getMatchResult({
+      teamId: homeTeam.id,
+      opponentTeamId: awayTeam.id,
+      winnerTeamId,
+      scoreFor: scoreHome,
+      scoreAgainst: scoreAway,
+    });
+    const awayResult = getMatchResult({
+      teamId: awayTeam.id,
+      opponentTeamId: homeTeam.id,
+      winnerTeamId,
+      scoreFor: scoreAway,
+      scoreAgainst: scoreHome,
+    });
+
+    applyMatchStats(homeRecord, homeResult, scoreHome, scoreAway);
+    applyMatchStats(awayRecord, awayResult, scoreAway, scoreHome);
+  };
+
+  if (isBracketMatchHomeAway(match, championship)) {
+    if (hasScore) {
+      applyLeg(match.scoreHome ?? 0, match.scoreAway ?? 0);
+    }
+
+    if (hasSecondLegScore) {
+      applyLeg(match.scoreHomeSecondLeg ?? 0, match.scoreAwaySecondLeg ?? 0);
+    }
+
+    return;
+  }
+
+  const scoreHome = match.scoreHome ?? 0;
+  const scoreAway = match.scoreAway ?? 0;
   const homeResult = getMatchResult({
     teamId: homeTeam.id,
     opponentTeamId: awayTeam.id,
@@ -430,7 +464,7 @@ export function buildChampionshipRanking(inputs: ChampionshipRankingInput[]) {
       applyGroupMatch(registry, teamsById, championship.id, match);
     });
     workspace.bracket.matches.forEach((match) => {
-      applyBracketMatch(registry, teamsById, championship.id, match);
+      applyBracketMatch(registry, teamsById, championship, championship.id, match);
     });
     applyChampionshipAchievements(registry, teamsById, championship, workspace);
   });

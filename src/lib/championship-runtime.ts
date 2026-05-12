@@ -3,6 +3,7 @@ import type { ChampionshipRecord } from "@/types/championship";
 import type {
   BracketMatchStatus,
   BracketProgressState,
+  BracketRoundTripMode,
   ChampionshipBracketMatch,
   ChampionshipBracketRound,
   ChampionshipBracketSource,
@@ -69,6 +70,51 @@ export function stageKeyToLabel(
     default:
       return phaseLabels.final;
   }
+}
+
+export function getBracketRoundTripMode(
+  stageKey: ChampionshipBracketRound["stageKey"],
+  championship: ChampionshipRecord,
+): BracketRoundTripMode {
+  const configuration = normalizeChampionshipConfiguration(championship.configuration);
+
+  if (stageKey === "final" || stageKey === "third-place") {
+    return configuration.finalMode;
+  }
+
+  return configuration.knockoutMode;
+}
+
+export function isBracketMatchHomeAway(
+  match: Pick<ChampionshipBracketMatch, "stageKey" | "roundTripMode">,
+  championship: ChampionshipRecord,
+) {
+  return (match.roundTripMode ?? getBracketRoundTripMode(match.stageKey, championship)) === "home-away";
+}
+
+export function getBracketAggregate(match: Pick<
+  ChampionshipBracketMatch,
+  "scoreHome" | "scoreAway" | "scoreHomeSecondLeg" | "scoreAwaySecondLeg"
+>) {
+  const hasFirstLeg =
+    typeof match.scoreHome === "number" && typeof match.scoreAway === "number";
+  const hasSecondLeg =
+    typeof match.scoreHomeSecondLeg === "number" &&
+    typeof match.scoreAwaySecondLeg === "number";
+
+  if (!hasFirstLeg || !hasSecondLeg) {
+    return {
+      home: null,
+      away: null,
+      complete: false,
+    };
+  }
+
+  return {
+    home: match.scoreHome + match.scoreHomeSecondLeg,
+    away: match.scoreAway + match.scoreAwaySecondLeg,
+    complete: true,
+  };
 }
 
 export function normalizeScoring(scoring: ChampionshipScoringSettings | undefined) {
@@ -213,10 +259,19 @@ function normalizeBracketMatches(
       nextSlot: match.nextSlot ?? null,
       loserNextMatchId: match.loserNextMatchId ?? null,
       loserNextSlot: match.loserNextSlot ?? null,
+      roundTripMode: getBracketRoundTripMode(match.stageKey, championship),
       scoreHome:
         typeof match.scoreHome === "number" && Number.isFinite(match.scoreHome) ? match.scoreHome : null,
       scoreAway:
         typeof match.scoreAway === "number" && Number.isFinite(match.scoreAway) ? match.scoreAway : null,
+      scoreHomeSecondLeg:
+        typeof match.scoreHomeSecondLeg === "number" && Number.isFinite(match.scoreHomeSecondLeg)
+          ? match.scoreHomeSecondLeg
+          : null,
+      scoreAwaySecondLeg:
+        typeof match.scoreAwaySecondLeg === "number" && Number.isFinite(match.scoreAwaySecondLeg)
+          ? match.scoreAwaySecondLeg
+          : null,
       penaltiesHome:
         typeof match.penaltiesHome === "number" && Number.isFinite(match.penaltiesHome)
           ? match.penaltiesHome
@@ -227,6 +282,8 @@ function normalizeBracketMatches(
           : null,
       playedAt: match.playedAt ?? null,
       venue: String(match.venue ?? ""),
+      secondLegPlayedAt: match.secondLegPlayedAt ?? null,
+      secondLegVenue: String(match.secondLegVenue ?? ""),
       resolution: match.resolution ?? null,
       status: match.status ?? "pending",
     }))
@@ -339,15 +396,99 @@ function clearBracketResult(match: ChampionshipBracketMatch): ChampionshipBracke
     loserTeamId: null,
     scoreHome: null,
     scoreAway: null,
+    scoreHomeSecondLeg: null,
+    scoreAwaySecondLeg: null,
+    secondLegPlayedAt: null,
+    secondLegVenue: "",
     penaltiesHome: null,
     penaltiesAway: null,
     resolution: null,
   };
 }
 
-function inferWinnerFromMatch(match: ChampionshipBracketMatch) {
+function inferWinnerFromMatch(match: ChampionshipBracketMatch, championship: ChampionshipRecord) {
   if (!match.homeTeamId || !match.awayTeamId) {
     return match;
+  }
+
+  const isHomeAway = isBracketMatchHomeAway(match, championship);
+  const hasFirstLeg =
+    typeof match.scoreHome === "number" && typeof match.scoreAway === "number";
+  const hasSecondLeg =
+    typeof match.scoreHomeSecondLeg === "number" &&
+    typeof match.scoreAwaySecondLeg === "number";
+
+  if (isHomeAway) {
+    if (!hasFirstLeg || !hasSecondLeg) {
+      return {
+        ...match,
+        winnerTeamId: null,
+        loserTeamId: null,
+        status: "ready",
+      };
+    }
+
+    const aggregate = getBracketAggregate(match);
+
+    if (aggregate.complete && aggregate.home !== aggregate.away) {
+      const winnerTeamId = aggregate.home > aggregate.away ? match.homeTeamId : match.awayTeamId;
+
+      return {
+        ...match,
+        winnerTeamId,
+        loserTeamId: winnerTeamId === match.homeTeamId ? match.awayTeamId : match.homeTeamId,
+        status: "completed",
+        resolution: match.resolution ?? "normal",
+      };
+    }
+
+    if (normalizeChampionshipConfiguration(championship.configuration).awayGoalsRule) {
+      const homeAwayGoals = match.scoreHomeSecondLeg;
+      const awayAwayGoals = match.scoreAway;
+
+      if (homeAwayGoals !== awayAwayGoals) {
+        const winnerTeamId = homeAwayGoals > awayAwayGoals ? match.homeTeamId : match.awayTeamId;
+
+        return {
+          ...match,
+          winnerTeamId,
+          loserTeamId: winnerTeamId === match.homeTeamId ? match.awayTeamId : match.homeTeamId,
+          status: "completed",
+          resolution: match.resolution ?? "normal",
+        };
+      }
+    }
+
+    if (
+      match.resolution === "penalties" &&
+      typeof match.penaltiesHome === "number" &&
+      typeof match.penaltiesAway === "number" &&
+      match.penaltiesHome !== match.penaltiesAway
+    ) {
+      const winnerTeamId = match.penaltiesHome > match.penaltiesAway ? match.homeTeamId : match.awayTeamId;
+
+      return {
+        ...match,
+        winnerTeamId,
+        loserTeamId: winnerTeamId === match.homeTeamId ? match.awayTeamId : match.homeTeamId,
+        status: "completed",
+      };
+    }
+
+    if (match.winnerTeamId && [match.homeTeamId, match.awayTeamId].includes(match.winnerTeamId)) {
+      return {
+        ...match,
+        loserTeamId: match.winnerTeamId === match.homeTeamId ? match.awayTeamId : match.homeTeamId,
+        status: "completed",
+      };
+    }
+
+    return {
+      ...match,
+      winnerTeamId: null,
+      loserTeamId: null,
+      status: "ready",
+    };
   }
 
   if (typeof match.scoreHome !== "number" || typeof match.scoreAway !== "number") {
@@ -523,7 +664,7 @@ export function resolveBracketState(
     }
 
     if (resolvedMatch.homeTeamId && resolvedMatch.awayTeamId) {
-      resolvedMatch = inferWinnerFromMatch(resolvedMatch);
+      resolvedMatch = inferWinnerFromMatch(resolvedMatch, championship);
     }
 
     resolvedMatch = {
@@ -983,9 +1124,18 @@ export function getChampionshipProgressSummary(
 ) {
   const groupMatchesCompleted = workspace.groupMatches.filter((match) => match.status === "completed").length;
   const bracketMatchesCompleted = workspace.bracket.matches.filter((match) => Boolean(match.winnerTeamId)).length;
-  const totalGoals = workspace.groupMatches
+  const totalGroupGoals = workspace.groupMatches
     .filter((match) => match.status === "completed")
     .reduce((total, match) => total + (match.scoreHome ?? 0) + (match.scoreAway ?? 0), 0);
+  const totalBracketGoals = workspace.bracket.matches.reduce(
+    (total, match) =>
+      total +
+      (match.scoreHome ?? 0) +
+      (match.scoreAway ?? 0) +
+      (match.scoreHomeSecondLeg ?? 0) +
+      (match.scoreAwaySecondLeg ?? 0),
+    0,
+  );
   const championTeamId = workspace.bracket.matches.find((match) => match.stageKey === "final")?.winnerTeamId ?? null;
   const championName = championTeamId
     ? workspace.teams.find((team) => team.id === championTeamId)?.name ?? null
@@ -998,7 +1148,7 @@ export function getChampionshipProgressSummary(
     totalGroupMatches: workspace.groupMatches.length,
     bracketMatchesCompleted,
     totalBracketMatches: workspace.bracket.matches.length,
-    totalGoals,
+    totalGoals: totalGroupGoals + totalBracketGoals,
     championName,
     standings: computeGroupStandings(workspace),
     bracketState: workspace.bracket.state,
