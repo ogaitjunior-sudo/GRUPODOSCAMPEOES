@@ -221,43 +221,45 @@ export function TeamProfileDialog({
                 </DialogDescription>
               </DialogHeader>
 
-              <div className="mt-6 flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-                  <TeamCrest
-                    name={profile.team.name}
-                    size="lg"
-                    className="border-white/20 shadow-[0_20px_45px_hsl(0_0%_0%_/_0.28)]"
-                  />
-                  <div className="space-y-3">
-                    <div className="flex flex-wrap items-center gap-3">
-                      <h2 className="font-heading text-3xl font-black uppercase tracking-[0.08em] text-white">
-                        {profile.team.name}
-                      </h2>
-                      <TeamFlagBadge teamName={profile.team.name} flagUrl={flagUrl} size="lg" />
-                      {isOwnTeam ? (
-                        <span className="rounded-full border border-electric/35 bg-electric/12 px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-electric">
-                          Meu time
-                        </span>
-                      ) : null}
-                    </div>
+              <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(320px,0.72fr)]">
+                <div className="rounded-[28px] border border-white/10 bg-black/20 p-5 shadow-[inset_0_1px_0_hsl(0_0%_100%_/_0.04),0_18px_40px_hsl(222_45%_4%_/_0.22)]">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+                    <TeamCrest
+                      name={profile.team.name}
+                      size="lg"
+                      className="border-white/20 shadow-[0_20px_45px_hsl(0_0%_0%_/_0.28)]"
+                    />
+                    <div className="min-w-0 flex-1 space-y-3">
+                      <div className="flex flex-wrap items-center gap-3">
+                        <h2 className="min-w-0 break-words font-heading text-3xl font-black uppercase tracking-[0.08em] text-white">
+                          {profile.team.name}
+                        </h2>
+                        <TeamFlagBadge teamName={profile.team.name} flagUrl={flagUrl} size="lg" />
+                        {isOwnTeam ? (
+                          <span className="rounded-full border border-electric/35 bg-electric/12 px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-electric">
+                            Meu time
+                          </span>
+                        ) : null}
+                      </div>
 
-                    <div className="flex flex-wrap gap-2 text-[11px] uppercase tracking-[0.18em] text-slate-300">
-                      <span className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1">
-                        Seed {profile.team.seed}
-                      </span>
-                      <span className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1">
-                        {profile.groupName ?? "Sem grupo"}
-                      </span>
-                      {profile.captainName ? (
+                      <div className="flex flex-wrap gap-2 text-[11px] uppercase tracking-[0.18em] text-slate-300">
                         <span className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1">
-                          Responsavel: {profile.captainName}
+                          Seed {profile.team.seed}
                         </span>
-                      ) : null}
+                        <span className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1">
+                          {profile.groupName ?? "Sem grupo"}
+                        </span>
+                        {profile.captainName ? (
+                          <span className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1">
+                            Responsavel: {profile.captainName}
+                          </span>
+                        ) : null}
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                <div className="flex flex-col gap-4 lg:items-end">
+                <div className="rounded-[28px] border border-white/10 bg-black/20 p-4 shadow-[inset_0_1px_0_hsl(0_0%_100%_/_0.04),0_18px_40px_hsl(222_45%_4%_/_0.22)]">
                   {challengeAction?.visible && !isOwnTeam ? (
                     <ChallengeButton
                       disabled={challengeAction.disabled}
@@ -265,10 +267,11 @@ export function TeamProfileDialog({
                       isPending={challengeAction.isPending}
                       helperText={challengeAction.helperText}
                       onClick={challengeAction.onOpen}
+                      className="max-w-none"
                     />
                   ) : null}
 
-                  <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                  <div className={`${challengeAction?.visible && !isOwnTeam ? "mt-4" : ""} grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-2`}>
                     {[
                       { label: "Jogos", value: profile.stats.played },
                       { label: "Vitorias", value: profile.stats.wins },
@@ -280,12 +283,12 @@ export function TeamProfileDialog({
                     ].map((stat) => (
                       <div
                         key={stat.label}
-                        className="rounded-2xl border border-white/8 bg-black/20 px-4 py-3 shadow-[inset_0_1px_0_hsl(0_0%_100%_/_0.03)]"
+                        className="rounded-2xl border border-white/8 bg-white/[0.035] px-3 py-3 shadow-[inset_0_1px_0_hsl(0_0%_100%_/_0.03)]"
                       >
-                        <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
+                        <p className="text-[10px] uppercase tracking-[0.18em] text-slate-400">
                           {stat.label}
                         </p>
-                        <p className="mt-2 text-2xl font-semibold text-white">{stat.value}</p>
+                        <p className="mt-1.5 text-xl font-semibold text-white">{stat.value}</p>
                       </div>
                     ))}
                   </div>
