@@ -216,33 +216,32 @@ function UltimateTeamStandingsRow({
         <span className="inline-flex min-w-[2rem] justify-center">{row.position}</span>
       </StandingsCell>
       <StandingsCell>
-        <div className="flex min-w-[220px] items-center gap-3">
+        <button
+          type="button"
+          disabled={!onTeamSelect}
+          onClick={() => onTeamSelect?.(row.team.id)}
+          className={cn(
+            "group flex min-w-[220px] items-center gap-3 rounded-xl text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric/35",
+            onTeamSelect ? "cursor-pointer hover:text-electric" : "cursor-default",
+          )}
+          title={onTeamSelect ? `Abrir perfil de ${row.team.name}` : undefined}
+        >
           <TeamIdentityMark
             teamName={row.team.crestLabel ?? row.team.name}
             teamPhotoUrl={row.team.teamPhotoUrl}
           />
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              {onTeamSelect ? (
-                <button
-                  type="button"
-                  onClick={() => onTeamSelect(row.team.id)}
-                  className="truncate font-medium text-slate-100 transition-colors hover:text-electric"
-                >
-                  {row.team.name}
-                </button>
-              ) : (
-                <p className="truncate font-medium text-slate-100 transition-colors group-hover:text-electric">
-                  {row.team.name}
-                </p>
-              )}
+              <span className="truncate font-medium text-slate-100 transition-colors group-hover:text-electric">
+                {row.team.name}
+              </span>
               <TeamFlagBadge teamName={row.team.name} flagUrl={row.team.flagUrl} size="sm" />
             </div>
             <p className="mt-1 truncate text-xs text-slate-400">
               {row.team.meta ?? "Tecnico nao vinculado"}
             </p>
           </div>
-        </div>
+        </button>
       </StandingsCell>
       <StandingsCell className="text-center font-semibold text-slate-100">{row.points}</StandingsCell>
       <StandingsCell className="text-center text-slate-300">{row.played}</StandingsCell>
@@ -296,13 +295,8 @@ function UltimateTeamMatchSide({
   align: "left" | "right";
   onTeamSelect?: (teamId: string) => void;
 }) {
-  return (
-    <div
-      className={cn(
-        "flex min-w-0 items-center gap-3",
-        align === "right" ? "justify-end text-right" : "justify-start text-left",
-      )}
-    >
+  const content = (
+    <>
       {align === "left" ? (
         <TeamIdentityMark
           teamName={team.crestLabel ?? team.name}
@@ -316,17 +310,9 @@ function UltimateTeamMatchSide({
             align === "right" ? "justify-end" : "justify-start",
           )}
         >
-          {onTeamSelect ? (
-            <button
-              type="button"
-              onClick={() => onTeamSelect(team.id)}
-              className="truncate text-sm font-medium text-slate-100 transition-colors hover:text-electric md:text-[15px]"
-            >
-              {team.name}
-            </button>
-          ) : (
-            <p className="truncate text-sm font-medium text-slate-100 md:text-[15px]">{team.name}</p>
-          )}
+          <span className="truncate text-sm font-medium text-slate-100 transition-colors group-hover:text-electric md:text-[15px]">
+            {team.name}
+          </span>
           <TeamFlagBadge teamName={team.name} flagUrl={team.flagUrl} size="sm" />
         </div>
         <p className="mt-1 truncate text-xs text-slate-400">{team.meta ?? "Jogador nao vinculado"}</p>
@@ -337,6 +323,35 @@ function UltimateTeamMatchSide({
           teamPhotoUrl={team.teamPhotoUrl}
         />
       ) : null}
+    </>
+  );
+  const className = cn(
+    "group flex min-w-0 items-center gap-3 rounded-xl transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric/35",
+    align === "right" ? "justify-end text-right" : "justify-start text-left",
+    onTeamSelect ? "cursor-pointer" : "",
+  );
+
+  if (onTeamSelect) {
+    return (
+      <button
+        type="button"
+        onClick={() => onTeamSelect(team.id)}
+        className={className}
+        title={`Abrir perfil de ${team.name}`}
+      >
+        {content}
+      </button>
+    );
+  }
+
+  return (
+    <div
+      className={cn(
+        "flex min-w-0 items-center gap-3",
+        align === "right" ? "justify-end text-right" : "justify-start text-left",
+      )}
+    >
+      {content}
     </div>
   );
 }

@@ -3226,6 +3226,7 @@ function TeamNameBlock({
 }) {
   const label = team?.name ?? fallbackName;
   const canOpenProfile = Boolean(team?.id && onOpenTeamProfile);
+  const handleOpenProfile = () => onOpenTeamProfile?.(team?.id ?? null);
   const flagSize = size === "sm" ? "sm" : "md";
   const markPhotoUrl = team?.teamPhotoUrl ?? team?.flagUrl ?? null;
   const markSizeClassName =
@@ -3250,12 +3251,8 @@ function TeamNameBlock({
     markFallback
   );
 
-  return (
-    <div
-      className={`flex min-w-0 items-center gap-3 ${
-        align === "right" ? "justify-end text-right" : "justify-start text-left"
-      }`}
-    >
+  const content = (
+    <>
       {align === "left" ? mark : null}
       <div className="min-w-0">
         <div
@@ -3263,29 +3260,44 @@ function TeamNameBlock({
             align === "right" ? "justify-end" : "justify-start"
           }`}
         >
-          {canOpenProfile ? (
-            <button
-              type="button"
-              onClick={() => onOpenTeamProfile?.(team?.id ?? null)}
-              className={`truncate transition hover:text-primary ${
-                highlighted ? "font-semibold text-foreground" : "text-foreground"
-              } ${size === "sm" ? "text-base" : "font-medium"}`}
-            >
-              {label}
-            </button>
-          ) : (
-            <p
-              className={`truncate ${
-                highlighted ? "font-semibold text-foreground" : "text-foreground"
-              } ${size === "sm" ? "text-base" : "font-medium"}`}
-            >
-              {label}
-            </p>
-          )}
+          <span
+            className={`truncate transition ${
+              canOpenProfile ? "group-hover:text-primary" : ""
+            } ${highlighted ? "font-semibold text-foreground" : "text-foreground"} ${
+              size === "sm" ? "text-base" : "font-medium"
+            }`}
+          >
+            {label}
+          </span>
           <TeamFlagBadge teamName={label} flagUrl={team?.flagUrl ?? null} size={flagSize} />
         </div>
       </div>
       {align === "right" ? mark : null}
+    </>
+  );
+
+  const className = `group flex min-w-0 max-w-full items-center gap-3 rounded-xl transition ${
+    canOpenProfile
+      ? "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
+      : ""
+  } ${align === "right" ? "justify-end text-right" : "justify-start text-left"}`;
+
+  if (canOpenProfile) {
+    return (
+      <button
+        type="button"
+        onClick={handleOpenProfile}
+        className={className}
+        title={`Abrir perfil de ${label}`}
+      >
+        {content}
+      </button>
+    );
+  }
+
+  return (
+    <div className={className}>
+      {content}
     </div>
   );
 }
@@ -3671,23 +3683,46 @@ function BracketTeamLine({
   highlighted: boolean;
   onOpenTeamProfile?: (teamId: string | null) => void;
 }) {
-  return (
-    <div
-      className={`flex min-w-0 items-center justify-between gap-3 rounded-xl border px-3 py-2 ${
-        highlighted
-          ? "border-primary/35 bg-primary/10"
-          : "border-border/70 bg-muted/20"
-      }`}
-    >
+  const canOpenProfile = Boolean(team?.id && onOpenTeamProfile);
+  const content = (
+    <>
       <TeamNameBlock
         team={team}
         fallbackName={fallbackName}
         align="left"
         size="sm"
         highlighted={highlighted}
-        onOpenTeamProfile={onOpenTeamProfile}
+        onOpenTeamProfile={canOpenProfile ? undefined : onOpenTeamProfile}
       />
       <ScoreBox score={score} highlighted={highlighted} size="sm" />
+    </>
+  );
+  const className = `flex min-w-0 items-center justify-between gap-3 rounded-xl border px-3 py-2 text-left transition ${
+    highlighted
+      ? "border-primary/35 bg-primary/10"
+      : "border-border/70 bg-muted/20"
+  } ${
+    canOpenProfile
+      ? "w-full cursor-pointer hover:border-primary/40 hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
+      : ""
+  }`;
+
+  if (canOpenProfile) {
+    return (
+      <button
+        type="button"
+        onClick={() => onOpenTeamProfile?.(team?.id ?? null)}
+        className={className}
+        title={`Abrir perfil de ${team?.name ?? fallbackName}`}
+      >
+        {content}
+      </button>
+    );
+  }
+
+  return (
+    <div className={className}>
+      {content}
     </div>
   );
 }
