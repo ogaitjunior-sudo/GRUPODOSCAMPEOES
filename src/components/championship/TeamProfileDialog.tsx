@@ -22,6 +22,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { TeamCrest, TeamFlagBadge } from "@/components/championship/TeamIdentity";
+import { TeamPhotoBadge } from "@/components/profile/TeamPhotoBadge";
 import type { ChampionshipTeamProfile } from "@/types/championship-runtime";
 
 const dialogInputClassName =
@@ -228,10 +229,20 @@ export function TeamProfileDialog({
               <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(320px,0.72fr)]">
                 <div className="rounded-[28px] border border-white/10 bg-black/20 p-5 shadow-[inset_0_1px_0_hsl(0_0%_100%_/_0.04),0_18px_40px_hsl(222_45%_4%_/_0.22)]">
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-                    <TeamCrest
+                    <TeamPhotoBadge
                       name={profile.team.name}
-                      size="lg"
-                      className="border-white/20 shadow-[0_20px_45px_hsl(0_0%_0%_/_0.28)]"
+                      photoUrl={profile.teamPhotoUrl}
+                      fallbackImageUrl={flagUrl}
+                      size="sm"
+                      shape="square"
+                      className="h-16 w-16 rounded-[16px] border-white/20 bg-black/30 shadow-[0_20px_45px_hsl(0_0%_0%_/_0.28)]"
+                      fallbackContent={
+                        <TeamCrest
+                          name={profile.team.name}
+                          size="lg"
+                          className="h-full w-full rounded-[16px] border-white/20"
+                        />
+                      }
                     />
                     <div className="min-w-0 flex-1 space-y-3">
                       <div className="flex flex-wrap items-center gap-3">

@@ -104,6 +104,7 @@ export function buildChampionshipTeamProfileLookup(
       team.id,
       {
         team,
+        teamPhotoUrl: null,
         groupName: team.groupId ? groupsById.get(team.groupId)?.name ?? null : null,
         captainName: team.captainName,
         roster: team.roster,

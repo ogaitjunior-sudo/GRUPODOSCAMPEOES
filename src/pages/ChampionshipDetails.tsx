@@ -1142,6 +1142,7 @@ export function ChampionshipWorkspacePage({
           teamId,
           {
             ...profile,
+            teamPhotoUrl: meta?.teamPhotoUrl ?? profile.teamPhotoUrl ?? null,
             captainName: profile.captainName ?? meta?.captainName ?? null,
             roster: profile.roster.length > 0 ? profile.roster : meta?.roster ?? [],
             rankingPoints: ranking?.rankingPoints ?? 0,

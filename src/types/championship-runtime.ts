@@ -181,6 +181,7 @@ export interface ChampionshipTeamRecentMatch {
 
 export interface ChampionshipTeamProfile {
   team: ChampionshipTeam;
+  teamPhotoUrl: string | null;
   groupName: string | null;
   captainName: string | null;
   roster: string[];
