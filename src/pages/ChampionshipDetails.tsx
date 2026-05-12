@@ -1326,6 +1326,59 @@ export function ChampionshipWorkspacePage({
 
     return `RODADA ${selectedRoundNumber}`;
   }, [selectedGroupRounds, selectedPublicGroupEntry]);
+  const myGameEntries = useMemo(() => {
+    if (!workspace || !ownedTeamId) {
+      return [];
+    }
+
+    const groupNameById = new Map(workspace.groups.map((group) => [group.id, group.name]));
+    const groupEntries = workspace.groupMatches
+      .filter((match) => match.homeTeamId === ownedTeamId || match.awayTeamId === ownedTeamId)
+      .map((match) => ({
+        id: `group-${match.id}`,
+        sortOrder: match.roundNumber,
+        title: `Rodada ${match.roundNumber}`,
+        homeLabel: getTeamName(workspace.teams, match.homeTeamId),
+        awayLabel: getTeamName(workspace.teams, match.awayTeamId),
+        scoreHome: match.scoreHome,
+        scoreAway: match.scoreAway,
+        statusLabel: match.status === "completed" ? "Encerrada" : "Pendente",
+        metaLabel: formatMatchDateTime(match.playedAt),
+        secondaryMeta: `${groupNameById.get(match.groupId) ?? "Fase de grupos"} • ${
+          match.venue || "Local a definir"
+        }`,
+        winnerTeamId: null,
+        homeTeamId: match.homeTeamId,
+        awayTeamId: match.awayTeamId,
+        homeFlagUrl: teamsById.get(match.homeTeamId)?.flagUrl ?? null,
+        awayFlagUrl: teamsById.get(match.awayTeamId)?.flagUrl ?? null,
+      }));
+    const bracketEntries = workspace.bracket.matches
+      .filter((match) => match.homeTeamId === ownedTeamId || match.awayTeamId === ownedTeamId)
+      .map((match) => ({
+        id: `bracket-${match.id}`,
+        sortOrder: 100 + match.roundOrder,
+        title: `${match.stageName} ${match.matchOrder}`,
+        homeLabel: getTeamName(workspace.teams, match.homeTeamId),
+        awayLabel: getTeamName(workspace.teams, match.awayTeamId),
+        scoreHome: match.scoreHome,
+        scoreAway: match.scoreAway,
+        statusLabel: match.winnerTeamId
+          ? "Concluido"
+          : match.homeTeamId && match.awayTeamId
+            ? "Pronto"
+            : "Pendente",
+        metaLabel: formatMatchDateTime(match.playedAt),
+        secondaryMeta: match.venue || "Local a definir",
+        winnerTeamId: match.winnerTeamId,
+        homeTeamId: match.homeTeamId,
+        awayTeamId: match.awayTeamId,
+        homeFlagUrl: teamsById.get(match.homeTeamId ?? "")?.flagUrl ?? null,
+        awayFlagUrl: teamsById.get(match.awayTeamId ?? "")?.flagUrl ?? null,
+      }));
+
+    return [...groupEntries, ...bracketEntries].sort((left, right) => left.sortOrder - right.sortOrder);
+  }, [ownedTeamId, teamsById, workspace]);
 
   if (
     championshipId &&
@@ -1713,6 +1766,9 @@ export function ChampionshipWorkspacePage({
                     </TabsTrigger>
                     <TabsTrigger value="finals" className="rounded-none border-b-2 border-transparent px-4 py-3 text-sm font-medium text-slate-400 data-[state=active]:border-electric data-[state=active]:bg-transparent data-[state=active]:text-slate-50">
                       Finais
+                    </TabsTrigger>
+                    <TabsTrigger value="my-games" className="rounded-none border-b-2 border-transparent px-4 py-3 text-sm font-medium text-slate-400 data-[state=active]:border-electric data-[state=active]:bg-transparent data-[state=active]:text-slate-50">
+                      Meus jogos
                     </TabsTrigger>
                     <TabsTrigger value="info" className="rounded-none border-b-2 border-transparent px-4 py-3 text-sm font-medium text-slate-400 data-[state=active]:border-electric data-[state=active]:bg-transparent data-[state=active]:text-slate-50">
                       Info
@@ -2474,6 +2530,78 @@ export function ChampionshipWorkspacePage({
                   )}
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            <TabsContent value="my-games" className={isAdmin ? "space-y-4" : "mt-6 space-y-5"}>
+              {!isAdmin ? (
+                <Card className="border-white/8 bg-[linear-gradient(180deg,hsl(220_18%_12%_/_0.98),hsl(220_20%_10%_/_0.96))]">
+                  <CardHeader className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                    <div>
+                      <CardTitle>Meus jogos</CardTitle>
+                      <CardDescription>
+                        Confrontos do seu time neste campeonato, incluindo fase de grupos e chaveamento.
+                      </CardDescription>
+                    </div>
+                    {ownedTeam ? (
+                      <Badge variant="outline" className="border-electric/30 bg-electric/10 text-electric">
+                        {ownedTeam.name}
+                      </Badge>
+                    ) : null}
+                  </CardHeader>
+                  <CardContent>
+                    {!isPlayerAuthenticated ? (
+                      <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-5 text-sm text-slate-300">
+                        <p className="font-medium text-slate-100">Entre para ver seus jogos.</p>
+                        <p className="mt-2 leading-6 text-slate-400">
+                          A aba filtra automaticamente os confrontos pelo time vinculado a sua conta.
+                        </p>
+                        <Button asChild className="mt-4 rounded-full bg-electric text-background hover:bg-electric/90">
+                          <Link to={`/entrar?redirect=${encodeURIComponent(`/campeonatos/${championship.id}`)}`}>
+                            Entrar na conta
+                          </Link>
+                        </Button>
+                      </div>
+                    ) : !ownedTeam ? (
+                      <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-5 text-sm text-slate-300">
+                        <p className="font-medium text-slate-100">Seu time ainda nao esta vinculado.</p>
+                        <p className="mt-2 leading-6 text-slate-400">
+                          Quando sua inscricao for aprovada ou seu usuario estiver ligado a um participante,
+                          seus confrontos aparecem aqui.
+                        </p>
+                      </div>
+                    ) : myGameEntries.length > 0 ? (
+                      <div className="grid gap-4 lg:grid-cols-2">
+                        {myGameEntries.map((match) => (
+                          <MatchCard
+                            key={match.id}
+                            title={match.title}
+                            homeLabel={match.homeLabel}
+                            awayLabel={match.awayLabel}
+                            scoreHome={match.scoreHome}
+                            scoreAway={match.scoreAway}
+                            statusLabel={match.statusLabel}
+                            metaLabel={match.metaLabel}
+                            secondaryMeta={match.secondaryMeta}
+                            winnerTeamId={match.winnerTeamId}
+                            homeTeamId={match.homeTeamId}
+                            awayTeamId={match.awayTeamId}
+                            homeFlagUrl={match.homeFlagUrl}
+                            awayFlagUrl={match.awayFlagUrl}
+                            onOpenTeamProfile={openTeamProfile}
+                          />
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-5 text-sm text-slate-300">
+                        <p className="font-medium text-slate-100">Nenhum jogo definido ainda.</p>
+                        <p className="mt-2 leading-6 text-slate-400">
+                          Assim que o ADM gerar a tabela ou seu proximo adversario for definido, o jogo aparece aqui.
+                        </p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ) : null}
             </TabsContent>
 
             <TabsContent value="info" className="space-y-4">
