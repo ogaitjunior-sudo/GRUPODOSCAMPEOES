@@ -12,8 +12,16 @@ function hashTeamName(value: string) {
   return value.split("").reduce((total, char) => total + char.charCodeAt(0), 0);
 }
 
+function normalizeTeamName(name: string) {
+  if (typeof name === "string") {
+    return name.trim() || "Equipe";
+  }
+
+  return String(name ?? "Equipe").trim() || "Equipe";
+}
+
 function getTeamInitials(name: string) {
-  const parts = name
+  const parts = normalizeTeamName(name)
     .trim()
     .split(/\s+/)
     .filter(Boolean);
@@ -30,7 +38,7 @@ function getTeamInitials(name: string) {
 }
 
 function getTeamMarkStyle(name: string) {
-  const seed = hashTeamName(name);
+  const seed = hashTeamName(normalizeTeamName(name));
   const hueA = seed % 360;
   const hueB = (seed * 1.7 + 55) % 360;
 
@@ -49,7 +57,8 @@ export function TeamCrest({
   size?: "sm" | "md" | "lg";
   className?: string;
 }) {
-  const initials = getTeamInitials(name);
+  const normalizedName = normalizeTeamName(name);
+  const initials = getTeamInitials(normalizedName);
   const sizeClassName =
     size === "sm" ? "h-7 w-7 text-[10px]" : size === "lg" ? "h-16 w-16 text-lg" : "h-9 w-9 text-xs";
 
@@ -60,7 +69,7 @@ export function TeamCrest({
         sizeClassName,
         className,
       )}
-      style={getTeamMarkStyle(name)}
+      style={getTeamMarkStyle(normalizedName)}
       aria-hidden="true"
     >
       {initials}

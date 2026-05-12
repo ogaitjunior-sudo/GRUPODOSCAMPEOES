@@ -96,22 +96,40 @@ function extractConfigurationPayload(
   };
 }
 
+function toTextValue(value: unknown, fallback: string) {
+  if (typeof value === "string") {
+    return value.trim() || fallback;
+  }
+
+  if (value === null || value === undefined) {
+    return fallback;
+  }
+
+  return String(value).trim() || fallback;
+}
+
+function toNumberValue(value: unknown, fallback: number) {
+  const numberValue = Number(value);
+
+  return Number.isFinite(numberValue) ? numberValue : fallback;
+}
+
 function mapRowToRecord(row: ChampionshipRow): ChampionshipRecord {
   const payload = extractConfigurationPayload(row.configuration);
 
   return {
-    id: row.id,
-    name: row.name,
-    description: row.description,
-    startDate: row.start_date,
-    endDate: row.end_date,
-    teamCount: row.team_count,
-    rules: row.rules,
+    id: toTextValue(row.id, createChampionshipId()),
+    name: toTextValue(row.name, "Campeonato"),
+    description: toTextValue(row.description, ""),
+    startDate: toTextValue(row.start_date, ""),
+    endDate: toTextValue(row.end_date, ""),
+    teamCount: toNumberValue(row.team_count, 0),
+    rules: toTextValue(row.rules, ""),
     status: normalizeChampionshipStatus(row.status),
     configuration: normalizeChampionshipConfiguration(payload.settings as object | undefined),
     registrationRequests: payload.registrationRequests,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
+    createdAt: toTextValue(row.created_at, new Date().toISOString()),
+    updatedAt: toTextValue(row.updated_at, new Date().toISOString()),
   };
 }
 

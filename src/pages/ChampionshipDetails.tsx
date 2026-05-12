@@ -173,12 +173,24 @@ function formatMatchDateTime(value: string | null) {
   }).format(date);
 }
 
+function toDisplayText(value: unknown, fallback = "A definir") {
+  if (typeof value === "string") {
+    return value.trim() || fallback;
+  }
+
+  if (value === null || value === undefined) {
+    return fallback;
+  }
+
+  return String(value).trim() || fallback;
+}
+
 function getTeamName(teams: ChampionshipTeam[], teamId: string | null) {
   if (!teamId) {
     return "A definir";
   }
 
-  return teams.find((team) => team.id === teamId)?.name ?? "A definir";
+  return toDisplayText(teams.find((team) => team.id === teamId)?.name, "A definir");
 }
 
 async function copyTextToClipboard(value: string) {
@@ -1734,7 +1746,7 @@ export function ChampionshipWorkspacePage({
               </TabsList>
             ) : (
               <UltimateTeamChampionshipShell
-                title={championship.name.toUpperCase()}
+                title={toDisplayText(championship.name, "Campeonato").toUpperCase()}
                 statusBadge={<StatusBadge status={championship.status} className="text-[11px]" />}
                 actions={
                   <>
