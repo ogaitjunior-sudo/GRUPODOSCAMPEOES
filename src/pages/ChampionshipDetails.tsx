@@ -2471,72 +2471,74 @@ export function ChampionshipWorkspacePage({
                     />
                   ) : (
                     <>
-                      <div className="rounded-[28px] border border-border/80 bg-background/35 p-3 shadow-inner sm:p-4">
-                        <div className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-4">
-                          {bracketColumns.map((column, index) => (
-                            <section
-                              key={column.round.id}
-                              className="min-w-0 rounded-3xl border border-border bg-card/80 p-4 shadow-[0_16px_40px_hsl(0_0%_0%_/_0.18)]"
-                            >
-                              <div className="mb-4 flex items-start justify-between gap-3 border-b border-border/60 pb-3">
-                                <div className="min-w-0">
-                                  <p className="text-[11px] uppercase tracking-[0.24em] text-primary">
-                                    Fase {index + 1}
-                                  </p>
-                                  <h3 className="mt-1 truncate text-lg font-semibold text-foreground">
-                                    {column.round.stageName}
-                                  </h3>
+                      <div className="overflow-hidden rounded-[28px] border border-border/80 bg-background/35 p-3 shadow-inner sm:p-4">
+                        <div className="overflow-x-auto pb-2 pr-1 [scrollbar-width:thin]">
+                          <div className="grid min-w-max grid-flow-col auto-cols-[minmax(320px,340px)] gap-4 xl:auto-cols-[minmax(330px,360px)]">
+                            {bracketColumns.map((column, index) => (
+                              <section
+                                key={column.round.id}
+                                className="min-w-0 rounded-3xl border border-border bg-card/80 p-4 shadow-[0_16px_40px_hsl(0_0%_0%_/_0.18)]"
+                              >
+                                <div className="mb-4 flex items-start justify-between gap-3 border-b border-border/60 pb-3">
+                                  <div className="min-w-0">
+                                    <p className="text-[11px] uppercase tracking-[0.24em] text-primary">
+                                      Fase {index + 1}
+                                    </p>
+                                    <h3 className="mt-1 truncate text-lg font-semibold text-foreground">
+                                      {column.round.stageName}
+                                    </h3>
+                                  </div>
+                                  <Badge variant="outline" className="shrink-0">
+                                    {column.matches.length} jogos
+                                  </Badge>
                                 </div>
-                                <Badge variant="outline" className="shrink-0">
-                                  {column.matches.length} jogos
-                                </Badge>
-                              </div>
 
-                              <div className="grid gap-3">
-                                {column.matches.map((match) => (
-                                  <MatchCard
-                                    key={match.id}
-                                    title={`${match.stageName} ${match.matchOrder}`}
-                                    homeLabel={getTeamName(workspace.teams, match.homeTeamId)}
-                                    awayLabel={getTeamName(workspace.teams, match.awayTeamId)}
-                                    scoreHome={match.scoreHome}
-                                    scoreAway={match.scoreAway}
-                                    scoreHomeSecondLeg={match.scoreHomeSecondLeg}
-                                    scoreAwaySecondLeg={match.scoreAwaySecondLeg}
-                                    isTwoLegged={isBracketMatchHomeAway(match, championship)}
-                                    statusLabel={
-                                      match.winnerTeamId
-                                        ? "Concluido"
-                                        : match.homeTeamId && match.awayTeamId
-                                        ? "Pronto"
-                                        : "Pendente"
-                                    }
-                                    metaLabel={formatMatchDateTime(match.playedAt)}
-                                    secondaryMeta={match.venue || "Local a definir"}
-                                    winnerTeamId={match.winnerTeamId}
-                                    homeTeamId={match.homeTeamId}
-                                    awayTeamId={match.awayTeamId}
-                                    homeFlagUrl={teamsById.get(match.homeTeamId ?? "")?.flagUrl ?? null}
-                                    awayFlagUrl={teamsById.get(match.awayTeamId ?? "")?.flagUrl ?? null}
-                                    homeTeamPhotoUrl={
-                                      match.homeTeamId
-                                        ? publicTeamMetaById.get(match.homeTeamId)?.teamPhotoUrl ?? null
-                                        : null
-                                    }
-                                    awayTeamPhotoUrl={
-                                      match.awayTeamId
-                                        ? publicTeamMetaById.get(match.awayTeamId)?.teamPhotoUrl ?? null
-                                        : null
-                                    }
-                                    onOpenTeamProfile={openTeamProfile}
-                                    onClick={
-                                      isAdmin ? () => setEditingBracketMatch(match) : undefined
-                                    }
-                                  />
-                                ))}
-                              </div>
-                            </section>
-                          ))}
+                                <div className="grid gap-3">
+                                  {column.matches.map((match) => (
+                                    <MatchCard
+                                      key={match.id}
+                                      title={`${match.stageName} ${match.matchOrder}`}
+                                      homeLabel={getTeamName(workspace.teams, match.homeTeamId)}
+                                      awayLabel={getTeamName(workspace.teams, match.awayTeamId)}
+                                      scoreHome={match.scoreHome}
+                                      scoreAway={match.scoreAway}
+                                      scoreHomeSecondLeg={match.scoreHomeSecondLeg}
+                                      scoreAwaySecondLeg={match.scoreAwaySecondLeg}
+                                      isTwoLegged={isBracketMatchHomeAway(match, championship)}
+                                      statusLabel={
+                                        match.winnerTeamId
+                                          ? "Concluido"
+                                          : match.homeTeamId && match.awayTeamId
+                                            ? "Pronto"
+                                            : "Pendente"
+                                      }
+                                      metaLabel={formatMatchDateTime(match.playedAt)}
+                                      secondaryMeta={match.venue || "Local a definir"}
+                                      winnerTeamId={match.winnerTeamId}
+                                      homeTeamId={match.homeTeamId}
+                                      awayTeamId={match.awayTeamId}
+                                      homeFlagUrl={teamsById.get(match.homeTeamId ?? "")?.flagUrl ?? null}
+                                      awayFlagUrl={teamsById.get(match.awayTeamId ?? "")?.flagUrl ?? null}
+                                      homeTeamPhotoUrl={
+                                        match.homeTeamId
+                                          ? publicTeamMetaById.get(match.homeTeamId)?.teamPhotoUrl ?? null
+                                          : null
+                                      }
+                                      awayTeamPhotoUrl={
+                                        match.awayTeamId
+                                          ? publicTeamMetaById.get(match.awayTeamId)?.teamPhotoUrl ?? null
+                                          : null
+                                      }
+                                      onOpenTeamProfile={openTeamProfile}
+                                      onClick={
+                                        isAdmin ? () => setEditingBracketMatch(match) : undefined
+                                      }
+                                    />
+                                  ))}
+                                </div>
+                              </section>
+                            ))}
+                          </div>
                         </div>
                       </div>
 
@@ -3664,7 +3666,7 @@ function MatchCard({
       : null;
 
   return (
-    <article className="rounded-2xl border border-border/80 bg-background/70 p-3 text-left shadow-[0_10px_24px_hsl(0_0%_0%_/_0.16)]">
+    <article className="overflow-hidden rounded-2xl border border-border/80 bg-background/70 p-3 text-left shadow-[0_10px_24px_hsl(0_0%_0%_/_0.16)]">
       <div className="mb-3 flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
@@ -3702,14 +3704,11 @@ function MatchCard({
       </div>
 
       {isTwoLegged ? (
-        <div className="mt-3 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
-          <span className="text-primary">Ida e volta</span>
-          <span className="mx-2 text-border">|</span>
-          Ida {scoreHome ?? "-"} x {scoreAway ?? "-"}
-          <span className="mx-2 text-border">|</span>
-          Volta {scoreHomeSecondLeg ?? "-"} x {scoreAwaySecondLeg ?? "-"}
-          <span className="mx-2 text-border">|</span>
-          Agregado {aggregate ? `${aggregate.home} x ${aggregate.away}` : "-"}
+        <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-[9px] uppercase leading-5 tracking-[0.12em] text-muted-foreground">
+          <span className="font-semibold text-primary">Ida e volta</span>
+          <span>Ida {scoreHome ?? "-"}x{scoreAway ?? "-"}</span>
+          <span>Volta {scoreHomeSecondLeg ?? "-"}x{scoreAwaySecondLeg ?? "-"}</span>
+          <span>Agregado {aggregate ? `${aggregate.home}x${aggregate.away}` : "-"}</span>
         </div>
       ) : null}
 
@@ -3749,6 +3748,7 @@ function BracketTeamLine({
   onOpenTeamProfile?: (teamId: string | null) => void;
 }) {
   const isTwoLegged = secondLegScore !== undefined;
+  const scoreSize = isTwoLegged ? "xs" : "sm";
   const canOpenProfile = Boolean(team?.id && onOpenTeamProfile);
   const content = (
     <>
@@ -3760,14 +3760,14 @@ function BracketTeamLine({
         highlighted={highlighted}
         onOpenTeamProfile={canOpenProfile ? undefined : onOpenTeamProfile}
       />
-      <div className="flex shrink-0 items-center gap-1">
-        <ScoreBox score={score} highlighted={highlighted} size="sm" title={isTwoLegged ? "Ida" : undefined} />
+      <div className="grid shrink-0 grid-flow-col auto-cols-max items-center gap-1">
+        <ScoreBox score={score} highlighted={highlighted} size={scoreSize} title={isTwoLegged ? "Ida" : undefined} />
         {isTwoLegged ? (
           <>
-            <ScoreBox score={secondLegScore ?? null} highlighted={highlighted} size="sm" title="Volta" />
+            <ScoreBox score={secondLegScore ?? null} highlighted={highlighted} size={scoreSize} title="Volta" />
             <span
               title="Agregado"
-              className={`inline-flex h-9 min-w-10 items-center justify-center rounded-lg border px-2 text-base font-black ${
+              className={`inline-flex h-8 min-w-8 items-center justify-center rounded-lg border px-1.5 text-sm font-black ${
                 highlighted
                   ? "border-primary/40 bg-primary/15 text-primary"
                   : "border-border/80 bg-background/80 text-foreground"
@@ -3780,7 +3780,7 @@ function BracketTeamLine({
       </div>
     </>
   );
-  const className = `flex min-w-0 items-center justify-between gap-3 rounded-xl border px-3 py-2 text-left transition ${
+  const className = `flex min-w-0 items-center justify-between gap-2 rounded-xl border px-2.5 py-2 text-left transition ${
     highlighted
       ? "border-primary/35 bg-primary/10"
       : "border-border/70 bg-muted/20"
@@ -3818,10 +3818,15 @@ function ScoreBox({
 }: {
   score: number | null;
   highlighted: boolean;
-  size?: "sm" | "md";
+  size?: "xs" | "sm" | "md";
   title?: string;
 }) {
-  const sizeClass = size === "sm" ? "h-9 w-10 rounded-lg text-base" : "h-11 w-11 rounded-sm text-lg";
+  const sizeClass =
+    size === "xs"
+      ? "h-8 w-8 rounded-lg text-sm"
+      : size === "sm"
+        ? "h-9 w-10 rounded-lg text-base"
+        : "h-11 w-11 rounded-sm text-lg";
 
   return (
     <span
