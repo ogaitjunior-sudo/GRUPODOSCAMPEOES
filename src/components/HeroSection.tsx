@@ -17,7 +17,9 @@ import {
 import type { AdminPanelState } from "@/admin/types";
 import heroLionsBackdrop from "@/assets/hero-lions-backdrop.png";
 import heroLogoShadow from "@/assets/hero-logo-shadow.png";
-import { readCachedAdminPanelState } from "@/lib/admin-panel-store";
+import { useChampionships } from "@/contexts/ChampionshipContext";
+import { loadAdminPanelLoginDirectory, readCachedAdminPanelState } from "@/lib/admin-panel-store";
+import type { ChampionshipRecord } from "@/types/championship";
 
 interface QuickMetric {
   title: string;
@@ -31,13 +33,6 @@ interface BottomStat {
   helper?: string;
   icon: LucideIcon;
 }
-
-const quickMetrics: QuickMetric[] = [
-  { title: "TORNEIOS PUBLICADOS", value: "0", icon: Trophy },
-  { title: "CAMPEONATOS AO VIVO", value: "0", icon: Swords },
-  { title: "PR\u00d3XIMAS JANELAS", value: "0", icon: CalendarClock },
-  { title: "CAMPE\u00d5ES OFICIAIS", value: "0", icon: ShieldCheck },
-];
 
 const playerPreviewTokens = Array.from({ length: 5 }, (_, index) => index);
 const particlePositions = Array.from({ length: 44 }, (_, index) => ({
@@ -67,11 +62,11 @@ const sparkPositions = [
   { left: "69%", top: "62%", delay: "1.2s", duration: "5.2s" },
 ] as const;
 
-function normalizePlayerEmail(value: string) {
-  return value.trim().toLowerCase();
+function normalizePlayerEmail(value: unknown) {
+  return String(value ?? "").trim().toLowerCase();
 }
 
-function countActivePlayers(state: AdminPanelState) {
+function countActivePlayers(state: Pick<AdminPanelState, "users" | "players">) {
   const activePlayers = new Set<string>();
 
   state.users.forEach((user) => {
@@ -97,6 +92,29 @@ function countActivePlayers(state: AdminPanelState) {
   });
 
   return activePlayers.size;
+}
+
+function countChampionshipPlayers(championships: ChampionshipRecord[]) {
+  const players = new Set<string>();
+
+  championships.forEach((championship) => {
+    championship.registrationRequests.forEach((request) => {
+      if (request.status === "rejected") {
+        return;
+      }
+
+      const key =
+        normalizePlayerEmail(request.playerEmail) ||
+        String(request.playerId ?? "").trim().toLowerCase() ||
+        String(request.playerName ?? "").trim().toLowerCase();
+
+      if (key) {
+        players.add(key);
+      }
+    });
+  });
+
+  return players.size;
 }
 
 function QuickMetricCard({ title, value, icon: Icon }: QuickMetric) {
@@ -127,27 +145,45 @@ function BottomStatCard({ value, title, helper, icon: Icon }: BottomStat) {
 }
 
 export function HeroSection() {
+  const { championships } = useChampionships();
   const [activePlayersCount, setActivePlayersCount] = useState(() =>
     countActivePlayers(readCachedAdminPanelState()),
   );
 
   useEffect(() => {
-    const syncActivePlayersCount = () => {
+    let isMounted = true;
+
+    const syncActivePlayersCount = async () => {
       setActivePlayersCount(countActivePlayers(readCachedAdminPanelState()));
+
+      try {
+        const directory = await loadAdminPanelLoginDirectory();
+
+        if (isMounted) {
+          setActivePlayersCount(countActivePlayers(directory));
+        }
+      } catch (error) {
+        console.error("[hero-section] player counter sync failed", error);
+      }
     };
 
-    syncActivePlayersCount();
+    void syncActivePlayersCount();
 
     if (typeof window === "undefined") {
       return;
     }
 
-    window.addEventListener("storage", syncActivePlayersCount);
-    window.addEventListener("focus", syncActivePlayersCount);
+    const handleSyncRequest = () => {
+      void syncActivePlayersCount();
+    };
+
+    window.addEventListener("storage", handleSyncRequest);
+    window.addEventListener("focus", handleSyncRequest);
 
     return () => {
-      window.removeEventListener("storage", syncActivePlayersCount);
-      window.removeEventListener("focus", syncActivePlayersCount);
+      isMounted = false;
+      window.removeEventListener("storage", handleSyncRequest);
+      window.removeEventListener("focus", handleSyncRequest);
     };
   }, []);
 
@@ -165,15 +201,33 @@ export function HeroSection() {
     event.currentTarget.style.setProperty("--mouse-y", "50%");
   };
 
-  const activePlayersValue = new Intl.NumberFormat("pt-BR").format(activePlayersCount);
+  const numberFormatter = new Intl.NumberFormat("pt-BR");
+  const publishedChampionshipsCount = championships.filter((item) => item.status !== "DRAFT").length;
+  const liveChampionshipsCount = championships.filter((item) => item.status === "STARTED").length;
+  const upcomingWindowsCount = championships.filter(
+    (item) => item.status === "DRAFT" || item.status === "REGISTRATION" || item.status === "READY",
+  ).length;
+  const finishedChampionshipsCount = championships.filter((item) => item.status === "FINISHED").length;
+  const visiblePlayersCount = Math.max(activePlayersCount, countChampionshipPlayers(championships));
+  const activePlayersValue = numberFormatter.format(visiblePlayersCount);
+  const publishedChampionshipsValue = numberFormatter.format(publishedChampionshipsCount);
+  const liveChampionshipsValue = numberFormatter.format(liveChampionshipsCount);
+  const upcomingWindowsValue = numberFormatter.format(upcomingWindowsCount);
+  const finishedChampionshipsValue = numberFormatter.format(finishedChampionshipsCount);
+  const quickMetrics: QuickMetric[] = [
+    { title: "TORNEIOS PUBLICADOS", value: publishedChampionshipsValue, icon: Trophy },
+    { title: "CAMPEONATOS AO VIVO", value: liveChampionshipsValue, icon: Swords },
+    { title: "PR\u00d3XIMAS JANELAS", value: upcomingWindowsValue, icon: CalendarClock },
+    { title: "CAMPE\u00d5ES OFICIAIS", value: finishedChampionshipsValue, icon: ShieldCheck },
+  ];
   const mobileQuickMetrics: QuickMetric[] = [
-    { title: "CAMPEONATOS", value: "0", icon: Trophy },
+    { title: "CAMPEONATOS", value: publishedChampionshipsValue, icon: Trophy },
     { title: "JOGADORES", value: activePlayersValue, icon: Users },
-    { title: "PREMIACOES", value: "0", icon: Star },
+    { title: "PREMIACOES", value: finishedChampionshipsValue, icon: Star },
   ];
   const bottomStats: BottomStat[] = [
     { value: activePlayersValue, title: "JOGADORES ATIVOS", icon: Users },
-    { value: "0", title: "CAMPEONATOS REALIZADOS", icon: Trophy },
+    { value: finishedChampionshipsValue, title: "CAMPEONATOS REALIZADOS", icon: Trophy },
     { value: "100%", title: "SISTEMA AUTOM\u00c1TICO", helper: "E SEGURO", icon: ShieldCheck },
     { value: "", title: "RESPOSTA R\u00c1PIDA", helper: "SUPORTE \u00c1GIL", icon: Zap },
   ];
