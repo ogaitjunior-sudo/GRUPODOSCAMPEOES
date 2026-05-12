@@ -26,6 +26,7 @@ import {
   TeamCrest,
   TeamFlagBadge,
 } from "@/components/championship/TeamIdentity";
+import { TeamPhotoBadge } from "@/components/profile/TeamPhotoBadge";
 import {
   ChallengeModal,
 } from "@/components/championship/ChallengeModal";
@@ -1364,6 +1365,8 @@ export function ChampionshipWorkspacePage({
         awayTeamId: match.awayTeamId,
         homeFlagUrl: teamsById.get(match.homeTeamId)?.flagUrl ?? null,
         awayFlagUrl: teamsById.get(match.awayTeamId)?.flagUrl ?? null,
+        homeTeamPhotoUrl: publicTeamMetaById.get(match.homeTeamId)?.teamPhotoUrl ?? null,
+        awayTeamPhotoUrl: publicTeamMetaById.get(match.awayTeamId)?.teamPhotoUrl ?? null,
       }));
     const bracketEntries = workspace.bracket.matches
       .filter((match) => match.homeTeamId === ownedTeamId || match.awayTeamId === ownedTeamId)
@@ -1387,10 +1390,12 @@ export function ChampionshipWorkspacePage({
         awayTeamId: match.awayTeamId,
         homeFlagUrl: teamsById.get(match.homeTeamId ?? "")?.flagUrl ?? null,
         awayFlagUrl: teamsById.get(match.awayTeamId ?? "")?.flagUrl ?? null,
+        homeTeamPhotoUrl: match.homeTeamId ? publicTeamMetaById.get(match.homeTeamId)?.teamPhotoUrl ?? null : null,
+        awayTeamPhotoUrl: match.awayTeamId ? publicTeamMetaById.get(match.awayTeamId)?.teamPhotoUrl ?? null : null,
       }));
 
     return [...groupEntries, ...bracketEntries].sort((left, right) => left.sortOrder - right.sortOrder);
-  }, [ownedTeamId, teamsById, workspace]);
+  }, [ownedTeamId, publicTeamMetaById, teamsById, workspace]);
 
   if (
     championshipId &&
@@ -2489,6 +2494,16 @@ export function ChampionshipWorkspacePage({
                                     awayTeamId={match.awayTeamId}
                                     homeFlagUrl={teamsById.get(match.homeTeamId ?? "")?.flagUrl ?? null}
                                     awayFlagUrl={teamsById.get(match.awayTeamId ?? "")?.flagUrl ?? null}
+                                    homeTeamPhotoUrl={
+                                      match.homeTeamId
+                                        ? publicTeamMetaById.get(match.homeTeamId)?.teamPhotoUrl ?? null
+                                        : null
+                                    }
+                                    awayTeamPhotoUrl={
+                                      match.awayTeamId
+                                        ? publicTeamMetaById.get(match.awayTeamId)?.teamPhotoUrl ?? null
+                                        : null
+                                    }
                                     onOpenTeamProfile={openTeamProfile}
                                     onClick={
                                       isAdmin ? () => setEditingBracketMatch(match) : undefined
@@ -2533,6 +2548,16 @@ export function ChampionshipWorkspacePage({
                             awayTeamId={thirdPlaceMatch.awayTeamId}
                             homeFlagUrl={teamsById.get(thirdPlaceMatch.homeTeamId ?? "")?.flagUrl ?? null}
                             awayFlagUrl={teamsById.get(thirdPlaceMatch.awayTeamId ?? "")?.flagUrl ?? null}
+                            homeTeamPhotoUrl={
+                              thirdPlaceMatch.homeTeamId
+                                ? publicTeamMetaById.get(thirdPlaceMatch.homeTeamId)?.teamPhotoUrl ?? null
+                                : null
+                            }
+                            awayTeamPhotoUrl={
+                              thirdPlaceMatch.awayTeamId
+                                ? publicTeamMetaById.get(thirdPlaceMatch.awayTeamId)?.teamPhotoUrl ?? null
+                                : null
+                            }
                             onOpenTeamProfile={openTeamProfile}
                             onClick={isAdmin ? () => setEditingBracketMatch(thirdPlaceMatch) : undefined}
                           />
@@ -2599,6 +2624,8 @@ export function ChampionshipWorkspacePage({
                             awayTeamId={match.awayTeamId}
                             homeFlagUrl={match.homeFlagUrl}
                             awayFlagUrl={match.awayFlagUrl}
+                            homeTeamPhotoUrl={match.homeTeamPhotoUrl}
+                            awayTeamPhotoUrl={match.awayTeamPhotoUrl}
                             onOpenTeamProfile={openTeamProfile}
                           />
                         ))}
@@ -3169,7 +3196,9 @@ function SelectField({
   );
 }
 
-type TeamSummary = Pick<ChampionshipTeam, "id" | "name" | "flagUrl">;
+type TeamSummary = Pick<ChampionshipTeam, "id" | "name" | "flagUrl"> & {
+  teamPhotoUrl?: string | null;
+};
 
 function TeamNameBlock({
   team,
@@ -3189,6 +3218,28 @@ function TeamNameBlock({
   const label = team?.name ?? fallbackName;
   const canOpenProfile = Boolean(team?.id && onOpenTeamProfile);
   const flagSize = size === "sm" ? "sm" : "md";
+  const markPhotoUrl = team?.teamPhotoUrl ?? team?.flagUrl ?? null;
+  const markSizeClassName =
+    size === "sm" ? "h-7 w-7 text-[10px]" : "h-9 w-9 text-xs";
+  const markFallback = (
+    <TeamCrest
+      name={label}
+      size={size === "sm" ? "sm" : "md"}
+      className="h-full w-full rounded-[10px]"
+    />
+  );
+  const mark = markPhotoUrl ? (
+    <TeamPhotoBadge
+      name={label}
+      photoUrl={markPhotoUrl}
+      size="sm"
+      shape="square"
+      className={`${markSizeClassName} border-white/15 bg-black/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_8px_20px_rgba(0,0,0,0.18)]`}
+      fallbackContent={markFallback}
+    />
+  ) : (
+    markFallback
+  );
 
   return (
     <div
@@ -3196,7 +3247,7 @@ function TeamNameBlock({
         align === "right" ? "justify-end text-right" : "justify-start text-left"
       }`}
     >
-      {align === "left" ? <TeamCrest name={label} size={size === "sm" ? "sm" : "md"} /> : null}
+      {align === "left" ? mark : null}
       <div className="min-w-0">
         <div
           className={`flex items-center gap-2 ${
@@ -3225,7 +3276,7 @@ function TeamNameBlock({
           <TeamFlagBadge teamName={label} flagUrl={team?.flagUrl ?? null} size={flagSize} />
         </div>
       </div>
-      {align === "right" ? <TeamCrest name={label} size={size === "sm" ? "sm" : "md"} /> : null}
+      {align === "right" ? mark : null}
     </div>
   );
 }
@@ -3512,6 +3563,8 @@ function MatchCard({
   awayTeamId,
   homeFlagUrl,
   awayFlagUrl,
+  homeTeamPhotoUrl,
+  awayTeamPhotoUrl,
   onClick,
   onOpenTeamProfile,
 }: {
@@ -3528,11 +3581,27 @@ function MatchCard({
   awayTeamId?: string | null;
   homeFlagUrl?: string | null;
   awayFlagUrl?: string | null;
+  homeTeamPhotoUrl?: string | null;
+  awayTeamPhotoUrl?: string | null;
   onClick?: () => void;
   onOpenTeamProfile?: (teamId: string | null) => void;
 }) {
-  const homeTeam = homeTeamId ? { id: homeTeamId, name: homeLabel, flagUrl: homeFlagUrl ?? null } : null;
-  const awayTeam = awayTeamId ? { id: awayTeamId, name: awayLabel, flagUrl: awayFlagUrl ?? null } : null;
+  const homeTeam = homeTeamId
+    ? {
+        id: homeTeamId,
+        name: homeLabel,
+        flagUrl: homeFlagUrl ?? null,
+        teamPhotoUrl: homeTeamPhotoUrl ?? null,
+      }
+    : null;
+  const awayTeam = awayTeamId
+    ? {
+        id: awayTeamId,
+        name: awayLabel,
+        flagUrl: awayFlagUrl ?? null,
+        teamPhotoUrl: awayTeamPhotoUrl ?? null,
+      }
+    : null;
 
   return (
     <article className="rounded-2xl border border-border/80 bg-background/70 p-3 text-left shadow-[0_10px_24px_hsl(0_0%_0%_/_0.16)]">
