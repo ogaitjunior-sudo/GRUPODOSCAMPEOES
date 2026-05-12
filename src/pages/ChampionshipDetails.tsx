@@ -67,6 +67,7 @@ import {
   computeGroupStandings,
   getChampionshipProgressSummary,
   getQualifiedTeams,
+  normalizeChampionshipWorkspace,
   rebuildGroupsAndSchedule,
   renameTeam,
   updateGroupMatch,
@@ -352,10 +353,13 @@ export function ChampionshipWorkspacePage({
   const [directChampionshipError, setDirectChampionshipError] = useState<string | null>(null);
   const championship = contextChampionship ?? directChampionship ?? undefined;
   const initialCachedWorkspace = championship ? readStoredChampionshipWorkspaceRecord(championship) : null;
-  const [workspace, setWorkspace] = useState<ChampionshipWorkspaceRecord | null>(initialCachedWorkspace);
+  const initialWorkspace = championship
+    ? initialCachedWorkspace ?? normalizeChampionshipWorkspace(undefined, championship)
+    : null;
+  const [workspace, setWorkspace] = useState<ChampionshipWorkspaceRecord | null>(initialWorkspace);
   const workspaceChampionshipIdRef = useRef<string | null>(championship?.id ?? null);
   const tabDefaultKeyRef = useRef<string | null>(null);
-  const [isLoading, setIsLoading] = useState(Boolean(championship && !initialCachedWorkspace));
+  const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isSubmittingParticipation, setIsSubmittingParticipation] = useState(false);
   const [reviewingRequestId, setReviewingRequestId] = useState<string | null>(null);
@@ -477,12 +481,14 @@ export function ChampionshipWorkspacePage({
       return;
     }
 
-    const cachedWorkspace = readStoredChampionshipWorkspaceRecord(championship);
+    const cachedWorkspace =
+      readStoredChampionshipWorkspaceRecord(championship) ??
+      normalizeChampionshipWorkspace(undefined, championship);
     const isSameChampionship = workspaceChampionshipIdRef.current === championship.id;
 
     if (!isSameChampionship) {
       setWorkspace(cachedWorkspace);
-      setIsLoading(!cachedWorkspace);
+      setIsLoading(false);
     }
 
     setErrorMessage(null);
@@ -511,9 +517,7 @@ export function ChampionshipWorkspacePage({
           return;
         }
 
-        if (!isSameChampionship && !cachedWorkspace) {
-          setWorkspace(null);
-        }
+        setWorkspace(cachedWorkspace);
 
         setErrorMessage(formatChampionshipWorkspaceStoreError(error));
       } finally {

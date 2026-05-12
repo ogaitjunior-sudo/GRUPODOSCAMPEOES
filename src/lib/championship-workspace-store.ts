@@ -13,7 +13,7 @@ import type { ChampionshipWorkspaceRecord } from "@/types/championship-runtime";
 const CHAMPIONSHIP_WORKSPACES_STORAGE_KEY = "gc_championship_workspaces_v2";
 const CHAMPIONSHIP_WORKSPACES_TABLE = "championship_workspaces";
 const CHAMPIONSHIP_WORKSPACE_READ_TIMEOUT_MS = 5_000;
-const CHAMPIONSHIP_WORKSPACE_REST_READ_TIMEOUT_MS = 12_000;
+const CHAMPIONSHIP_WORKSPACE_REST_READ_TIMEOUT_MS = 4_000;
 const CHAMPIONSHIP_WORKSPACE_WRITE_TIMEOUT_MS = 10_000;
 const isChampionshipWorkspaceStoreTestMode = import.meta.env.MODE === "test";
 
@@ -108,10 +108,6 @@ function getLocalWorkspace(championshipId: string) {
 }
 
 export function readStoredChampionshipWorkspaceRecord(championship: ChampionshipRecord) {
-  if (!isChampionshipWorkspaceStoreTestMode && isSupabaseConfigured) {
-    return null;
-  }
-
   const localWorkspace = getLocalWorkspace(championship.id);
 
   if (!localWorkspace) {
@@ -254,6 +250,14 @@ export async function loadChampionshipWorkspaceRecord(championship: Championship
       return normalizeChampionshipWorkspace(localWorkspace, championship);
     }
 
+    if (localWorkspace && isSupabaseNetworkError(error)) {
+      console.warn(
+        "[championship-workspace-store] public REST read timed out, using cached workspace.",
+        error,
+      );
+      return normalizeChampionshipWorkspace(localWorkspace, championship);
+    }
+
     console.error("[championship-workspace-store] public REST read failed", error);
   }
 
@@ -272,6 +276,22 @@ export async function loadChampionshipWorkspaceRecord(championship: Championship
   } catch (error) {
     if (isWorkspaceTableUnavailable(error)) {
       return normalizeChampionshipWorkspace(localWorkspace, championship);
+    }
+
+    if (isSupabaseNetworkError(error)) {
+      if (localWorkspace) {
+        console.warn(
+          "[championship-workspace-store] Supabase read timed out, using cached workspace.",
+          error,
+        );
+        return normalizeChampionshipWorkspace(localWorkspace, championship);
+      }
+
+      console.warn(
+        "[championship-workspace-store] Supabase read timed out, using empty workspace.",
+        error,
+      );
+      return normalizeChampionshipWorkspace(undefined, championship);
     }
 
     throw error;
