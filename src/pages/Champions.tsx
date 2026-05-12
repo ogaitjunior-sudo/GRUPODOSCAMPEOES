@@ -21,6 +21,10 @@ function formatTitles(count: number) {
   return `${count} título${count === 1 ? "" : "s"}`;
 }
 
+function formatRegisteredTitles(count: number) {
+  return `${formatTitles(count)} registrado${count === 1 ? "" : "s"} na galeria.`;
+}
+
 const Champions = () => {
   const hasChampions = champions.length > 0;
   const totalTitles = champions.reduce((sum, player) => sum + player.titles, 0);
@@ -240,7 +244,7 @@ const Champions = () => {
                             {player.name}
                           </h2>
                           <p className="mt-2 text-sm text-muted-foreground">
-                            {formatTitles(player.titles)} registrados na galeria.
+                            {formatRegisteredTitles(player.titles)}
                           </p>
                         </div>
                       </div>

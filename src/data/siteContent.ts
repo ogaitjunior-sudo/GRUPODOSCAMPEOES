@@ -106,7 +106,7 @@ export const featuredChampionships = championships.slice(0, 4);
 const officialChampionEntries: ChampionSource[] = [
   { name: "Wendel", titles: 1 },
   { name: "Henrique", titles: 1 },
-  { name: "Evelto", titles: 1 },
+  { name: "Evelto", titles: 2 },
   { name: "Foguinho", titles: 1 },
   { name: "Alan", titles: 4 },
   { name: "Leandro", titles: 1 },
