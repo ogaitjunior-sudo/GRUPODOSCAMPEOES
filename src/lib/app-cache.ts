@@ -27,7 +27,10 @@ export async function refreshApplicationCache() {
       .catch(() => [] as ServiceWorkerRegistration[]);
 
     await Promise.all(
-      registrations.map((registration) => registration.update().catch(() => undefined)),
+      registrations.map(async (registration) => {
+        await registration.update().catch(() => undefined);
+        await registration.unregister().catch(() => undefined);
+      }),
     );
   }
 

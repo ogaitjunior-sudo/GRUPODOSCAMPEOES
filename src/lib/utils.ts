@@ -4,3 +4,19 @@ import { twMerge } from "tailwind-merge";
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
+
+export function toSafeText(value: unknown, fallback = "") {
+  if (typeof value === "string") {
+    return value.trim() || fallback;
+  }
+
+  if (value === null || value === undefined) {
+    return fallback;
+  }
+
+  return String(value).trim() || fallback;
+}
+
+export function toSafeUpperText(value: unknown, fallback = "") {
+  return toSafeText(value, fallback).toUpperCase();
+}

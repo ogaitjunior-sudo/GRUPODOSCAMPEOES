@@ -38,6 +38,7 @@ import { useFriendlyChallenges } from "@/contexts/FriendlyChallengesContext";
 import { usePlayerAuth } from "@/contexts/PlayerAuthContext";
 import { toast } from "@/hooks/use-toast";
 import { splitFriendlyChallengesForPlayer } from "@/lib/friendly-challenges";
+import { toSafeUpperText } from "@/lib/utils";
 import { champions } from "@/data/siteContent";
 import {
   formatChampionshipDateRange,
@@ -814,7 +815,7 @@ export default function PerfilJogador() {
               Perfil do jogador
             </p>
             <h1 className="mt-3 font-heading text-4xl font-black gradient-gold-text text-glow-gold">
-              PAINEL DE {playerName.toUpperCase()}
+              PAINEL DE {toSafeUpperText(playerName, "Jogador")}
             </h1>
             <p className="mt-3 max-w-3xl text-sm leading-7 text-muted-foreground">
               O perfil agora funciona como central publica do jogador para acompanhar o circuito

@@ -100,6 +100,7 @@ import { useAdminAuth } from "@/contexts/AdminAuthContext";
 import { useChampionships } from "@/contexts/ChampionshipContext";
 import { useFriendlyChallenges } from "@/contexts/FriendlyChallengesContext";
 import { usePlayerAuth } from "@/contexts/PlayerAuthContext";
+import { toSafeText, toSafeUpperText } from "@/lib/utils";
 import type {
   ChampionshipConfiguration,
   ChampionshipFormValues,
@@ -176,15 +177,7 @@ function formatMatchDateTime(value: string | null) {
 }
 
 function toDisplayText(value: unknown, fallback = "A definir") {
-  if (typeof value === "string") {
-    return value.trim() || fallback;
-  }
-
-  if (value === null || value === undefined) {
-    return fallback;
-  }
-
-  return String(value).trim() || fallback;
+  return toSafeText(value, fallback);
 }
 
 function getTeamName(teams: ChampionshipTeam[], teamId: string | null) {
@@ -1767,7 +1760,7 @@ export function ChampionshipWorkspacePage({
               </TabsList>
             ) : (
               <UltimateTeamChampionshipShell
-                title={toDisplayText(championship.name, "Campeonato").toUpperCase()}
+                title={toSafeUpperText(championship.name, "Campeonato")}
                 statusBadge={<StatusBadge status={championship.status} className="text-[11px]" />}
                 actions={
                   <>

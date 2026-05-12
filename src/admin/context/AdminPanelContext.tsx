@@ -368,7 +368,7 @@ export function AdminPanelProvider({ children }: { children: ReactNode }) {
       const nextTeam: TeamRecord = {
         id: payload.id ?? createId("team"),
         name: payload.name.trim(),
-        tag: payload.tag.trim().toUpperCase(),
+        tag: String(payload.tag ?? "").trim().toUpperCase(),
         captain: payload.captain.trim(),
         platform: payload.platform,
         status: payload.status,

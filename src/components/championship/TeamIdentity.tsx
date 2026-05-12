@@ -1,6 +1,6 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import { Flag } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, toSafeText } from "@/lib/utils";
 
 export interface TeamIdentityData {
   id: string;
@@ -12,15 +12,11 @@ function hashTeamName(value: string) {
   return value.split("").reduce((total, char) => total + char.charCodeAt(0), 0);
 }
 
-function normalizeTeamName(name: string) {
-  if (typeof name === "string") {
-    return name.trim() || "Equipe";
-  }
-
-  return String(name ?? "Equipe").trim() || "Equipe";
+function normalizeTeamName(name: unknown) {
+  return toSafeText(name, "Equipe");
 }
 
-function getTeamInitials(name: string) {
+function getTeamInitials(name: unknown) {
   const parts = normalizeTeamName(name)
     .trim()
     .split(/\s+/)
@@ -37,7 +33,7 @@ function getTeamInitials(name: string) {
   return `${parts[0][0] ?? ""}${parts[1][0] ?? ""}`.toUpperCase();
 }
 
-function getTeamMarkStyle(name: string) {
+function getTeamMarkStyle(name: unknown) {
   const seed = hashTeamName(normalizeTeamName(name));
   const hueA = seed % 360;
   const hueB = (seed * 1.7 + 55) % 360;
@@ -53,7 +49,7 @@ export function TeamCrest({
   size = "md",
   className,
 }: {
-  name: string;
+  name: unknown;
   size?: "sm" | "md" | "lg";
   className?: string;
 }) {
@@ -83,7 +79,7 @@ export function TeamFlagBadge({
   size = "md",
   className,
 }: {
-  teamName: string;
+  teamName: unknown;
   flagUrl?: string | null;
   size?: "sm" | "md" | "lg";
   className?: string;
@@ -110,8 +106,8 @@ export function TeamFlagBadge({
           sizeClassName,
           className,
         )}
-        title={`Bandeira nao cadastrada para ${teamName}`}
-        aria-label={`Bandeira nao cadastrada para ${teamName}`}
+        title={`Bandeira nao cadastrada para ${normalizeTeamName(teamName)}`}
+        aria-label={`Bandeira nao cadastrada para ${normalizeTeamName(teamName)}`}
       >
         <Flag className={iconClassName} />
       </span>
@@ -125,7 +121,7 @@ export function TeamFlagBadge({
         sizeClassName,
         className,
       )}
-      title={`Bandeira de ${teamName}`}
+      title={`Bandeira de ${normalizeTeamName(teamName)}`}
       aria-hidden="true"
     >
       <img
