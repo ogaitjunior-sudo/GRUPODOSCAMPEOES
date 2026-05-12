@@ -11,6 +11,7 @@ import {
   RefreshCcw,
   Save,
   Settings2,
+  Share2,
   ShieldAlert,
   Swords,
   Trophy,
@@ -178,6 +179,23 @@ function getTeamName(teams: ChampionshipTeam[], teamId: string | null) {
   }
 
   return teams.find((team) => team.id === teamId)?.name ?? "A definir";
+}
+
+async function copyTextToClipboard(value: string) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(value);
+    return;
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.value = value;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "fixed";
+  textarea.style.opacity = "0";
+  document.body.appendChild(textarea);
+  textarea.select();
+  document.execCommand("copy");
+  document.body.removeChild(textarea);
 }
 
 function getRegistrationBadgeClassName(status: ChampionshipRegistrationStatus) {
@@ -938,6 +956,45 @@ export function ChampionshipWorkspacePage({
   const renderShell = (content: ReactNode) =>
     isAdmin ? <>{content}</> : <PageShell>{content}</PageShell>;
 
+  const handleShareChampionship = async () => {
+    if (!championship) {
+      return;
+    }
+
+    const publicPath = `/campeonatos/${championship.id}`;
+    const publicUrl =
+      typeof window !== "undefined"
+        ? new URL(publicPath, window.location.origin).toString()
+        : publicPath;
+    const shareData = {
+      title: championship.name,
+      text: `Entre no campeonato ${championship.name} do Grupo de Campeoes.`,
+      url: publicUrl,
+    };
+
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+      } else {
+        await copyTextToClipboard(publicUrl);
+        toast({
+          title: "Link copiado",
+          description: "O link publico do campeonato foi copiado para compartilhar.",
+        });
+      }
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") {
+        return;
+      }
+
+      await copyTextToClipboard(publicUrl);
+      toast({
+        title: "Link copiado",
+        description: "Nao abriu o compartilhamento nativo, entao copiamos o link.",
+      });
+    }
+  };
+
   useEffect(() => {
     if (!championship?.id || !workspace) {
       return;
@@ -1349,13 +1406,24 @@ export function ChampionshipWorkspacePage({
               <p className="mt-4 text-sm leading-7 text-muted-foreground">
                 Confirme seu pedido de participacao sem carregar a tabela completa do campeonato.
               </p>
-              <Button
-                type="button"
-                onClick={() => setIsParticipationDialogOpen(true)}
-                className="mt-6 rounded-full bg-electric px-5 text-[11px] uppercase tracking-[0.18em] text-background hover:bg-electric/90"
-              >
-                Abrir participacao
-              </Button>
+              <div className="mt-6 flex flex-wrap gap-3">
+                <Button
+                  type="button"
+                  onClick={() => setIsParticipationDialogOpen(true)}
+                  className="rounded-full bg-electric px-5 text-[11px] uppercase tracking-[0.18em] text-background hover:bg-electric/90"
+                >
+                  Abrir participacao
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => void handleShareChampionship()}
+                  className="rounded-full"
+                >
+                  <Share2 className="mr-2 h-4 w-4" />
+                  Compartilhar
+                </Button>
+              </div>
             </div>
           </div>
         </section>
@@ -1419,6 +1487,10 @@ export function ChampionshipWorkspacePage({
               description="Painel interno separado da experiencia publica para acompanhar grupos, bracket, pontuacao e andamento operacional."
               actions={
                 <>
+                  <Button type="button" variant="outline" onClick={() => void handleShareChampionship()}>
+                    <Share2 className="mr-2 h-4 w-4" />
+                    Compartilhar
+                  </Button>
                   <Button asChild variant="outline">
                     <Link to={`/campeonatos/${championship.id}`}>Ver publico</Link>
                   </Button>
@@ -1619,6 +1691,15 @@ export function ChampionshipWorkspacePage({
                       className="rounded-full bg-electric px-5 text-[11px] uppercase tracking-[0.18em] text-background hover:bg-electric/90"
                     >
                       {registrationActionLabel}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => void handleShareChampionship()}
+                      className="rounded-full border-white/12 bg-white/5 text-slate-100 hover:bg-white/10"
+                    >
+                      <Share2 className="mr-2 h-4 w-4" />
+                      Compartilhar
                     </Button>
                     <Button asChild variant="outline" className="rounded-full border-white/12 bg-white/5 text-slate-100 hover:bg-white/10">
                       <Link to={backPath}>Voltar</Link>
