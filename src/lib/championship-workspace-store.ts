@@ -1,12 +1,19 @@
 import type { PostgrestError } from "@supabase/supabase-js";
 import { normalizeChampionshipWorkspace } from "@/lib/championship-runtime";
-import { adminSupabase, isSupabaseConfigured, supabase } from "@/lib/supabase";
+import {
+  adminSupabase,
+  isSupabaseConfigured,
+  supabase,
+  supabaseRestAnonKey,
+  supabaseRestUrl,
+} from "@/lib/supabase";
 import type { ChampionshipRecord } from "@/types/championship";
 import type { ChampionshipWorkspaceRecord } from "@/types/championship-runtime";
 
 const CHAMPIONSHIP_WORKSPACES_STORAGE_KEY = "gc_championship_workspaces_v2";
 const CHAMPIONSHIP_WORKSPACES_TABLE = "championship_workspaces";
 const CHAMPIONSHIP_WORKSPACE_READ_TIMEOUT_MS = 5_000;
+const CHAMPIONSHIP_WORKSPACE_REST_READ_TIMEOUT_MS = 12_000;
 const CHAMPIONSHIP_WORKSPACE_WRITE_TIMEOUT_MS = 10_000;
 const isChampionshipWorkspaceStoreTestMode = import.meta.env.MODE === "test";
 
@@ -156,6 +163,62 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string)
   });
 }
 
+async function parseSupabaseRestError(response: Response, fallback: string) {
+  const payload = await response.json().catch(() => null);
+  const message =
+    typeof payload?.message === "string" && payload.message.trim()
+      ? payload.message
+      : fallback;
+
+  return {
+    code: typeof payload?.code === "string" ? payload.code : `${response.status}`,
+    message,
+    details: payload?.details,
+    hint: payload?.hint,
+  } satisfies Partial<PostgrestError>;
+}
+
+async function requestWorkspacePublicRest(path: string) {
+  const controller = new AbortController();
+  const timeoutId = globalThis.setTimeout(() => {
+    controller.abort();
+  }, CHAMPIONSHIP_WORKSPACE_REST_READ_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(`${supabaseRestUrl}/rest/v1/${path}`, {
+      method: "GET",
+      headers: {
+        apikey: supabaseRestAnonKey,
+        Authorization: `Bearer ${supabaseRestAnonKey}`,
+      },
+      signal: controller.signal,
+    });
+
+    if (response.ok) {
+      return (await response.json()) as unknown[];
+    }
+
+    throw await parseSupabaseRestError(
+      response,
+      `Supabase retornou HTTP ${response.status} ao ler o workspace do campeonato.`,
+    );
+  } finally {
+    globalThis.clearTimeout(timeoutId);
+  }
+}
+
+async function readWorkspaceByIdFromPublicRest(championship: ChampionshipRecord) {
+  const rows = await requestWorkspacePublicRest(
+    `${CHAMPIONSHIP_WORKSPACES_TABLE}?select=*&championship_id=eq.${encodeURIComponent(championship.id)}&limit=1`,
+  );
+  const row = rows[0];
+
+  return normalizeChampionshipWorkspace(
+    row ? mapRowToRecord(row as ChampionshipWorkspaceRow) : undefined,
+    championship,
+  );
+}
+
 function isSupabaseNetworkError(error: unknown) {
   const errorMessage = getErrorMessage(error).toLowerCase();
   const errorName =
@@ -174,18 +237,24 @@ function isSupabaseNetworkError(error: unknown) {
   );
 }
 
-function shouldFallbackToLocal(error: unknown) {
-  const postgrestError = error as Partial<PostgrestError> | null;
-  const errorCode = postgrestError?.code?.toUpperCase();
-
-  return isWorkspaceTableUnavailable(error) || errorCode === "42501" || isSupabaseNetworkError(error);
-}
-
 export async function loadChampionshipWorkspaceRecord(championship: ChampionshipRecord) {
   const localWorkspace = getLocalWorkspace(championship.id);
 
   if (isChampionshipWorkspaceStoreTestMode || !supabase) {
     return normalizeChampionshipWorkspace(localWorkspace, championship);
+  }
+
+  try {
+    const remoteWorkspace = await readWorkspaceByIdFromPublicRest(championship);
+    persistWorkspaceLocally(remoteWorkspace);
+
+    return remoteWorkspace;
+  } catch (error) {
+    if (isWorkspaceTableUnavailable(error)) {
+      return normalizeChampionshipWorkspace(localWorkspace, championship);
+    }
+
+    console.error("[championship-workspace-store] public REST read failed", error);
   }
 
   let response;
@@ -201,7 +270,7 @@ export async function loadChampionshipWorkspaceRecord(championship: Championship
       "Tempo limite ao carregar o workspace do campeonato.",
     );
   } catch (error) {
-    if (shouldFallbackToLocal(error)) {
+    if (isWorkspaceTableUnavailable(error)) {
       return normalizeChampionshipWorkspace(localWorkspace, championship);
     }
 
@@ -211,7 +280,7 @@ export async function loadChampionshipWorkspaceRecord(championship: Championship
   const { data, error } = response;
 
   if (error) {
-    if (shouldFallbackToLocal(error)) {
+    if (isWorkspaceTableUnavailable(error)) {
       return normalizeChampionshipWorkspace(localWorkspace, championship);
     }
 

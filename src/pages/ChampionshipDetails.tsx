@@ -329,7 +329,7 @@ export function ChampionshipWorkspacePage({
   const initialCachedWorkspace = championship ? readStoredChampionshipWorkspaceRecord(championship) : null;
   const [workspace, setWorkspace] = useState<ChampionshipWorkspaceRecord | null>(initialCachedWorkspace);
   const workspaceChampionshipIdRef = useRef<string | null>(championship?.id ?? null);
-  const tabChampionshipIdRef = useRef<string | null>(null);
+  const tabDefaultKeyRef = useRef<string | null>(null);
   const [isLoading, setIsLoading] = useState(Boolean(championship && !initialCachedWorkspace));
   const [isSaving, setIsSaving] = useState(false);
   const [isSubmittingParticipation, setIsSubmittingParticipation] = useState(false);
@@ -943,11 +943,13 @@ export function ChampionshipWorkspacePage({
       return;
     }
 
-    if (tabChampionshipIdRef.current === championship.id) {
+    const tabDefaultKey = `${championship.id}:${defaultChampionshipTab}`;
+
+    if (tabDefaultKeyRef.current === tabDefaultKey) {
       return;
     }
 
-    tabChampionshipIdRef.current = championship.id;
+    tabDefaultKeyRef.current = tabDefaultKey;
     setActiveChampionshipTab(defaultChampionshipTab);
   }, [championship?.id, defaultChampionshipTab, workspace]);
 
