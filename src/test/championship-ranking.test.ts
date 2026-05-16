@@ -5,7 +5,7 @@ import { createEmptyBracketState } from "@/lib/championship-runtime";
 import type { ChampionshipRecord } from "@/types/championship";
 import type { ChampionshipWorkspaceRecord } from "@/types/championship-runtime";
 
-function createChampionship(): ChampionshipRecord {
+function createChampionship(status: ChampionshipRecord["status"] = "FINISHED"): ChampionshipRecord {
   return {
     id: "championship-ranking-test",
     name: "Copa Ranking",
@@ -14,7 +14,7 @@ function createChampionship(): ChampionshipRecord {
     endDate: "2026-05-10",
     teamCount: 4,
     rules: "",
-    status: "FINISHED",
+    status,
     configuration: {
       ...createDefaultChampionshipConfiguration(),
       isRankedGame: true,
@@ -131,12 +131,17 @@ function createWorkspace(finalWinnerTeamId = "team-a"): ChampionshipWorkspaceRec
           nextSlot: null,
           loserNextMatchId: null,
           loserNextSlot: null,
+          roundTripMode: "single-leg",
           scoreHome: finalWinnerTeamId === "team-a" ? 3 : 1,
           scoreAway: finalWinnerTeamId === "team-a" ? 1 : 2,
+          scoreHomeSecondLeg: null,
+          scoreAwaySecondLeg: null,
           penaltiesHome: null,
           penaltiesAway: null,
           playedAt: null,
           venue: "",
+          secondLegPlayedAt: null,
+          secondLegVenue: "",
           resolution: "normal",
           status: "completed",
         },
@@ -158,12 +163,17 @@ function createWorkspace(finalWinnerTeamId = "team-a"): ChampionshipWorkspaceRec
           nextSlot: null,
           loserNextMatchId: null,
           loserNextSlot: null,
+          roundTripMode: "single-leg",
           scoreHome: 2,
           scoreAway: 0,
+          scoreHomeSecondLeg: null,
+          scoreAwaySecondLeg: null,
           penaltiesHome: null,
           penaltiesAway: null,
           playedAt: null,
           venue: "",
+          secondLegPlayedAt: null,
+          secondLegVenue: "",
           resolution: "normal",
           status: "completed",
         },
@@ -208,6 +218,19 @@ describe("championship ranking", () => {
     expect(thirdPlace).toMatchObject({
       thirdPlacesCount: 1,
       achievementRankingPoints: 5,
+    });
+  });
+
+  it("marks titles as soon as the final has an official winner", () => {
+    const championship = createChampionship("STARTED");
+    const rows = buildChampionshipRanking([
+      { championship, workspace: createWorkspace("team-a") },
+    ]);
+    const champion = rows.find((row) => row.name === "Alpha");
+
+    expect(champion).toMatchObject({
+      titlesCount: 1,
+      achievementRankingPoints: 15,
     });
   });
 });

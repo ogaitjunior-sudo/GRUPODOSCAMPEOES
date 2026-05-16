@@ -253,6 +253,18 @@ export function getChampionshipPodium(
   championship: ChampionshipRecord,
   workspace: ChampionshipWorkspaceRecord,
 ): ChampionshipPodium {
+  const finalMatch = getFinalMatch(workspace);
+
+  if (finalMatch?.winnerTeamId) {
+    const thirdPlaceMatch = getThirdPlaceMatch(workspace);
+
+    return {
+      championTeamId: finalMatch.winnerTeamId,
+      runnerUpTeamId: getLoserTeamId(finalMatch),
+      thirdPlaceTeamId: thirdPlaceMatch?.winnerTeamId ?? null,
+    };
+  }
+
   if (championship.status !== "FINISHED") {
     return {
       championTeamId: null,
@@ -261,19 +273,7 @@ export function getChampionshipPodium(
     };
   }
 
-  const finalMatch = getFinalMatch(workspace);
-
-  if (!finalMatch?.winnerTeamId) {
-    return getLeaguePodium(workspace);
-  }
-
-  const thirdPlaceMatch = getThirdPlaceMatch(workspace);
-
-  return {
-    championTeamId: finalMatch.winnerTeamId,
-    runnerUpTeamId: getLoserTeamId(finalMatch),
-    thirdPlaceTeamId: thirdPlaceMatch?.winnerTeamId ?? null,
-  };
+  return getLeaguePodium(workspace);
 }
 
 function applyGroupMatch(

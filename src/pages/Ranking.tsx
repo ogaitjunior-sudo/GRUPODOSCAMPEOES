@@ -11,12 +11,84 @@ import {
   formatChampionshipAvailableSlots,
   formatChampionshipDateRange,
 } from "@/lib/championships";
-import { buildChampionshipRanking } from "@/lib/championship-ranking";
+import {
+  CHAMPION_RANKING_POINTS,
+  buildChampionshipRanking,
+  compareChampionshipRankingRows,
+  type ChampionshipRankingTeamRecord,
+} from "@/lib/championship-ranking";
 import { loadChampionshipWorkspaceRecord } from "@/lib/championship-workspace-store";
 import type { ChampionshipRecord } from "@/types/championship";
 import type { ChampionshipWorkspaceRecord } from "@/types/championship-runtime";
 
 type RankingView = "temporada" | "titulos" | "monitoramento";
+
+function normalizeRankingName(value: string) {
+  return value.trim().toLocaleLowerCase("pt-BR");
+}
+
+function createHistoricalRankingRow(name: string, titles: number): ChampionshipRankingTeamRecord {
+  const achievementRankingPoints = titles * CHAMPION_RANKING_POINTS;
+
+  return {
+    key: `historical:${normalizeRankingName(name)}`,
+    teamIds: [],
+    playerId: null,
+    playerEmail: null,
+    name,
+    rankingPoints: achievementRankingPoints,
+    matchRankingPoints: 0,
+    achievementRankingPoints,
+    titlesCount: titles,
+    viceTitlesCount: 0,
+    thirdPlacesCount: 0,
+    played: 0,
+    wins: 0,
+    draws: 0,
+    losses: 0,
+    goalsFor: 0,
+    goalsAgainst: 0,
+    goalDifference: 0,
+    efficiency: 0,
+    championshipsCount: titles,
+    championshipIds: [],
+  };
+}
+
+function mergeHistoricalTitles(
+  rankingRows: ChampionshipRankingTeamRecord[],
+): ChampionshipRankingTeamRecord[] {
+  const rowsByName = new Map(
+    rankingRows.map((row) => [
+      normalizeRankingName(row.name),
+      {
+        ...row,
+        teamIds: [...row.teamIds],
+        championshipIds: [...row.championshipIds],
+      },
+    ]),
+  );
+
+  champions.forEach((champion) => {
+    const key = normalizeRankingName(champion.name);
+    const existing = rowsByName.get(key);
+    const achievementRankingPoints = champion.titles * CHAMPION_RANKING_POINTS;
+
+    if (existing) {
+      rowsByName.set(key, {
+        ...existing,
+        rankingPoints: existing.rankingPoints + achievementRankingPoints,
+        achievementRankingPoints: existing.achievementRankingPoints + achievementRankingPoints,
+        titlesCount: existing.titlesCount + champion.titles,
+      });
+      return;
+    }
+
+    rowsByName.set(key, createHistoricalRankingRow(champion.name, champion.titles));
+  });
+
+  return Array.from(rowsByName.values()).sort(compareChampionshipRankingRows);
+}
 
 function buildRankingMonitors(championships: ChampionshipRecord[]) {
   const registry = new Map<
@@ -117,7 +189,8 @@ const Ranking = () => {
         ),
     [championships, rankingWorkspaces],
   );
-  const rankingRows = useMemo(() => buildChampionshipRanking(rankingInputs), [rankingInputs]);
+  const liveRankingRows = useMemo(() => buildChampionshipRanking(rankingInputs), [rankingInputs]);
+  const rankingRows = useMemo(() => mergeHistoricalTitles(liveRankingRows), [liveRankingRows]);
   const openCount = championships.filter((item) => item.status === "REGISTRATION").length;
   const liveCount = championships.filter((item) => item.status === "STARTED").length;
   const finalCount = championships.filter((item) => item.status === "FINISHED").length;
