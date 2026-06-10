@@ -15,6 +15,7 @@ import {
   supabaseRestAnonKey,
   supabaseRestUrl,
 } from "@/lib/supabase";
+import { safeUpper } from "@/lib/utils";
 import type {
   ChampionshipFormValues,
   ChampionshipRegistrationRequest,
@@ -204,7 +205,7 @@ function getErrorMessage(error: unknown) {
 function getErrorCode(error: unknown) {
   const code = (error as Partial<PostgrestError> | null)?.code;
 
-  return typeof code === "string" ? code.toUpperCase() : "";
+  return safeUpper(code);
 }
 
 function isSupabaseNetworkError(error: unknown) {

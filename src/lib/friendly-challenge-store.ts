@@ -4,6 +4,7 @@ import {
   sortFriendlyChallenges,
 } from "@/lib/friendly-challenges";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
+import { safeUpper } from "@/lib/utils";
 import type { FriendlyChallengeRecord } from "@/types/friendly-challenge";
 
 const FRIENDLY_CHALLENGES_STORAGE_KEY = "gc_friendly_challenges_v1";
@@ -84,7 +85,7 @@ function mapRecordToRow(record: FriendlyChallengeRecord): FriendlyChallengeRow {
 
 function isFriendlyChallengesTableUnavailable(error: unknown) {
   const postgrestError = error as Partial<PostgrestError> | null;
-  const errorCode = postgrestError?.code?.toUpperCase();
+  const errorCode = safeUpper(postgrestError?.code);
   const errorMessage = postgrestError?.message?.toLowerCase() ?? "";
 
   return (
@@ -98,7 +99,7 @@ function isFriendlyChallengesTableUnavailable(error: unknown) {
 
 function shouldFallbackToLocal(error: unknown) {
   const postgrestError = error as Partial<PostgrestError> | null;
-  const errorCode = postgrestError?.code?.toUpperCase();
+  const errorCode = safeUpper(postgrestError?.code);
 
   return isFriendlyChallengesTableUnavailable(error) || errorCode === "42501";
 }
@@ -304,7 +305,7 @@ export async function createFriendlyChallengeRecord(record: FriendlyChallengeRec
 
 export function formatFriendlyChallengeStoreError(error: unknown) {
   const postgrestError = error as Partial<PostgrestError> | null;
-  const errorCode = postgrestError?.code?.toUpperCase();
+  const errorCode = safeUpper(postgrestError?.code);
   const errorMessage = postgrestError?.message;
 
   if (errorCode === "42501") {

@@ -1,5 +1,6 @@
 import type { PostgrestError } from "@supabase/supabase-js";
 import { adminSupabase, isSupabaseConfigured, supabase } from "@/lib/supabase";
+import { safeUpper } from "@/lib/utils";
 
 const PLAYER_ACCOUNTS_TABLE = "player_accounts";
 const PLAYER_ACCOUNTS_READ_TIMEOUT_MS = 6_000;
@@ -231,7 +232,7 @@ export async function upsertPlayerAccount(payload: PlayerAccountPayload) {
 
 export function formatPlayerAccountsStoreError(error: unknown) {
   const postgrestError = error as Partial<PostgrestError> | null;
-  const errorCode = postgrestError?.code?.toUpperCase();
+  const errorCode = safeUpper(postgrestError?.code);
   const message = getErrorMessage(error);
 
   if (errorCode === "42P01" || errorCode === "PGRST205" || message.toLowerCase().includes("schema cache")) {

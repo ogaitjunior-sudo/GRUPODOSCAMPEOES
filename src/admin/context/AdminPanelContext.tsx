@@ -33,6 +33,7 @@ import {
   saveAdminPanelState,
   type AdminPanelStorageMode,
 } from "@/lib/admin-panel-store";
+import { toSafeUpperText } from "@/lib/utils";
 
 function createId(prefix: string) {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
@@ -368,7 +369,7 @@ export function AdminPanelProvider({ children }: { children: ReactNode }) {
       const nextTeam: TeamRecord = {
         id: payload.id ?? createId("team"),
         name: payload.name.trim(),
-        tag: String(payload.tag ?? "").trim().toUpperCase(),
+        tag: toSafeUpperText(payload.tag),
         captain: payload.captain.trim(),
         platform: payload.platform,
         status: payload.status,

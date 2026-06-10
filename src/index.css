@@ -3793,6 +3793,993 @@
   }
 }
 
+.champion-celebration {
+  position: relative;
+  isolation: isolate;
+  min-height: 280px;
+  overflow: hidden;
+  border-radius: 28px;
+  border: 1px solid hsl(51 100% 56% / 0.34);
+  background:
+    radial-gradient(circle at 18% 20%, hsl(51 100% 58% / 0.24), transparent 34%),
+    radial-gradient(circle at 88% 18%, hsl(195 100% 54% / 0.24), transparent 33%),
+    radial-gradient(circle at 50% 110%, hsl(51 100% 48% / 0.16), transparent 34%),
+    linear-gradient(135deg, hsl(222 34% 8% / 0.98), hsl(224 30% 5% / 0.98) 54%, hsl(42 78% 8% / 0.94));
+  box-shadow:
+    0 24px 70px hsl(222 45% 2% / 0.42),
+    0 18px 44px hsl(51 100% 50% / 0.12),
+    inset 0 1px 0 hsl(0 0% 100% / 0.08);
+}
+
+.champion-celebration::before,
+.champion-celebration::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+}
+
+.champion-celebration::before {
+  inset: 0;
+  z-index: 0;
+  background:
+    linear-gradient(90deg, transparent, hsl(51 100% 64% / 0.14), transparent),
+    repeating-linear-gradient(
+      90deg,
+      hsl(0 0% 100% / 0.035) 0 1px,
+      transparent 1px 76px
+    );
+  opacity: 0.68;
+}
+
+.champion-celebration::after {
+  left: 50%;
+  bottom: -62px;
+  z-index: 1;
+  width: min(76%, 620px);
+  height: 120px;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: hsl(51 100% 50% / 0.22);
+  filter: blur(38px);
+}
+
+.champion-celebration--active {
+  animation: championPanelPulse 1.6s ease both;
+}
+
+.champion-celebration--showcase {
+  min-height: 340px;
+}
+
+.champion-celebration__glow {
+  position: absolute;
+  inset: 10% 10% auto 10%;
+  z-index: 0;
+  height: 180px;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle, hsl(195 100% 56% / 0.2), transparent 62%),
+    radial-gradient(circle at 42% 52%, hsl(51 100% 56% / 0.18), transparent 42%);
+  filter: blur(22px);
+}
+
+.champion-celebration__stadium {
+  position: absolute;
+  inset: auto 4% 18px 4%;
+  z-index: 1;
+  height: 110px;
+  border-radius: 50% 50% 18px 18px;
+  border-top: 1px solid hsl(195 100% 64% / 0.24);
+  background:
+    radial-gradient(ellipse at center, hsl(195 100% 56% / 0.12), transparent 58%),
+    repeating-linear-gradient(
+      90deg,
+      transparent 0 34px,
+      hsl(0 0% 100% / 0.055) 34px 35px
+    );
+  opacity: 0.78;
+  transform: perspective(420px) rotateX(58deg);
+}
+
+.champion-celebration__close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 8;
+  display: inline-flex;
+  width: 38px;
+  height: 38px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid hsl(0 0% 100% / 0.14);
+  background: hsl(0 0% 0% / 0.36);
+  color: hsl(0 0% 100% / 0.82);
+  transition:
+    border-color 180ms ease,
+    background-color 180ms ease,
+    color 180ms ease,
+    transform 180ms ease;
+}
+
+.champion-celebration__close:hover,
+.champion-celebration__close:focus-visible {
+  border-color: hsl(51 100% 58% / 0.4);
+  background: hsl(51 100% 50% / 0.12);
+  color: hsl(51 100% 68%);
+  transform: translateY(-1px);
+}
+
+.champion-celebration__content {
+  position: relative;
+  z-index: 4;
+  display: grid;
+  min-height: 280px;
+  grid-template-columns: minmax(150px, 0.58fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 26px;
+  padding: 28px;
+}
+
+.champion-celebration--showcase .champion-celebration__content {
+  min-height: 340px;
+}
+
+.champion-celebration__centerpiece {
+  position: relative;
+  display: flex;
+  min-height: 210px;
+  align-items: center;
+  justify-content: center;
+}
+
+.champion-celebration__trophy-ring {
+  position: absolute;
+  width: 190px;
+  aspect-ratio: 1;
+  border-radius: 999px;
+  border: 1px solid hsl(51 100% 66% / 0.3);
+  background:
+    conic-gradient(
+      from 20deg,
+      transparent,
+      hsl(51 100% 58% / 0.34),
+      transparent 34%,
+      hsl(195 100% 58% / 0.24),
+      transparent 72%
+    );
+  filter: drop-shadow(0 0 28px hsl(51 100% 50% / 0.24));
+  animation: championRingSpin 10s linear infinite;
+}
+
+.champion-celebration__trophy {
+  display: inline-flex;
+  position: relative;
+  z-index: 2;
+  width: 132px;
+  height: 132px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border-radius: 34px;
+  border: 1px solid hsl(51 100% 72% / 0.48);
+  background:
+    linear-gradient(145deg, hsl(51 100% 78%), hsl(44 97% 48%) 54%, hsl(32 90% 36%));
+  color: hsl(0 0% 4%);
+  box-shadow:
+    0 0 28px hsl(51 100% 50% / 0.42),
+    inset 0 1px 0 hsl(0 0% 100% / 0.58);
+}
+
+.champion-celebration--active .champion-celebration__trophy {
+  animation: championTrophyLift 1.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.champion-celebration__logo {
+  position: absolute;
+  right: 50%;
+  bottom: 22px;
+  z-index: 3;
+  display: flex;
+  width: 54px;
+  height: 54px;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 16px;
+  border: 1px solid hsl(0 0% 100% / 0.18);
+  background: hsl(0 0% 100% / 0.08);
+  box-shadow: 0 12px 26px hsl(0 0% 0% / 0.28);
+  transform: translateX(86px);
+}
+
+.champion-celebration__logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.champion-celebration__copy-block {
+  min-width: 0;
+  text-align: left;
+}
+
+.champion-celebration__kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: hsl(51 100% 63%);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.champion-celebration__title {
+  margin-top: 12px;
+  color: hsl(51 100% 58%);
+  font-family: "Teko", sans-serif;
+  font-size: clamp(3rem, 9vw, 6rem);
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 0.82;
+  text-transform: uppercase;
+  text-shadow:
+    0 0 22px hsl(51 100% 50% / 0.42),
+    0 0 58px hsl(51 100% 50% / 0.2);
+}
+
+.champion-celebration__name {
+  margin-top: 8px;
+  color: hsl(0 0% 100%);
+  font-family: "Teko", sans-serif;
+  font-size: clamp(2.2rem, 6vw, 4.25rem);
+  font-weight: 700;
+  line-height: 0.9;
+  text-transform: uppercase;
+  text-shadow:
+    0 0 18px hsl(195 100% 58% / 0.36),
+    0 0 38px hsl(51 100% 50% / 0.22),
+    0 8px 26px hsl(0 0% 0% / 0.42);
+}
+
+.champion-celebration__copy {
+  margin-top: 8px;
+  color: hsl(0 0% 100% / 0.72);
+  font-size: 0.95rem;
+}
+
+.champion-celebration__action {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  margin-top: 18px;
+  border-radius: 999px;
+  border: 1px solid hsl(51 100% 58% / 0.44);
+  background: hsl(51 100% 50% / 0.12);
+  padding: 0 18px;
+  color: hsl(51 100% 68%);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  transition:
+    background-color 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease,
+    transform 180ms ease;
+}
+
+.champion-celebration__action:hover,
+.champion-celebration__action:focus-visible {
+  border-color: hsl(51 100% 68% / 0.7);
+  background: hsl(51 100% 50% / 0.2);
+  color: hsl(0 0% 100%);
+  transform: translateY(-1px);
+}
+
+.champion-particle-field,
+.champion-confetti-field {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.champion-particle {
+  position: absolute;
+  left: var(--x);
+  top: var(--y);
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  opacity: 0;
+  animation: championParticleRise var(--duration) ease-in-out infinite;
+  animation-delay: var(--delay);
+}
+
+.champion-particle--gold {
+  background: hsl(51 100% 62%);
+  box-shadow: 0 0 16px hsl(51 100% 50% / 0.78);
+}
+
+.champion-particle--blue {
+  background: hsl(195 100% 62%);
+  box-shadow: 0 0 16px hsl(195 100% 50% / 0.72);
+}
+
+.champion-confetti {
+  position: absolute;
+  left: var(--x);
+  top: -18px;
+  width: 7px;
+  height: 14px;
+  border-radius: 2px;
+  opacity: 0;
+  transform: rotate(var(--rotate));
+  animation: championConfettiFall var(--duration) linear infinite;
+  animation-delay: var(--delay);
+}
+
+.champion-confetti--gold {
+  background: hsl(51 100% 58%);
+}
+
+.champion-confetti--blue {
+  background: hsl(195 100% 56%);
+}
+
+.champion-confetti--white {
+  background: hsl(0 0% 100% / 0.86);
+}
+
+.champion-screen-effects {
+  position: fixed;
+  inset: 0;
+  z-index: 10040;
+  isolation: isolate;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.champion-screen-effects::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background:
+    radial-gradient(circle at 50% 46%, hsl(51 100% 52% / 0.13), transparent 24%),
+    radial-gradient(circle at 16% 18%, hsl(195 100% 50% / 0.22), transparent 28%),
+    radial-gradient(circle at 82% 22%, hsl(51 100% 58% / 0.2), transparent 26%),
+    linear-gradient(180deg, hsl(222 78% 5% / 0.34), hsl(222 78% 5% / 0.08) 48%, hsl(222 78% 5% / 0.22));
+  animation: championScreenBackdrop 6.8s ease both;
+}
+
+.champion-screen-effects__aurora {
+  position: absolute;
+  inset: -22% -12%;
+  z-index: 1;
+  background:
+    conic-gradient(
+      from 120deg at 50% 50%,
+      transparent 0deg,
+      hsl(195 100% 54% / 0.18) 54deg,
+      transparent 112deg,
+      hsl(51 100% 58% / 0.18) 178deg,
+      transparent 252deg,
+      hsl(195 100% 62% / 0.14) 315deg,
+      transparent 360deg
+    );
+  filter: blur(34px);
+  opacity: 0;
+  transform: scale(0.92) rotate(0deg);
+  animation: championScreenAurora 6.8s ease both;
+}
+
+.champion-screen-effects__close {
+  position: fixed;
+  top: max(18px, env(safe-area-inset-top));
+  right: max(18px, env(safe-area-inset-right));
+  z-index: 10;
+  display: inline-flex;
+  width: 42px;
+  height: 42px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid hsl(51 100% 64% / 0.38);
+  background: hsl(222 82% 4% / 0.68);
+  color: hsl(0 0% 100% / 0.86);
+  box-shadow: 0 0 24px hsl(51 100% 50% / 0.16);
+  pointer-events: auto;
+  transition:
+    border-color 180ms ease,
+    background 180ms ease,
+    color 180ms ease,
+    transform 180ms ease;
+}
+
+.champion-screen-effects__close:hover,
+.champion-screen-effects__close:focus-visible {
+  border-color: hsl(51 100% 68% / 0.7);
+  background: hsl(51 100% 50% / 0.16);
+  color: hsl(51 100% 70%);
+  transform: translateY(-1px);
+}
+
+.champion-fireworks {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.champion-screen-effects .champion-fireworks {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  overflow: visible;
+}
+
+.champion-screen-effects .champion-fireworks--secondary {
+  z-index: 4;
+  transform: scale(0.86);
+}
+
+.champion-screen-effects .champion-particle-field,
+.champion-screen-effects .champion-confetti-field {
+  position: absolute;
+  z-index: 5;
+}
+
+.champion-screen-effects .champion-confetti {
+  width: 9px;
+  height: 18px;
+}
+
+.champion-screen-effects .champion-particle {
+  width: 5px;
+  height: 5px;
+}
+
+.champion-firework {
+  position: absolute;
+  width: 118px;
+  aspect-ratio: 1;
+  border-radius: 999px;
+  opacity: 0.18;
+  transform: scale(0.72);
+  background:
+    radial-gradient(circle, hsl(0 0% 100% / 1) 0 3px, transparent 3.6px),
+    radial-gradient(circle, hsl(51 100% 65% / 0.9) 0 4px, transparent 4.8px),
+    conic-gradient(
+      from 12deg,
+      transparent 0 10deg,
+      hsl(51 100% 62% / 1) 10deg 17deg,
+      transparent 17deg 31deg,
+      hsl(195 100% 58% / 1) 31deg 38deg,
+      transparent 38deg 52deg,
+      hsl(334 100% 62% / 0.95) 52deg 58deg,
+      transparent 58deg 360deg
+  );
+  filter:
+    drop-shadow(0 0 14px hsl(51 100% 50% / 0.65))
+    drop-shadow(0 0 30px hsl(195 100% 50% / 0.35));
+  -webkit-mask-image: radial-gradient(circle, transparent 0 7%, black 8% 61%, transparent 62%);
+  mask-image: radial-gradient(circle, transparent 0 7%, black 8% 61%, transparent 62%);
+  animation: championFireworkIdle 5.2s ease-in-out infinite;
+}
+
+.champion-firework::before,
+.champion-firework::after {
+  content: "";
+  position: absolute;
+  inset: 8%;
+  border-radius: 999px;
+  background:
+    repeating-conic-gradient(
+      from 0deg,
+      transparent 0 11deg,
+      hsl(51 100% 66% / 0.96) 11deg 13deg,
+      transparent 13deg 24deg,
+      hsl(195 100% 62% / 0.9) 24deg 26deg,
+      transparent 26deg 360deg
+    );
+  filter: blur(0.2px);
+}
+
+.champion-firework::after {
+  inset: 18%;
+  transform: rotate(18deg);
+  background:
+    repeating-conic-gradient(
+      from 8deg,
+      transparent 0 18deg,
+      hsl(0 0% 100% / 0.86) 18deg 20deg,
+      transparent 20deg 38deg,
+      hsl(334 100% 64% / 0.82) 38deg 40deg,
+      transparent 40deg 360deg
+    );
+}
+
+.champion-firework--one {
+  top: 10%;
+  left: 8%;
+}
+
+.champion-firework--two {
+  top: 12%;
+  right: 7%;
+  width: 156px;
+  animation-delay: 0.8s;
+}
+
+.champion-firework--three {
+  left: 27%;
+  top: 27%;
+  width: 132px;
+  animation-delay: 1.4s;
+}
+
+.champion-firework--four {
+  right: 26%;
+  top: 36%;
+  width: 122px;
+  animation-delay: 2s;
+}
+
+.champion-firework--five {
+  top: 58%;
+  left: 12%;
+  width: 142px;
+  animation-delay: 2.6s;
+}
+
+.champion-firework--six {
+  top: 62%;
+  right: 12%;
+  width: 126px;
+  animation-delay: 3.2s;
+}
+
+.champion-fireworks--active .champion-firework {
+  opacity: 0;
+  animation:
+    championFireworkBurst 1.55s cubic-bezier(0.16, 1, 0.3, 1) both,
+    championFireworkRepeat 6.3s ease-in-out 1.65s 1 both;
+}
+
+.champion-fireworks--active .champion-firework--two {
+  animation-delay: 0.12s;
+}
+
+.champion-fireworks--active .champion-firework--three {
+  animation-delay: 0.24s;
+}
+
+.champion-fireworks--active .champion-firework--four {
+  animation-delay: 0.34s;
+}
+
+.champion-fireworks--active .champion-firework--five {
+  animation-delay: 0.44s;
+}
+
+.champion-fireworks--active .champion-firework--six {
+  animation-delay: 0.56s;
+}
+
+.champion-fireworks--compact .champion-firework {
+  width: 56px;
+  opacity: 0.13;
+}
+
+.champion-fireworks--compact .champion-firework--two {
+  width: 68px;
+}
+
+.champion-fireworks--compact .champion-firework--five,
+.champion-fireworks--compact .champion-firework--six {
+  display: none;
+}
+
+.champion-screen-effects .champion-firework {
+  width: clamp(128px, 15vw, 212px);
+  filter:
+    drop-shadow(0 0 18px hsl(51 100% 56% / 0.8))
+    drop-shadow(0 0 42px hsl(195 100% 52% / 0.48))
+    drop-shadow(0 0 84px hsl(51 100% 50% / 0.24));
+}
+
+.champion-screen-effects .champion-firework--one {
+  top: 4%;
+  left: 6%;
+}
+
+.champion-screen-effects .champion-firework--two {
+  top: 6%;
+  right: 5%;
+  width: clamp(150px, 18vw, 250px);
+}
+
+.champion-screen-effects .champion-firework--three {
+  top: 24%;
+  left: 29%;
+}
+
+.champion-screen-effects .champion-firework--four {
+  top: 26%;
+  right: 25%;
+}
+
+.champion-screen-effects .champion-firework--five {
+  top: 56%;
+  left: 8%;
+  width: clamp(140px, 16vw, 230px);
+}
+
+.champion-screen-effects .champion-firework--six {
+  top: 58%;
+  right: 8%;
+}
+
+.champion-screen-effects .champion-fireworks--secondary .champion-firework--one {
+  top: 17%;
+  left: 18%;
+  animation-delay: 0.68s;
+}
+
+.champion-screen-effects .champion-fireworks--secondary .champion-firework--two {
+  top: 16%;
+  right: 18%;
+  animation-delay: 0.86s;
+}
+
+.champion-screen-effects .champion-fireworks--secondary .champion-firework--three {
+  top: 40%;
+  left: 7%;
+  animation-delay: 1.04s;
+}
+
+.champion-screen-effects .champion-fireworks--secondary .champion-firework--four {
+  top: 42%;
+  right: 8%;
+  animation-delay: 1.22s;
+}
+
+.champion-screen-effects .champion-fireworks--secondary .champion-firework--five {
+  top: 72%;
+  left: 28%;
+  animation-delay: 1.4s;
+}
+
+.champion-screen-effects .champion-fireworks--secondary .champion-firework--six {
+  top: 72%;
+  right: 28%;
+  animation-delay: 1.58s;
+}
+
+.champion-match-card {
+  box-shadow:
+    0 0 0 1px hsl(51 100% 50% / 0.1),
+    0 18px 36px hsl(51 100% 50% / 0.12),
+    0 10px 24px hsl(0 0% 0% / 0.24);
+}
+
+.champion-match-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background:
+    linear-gradient(90deg, transparent, hsl(51 100% 74% / 0.12), transparent),
+    radial-gradient(circle at 18% 20%, hsl(51 100% 50% / 0.18), transparent 34%);
+  pointer-events: none;
+}
+
+.champion-match-ribbon {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  min-height: 42px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  border-radius: 14px;
+  border: 1px solid hsl(51 100% 56% / 0.36);
+  background:
+    linear-gradient(135deg, hsl(51 100% 50% / 0.18), hsl(0 0% 100% / 0.045));
+  padding: 8px 10px;
+  color: hsl(51 100% 62%);
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.champion-match-ribbon__icon {
+  display: inline-flex;
+  width: 26px;
+  height: 26px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: hsl(51 100% 50%);
+  color: hsl(0 0% 4%);
+  box-shadow: 0 0 18px hsl(51 100% 50% / 0.34);
+}
+
+.champion-match-ribbon strong {
+  min-width: 0;
+  color: hsl(0 0% 100%);
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+
+@media (max-width: 640px) {
+  .champion-screen-effects .champion-firework {
+    width: clamp(104px, 30vw, 150px);
+  }
+
+  .champion-screen-effects .champion-firework--two,
+  .champion-screen-effects .champion-firework--five {
+    width: clamp(116px, 34vw, 168px);
+  }
+
+  .champion-screen-effects .champion-firework--three {
+    top: 30%;
+    left: 22%;
+  }
+
+  .champion-screen-effects .champion-firework--four {
+    top: 36%;
+    right: 18%;
+  }
+
+  .champion-screen-effects .champion-fireworks--secondary .champion-firework--five {
+    top: 76%;
+    left: 18%;
+  }
+
+  .champion-screen-effects .champion-fireworks--secondary .champion-firework--six {
+    top: 78%;
+    right: 18%;
+  }
+
+  .champion-celebration {
+    min-height: 420px;
+    border-radius: 24px;
+  }
+
+  .champion-celebration--showcase {
+    min-height: 460px;
+  }
+
+  .champion-celebration__content {
+    min-height: 420px;
+    grid-template-columns: 1fr;
+    align-items: center;
+    gap: 10px;
+    padding: 22px 18px 24px;
+    text-align: center;
+  }
+
+  .champion-celebration--showcase .champion-celebration__content {
+    min-height: 460px;
+  }
+
+  .champion-celebration__centerpiece {
+    min-height: 170px;
+  }
+
+  .champion-celebration__trophy {
+    width: 104px;
+    height: 104px;
+    border-radius: 28px;
+  }
+
+  .champion-celebration__trophy-ring {
+    width: 154px;
+  }
+
+  .champion-celebration__logo {
+    width: 46px;
+    height: 46px;
+    bottom: 10px;
+    transform: translateX(72px);
+  }
+
+  .champion-celebration__copy-block {
+    text-align: center;
+  }
+
+  .champion-celebration__title {
+    font-size: 4.1rem;
+  }
+
+  .champion-celebration__name {
+    font-size: 2.6rem;
+  }
+
+  .champion-celebration__copy {
+    font-size: 0.84rem;
+  }
+
+  .champion-celebration__action {
+    width: 100%;
+    max-width: 260px;
+  }
+}
+
+@keyframes championPanelPulse {
+  0% {
+    box-shadow:
+      0 0 0 hsl(51 100% 50% / 0),
+      inset 0 1px 0 hsl(0 0% 100% / 0.08);
+    transform: translateY(0);
+  }
+
+  34% {
+    box-shadow:
+      0 0 46px hsl(51 100% 50% / 0.34),
+      0 18px 44px hsl(51 100% 50% / 0.18),
+      inset 0 1px 0 hsl(0 0% 100% / 0.1);
+    transform: translateY(-2px);
+  }
+
+  100% {
+    box-shadow:
+      0 18px 44px hsl(51 100% 50% / 0.12),
+      inset 0 1px 0 hsl(0 0% 100% / 0.08);
+    transform: translateY(0);
+  }
+}
+
+@keyframes championTrophyLift {
+  0% {
+    transform: translateY(12px) scale(0.82) rotate(-5deg);
+    filter: brightness(0.9);
+  }
+
+  54% {
+    transform: translateY(-7px) scale(1.08) rotate(4deg);
+    filter: brightness(1.16);
+  }
+
+  100% {
+    transform: translateY(0) scale(1) rotate(0);
+    filter: brightness(1);
+  }
+}
+
+@keyframes championScreenBackdrop {
+  0% {
+    opacity: 0;
+  }
+
+  14%, 72% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes championScreenAurora {
+  0% {
+    opacity: 0;
+    transform: scale(0.88) rotate(-8deg);
+  }
+
+  18%, 76% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(1.12) rotate(14deg);
+  }
+}
+
+@keyframes championFireworkIdle {
+  0%, 100% {
+    transform: scale(0.66) rotate(0deg);
+    opacity: 0.12;
+  }
+
+  50% {
+    transform: scale(0.86) rotate(18deg);
+    opacity: 0.23;
+  }
+}
+
+@keyframes championFireworkBurst {
+  0% {
+    transform: scale(0.08) rotate(-18deg);
+    opacity: 0;
+  }
+
+  16% {
+    opacity: 1;
+  }
+
+  72% {
+    opacity: 0.86;
+  }
+
+  100% {
+    transform: scale(1.72) rotate(24deg);
+    opacity: 0;
+  }
+}
+
+@keyframes championFireworkRepeat {
+  0%, 28%, 58%, 100% {
+    transform: scale(0.08) rotate(-12deg);
+    opacity: 0;
+  }
+
+  8%, 38%, 68% {
+    opacity: 1;
+  }
+
+  22%, 52%, 92% {
+    transform: scale(1.42) rotate(24deg);
+    opacity: 0;
+  }
+}
+
+@keyframes championRingSpin {
+  0% {
+    transform: rotate(0deg) scale(0.96);
+  }
+
+  50% {
+    transform: rotate(180deg) scale(1.04);
+  }
+
+  100% {
+    transform: rotate(360deg) scale(0.96);
+  }
+}
+
+@keyframes championParticleRise {
+  0% {
+    transform: translate3d(0, 22px, 0) scale(0.6);
+    opacity: 0;
+  }
+
+  28% {
+    opacity: 0.88;
+  }
+
+  100% {
+    transform: translate3d(18px, -92px, 0) scale(1.15);
+    opacity: 0;
+  }
+}
+
+@keyframes championConfettiFall {
+  0% {
+    transform: translate3d(0, -24px, 0) rotate(var(--rotate));
+    opacity: 0;
+  }
+
+  12% {
+    opacity: 0.92;
+  }
+
+  100% {
+    transform: translate3d(32px, 410px, 0) rotate(calc(var(--rotate) + 250deg));
+    opacity: 0;
+  }
+}
+
 @keyframes ultraHeroLogoBreath {
   0%, 100% {
     transform: translateY(0) scale(1);
@@ -4884,6 +5871,20 @@
   .tr-center,
   .tr-right,
   .tr-bottom-stats {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  .champion-celebration,
+  .champion-screen-effects,
+  .champion-screen-effects::before,
+  .champion-screen-effects__aurora,
+  .champion-celebration__trophy,
+  .champion-celebration__trophy-ring,
+  .champion-firework,
+  .champion-particle,
+  .champion-confetti,
+  .champion-match-card {
     animation: none !important;
     transition: none !important;
   }

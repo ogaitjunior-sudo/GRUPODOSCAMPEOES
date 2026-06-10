@@ -1,6 +1,6 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import { Flag } from "lucide-react";
-import { cn, toSafeText } from "@/lib/utils";
+import { cn, toSafeText, toSafeUpperText } from "@/lib/utils";
 
 export interface TeamIdentityData {
   id: string;
@@ -27,10 +27,10 @@ function getTeamInitials(name: unknown) {
   }
 
   if (parts.length === 1) {
-    return parts[0].slice(0, 2).toUpperCase();
+    return toSafeUpperText(parts[0].slice(0, 2), "EQ");
   }
 
-  return `${parts[0][0] ?? ""}${parts[1][0] ?? ""}`.toUpperCase();
+  return toSafeUpperText(`${parts[0][0] ?? ""}${parts[1][0] ?? ""}`, "EQ");
 }
 
 function getTeamMarkStyle(name: unknown) {

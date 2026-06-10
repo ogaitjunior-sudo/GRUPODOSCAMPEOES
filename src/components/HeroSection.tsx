@@ -261,9 +261,9 @@ export function HeroSection() {
             width: particle.size,
             height: particle.size,
             opacity: particle.opacity,
-            ["--delay" as "--delay"]: particle.delay,
-            ["--duration" as "--duration"]: particle.duration,
-            ["--drift" as "--drift"]: particle.drift,
+            ["--delay" as const]: particle.delay,
+            ["--duration" as const]: particle.duration,
+            ["--drift" as const]: particle.drift,
           } as CSSProperties}
         />
       ))}
@@ -275,8 +275,8 @@ export function HeroSection() {
           style={{
             left: particle.left,
             top: particle.top,
-            ["--delay" as "--delay"]: particle.delay,
-            ["--duration" as "--duration"]: particle.duration,
+            ["--delay" as const]: particle.delay,
+            ["--duration" as const]: particle.duration,
           } as CSSProperties}
         />
       ))}

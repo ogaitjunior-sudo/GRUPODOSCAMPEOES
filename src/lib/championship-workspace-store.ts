@@ -7,6 +7,7 @@ import {
   supabaseRestAnonKey,
   supabaseRestUrl,
 } from "@/lib/supabase";
+import { safeUpper } from "@/lib/utils";
 import type { ChampionshipRecord } from "@/types/championship";
 import type { ChampionshipWorkspaceRecord } from "@/types/championship-runtime";
 
@@ -119,7 +120,7 @@ export function readStoredChampionshipWorkspaceRecord(championship: Championship
 
 function isWorkspaceTableUnavailable(error: unknown) {
   const postgrestError = error as Partial<PostgrestError> | null;
-  const errorCode = postgrestError?.code?.toUpperCase();
+  const errorCode = safeUpper(postgrestError?.code);
   const errorMessage = postgrestError?.message?.toLowerCase() ?? "";
 
   return (
@@ -357,7 +358,7 @@ export function getChampionshipWorkspaceStorageMode() {
 
 export function formatChampionshipWorkspaceStoreError(error: unknown) {
   const postgrestError = error as Partial<PostgrestError> | null;
-  const errorCode = postgrestError?.code?.toUpperCase();
+  const errorCode = safeUpper(postgrestError?.code);
   const errorMessage = postgrestError?.message;
 
   if (isSupabaseNetworkError(error)) {

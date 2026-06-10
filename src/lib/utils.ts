@@ -17,6 +17,9 @@ export function toSafeText(value: unknown, fallback = "") {
   return String(value).trim() || fallback;
 }
 
+export const safeUpper = (value: unknown, fallback = "") =>
+  String(value ?? fallback).toUpperCase();
+
 export function toSafeUpperText(value: unknown, fallback = "") {
-  return toSafeText(value, fallback).toUpperCase();
+  return safeUpper(toSafeText(value, fallback));
 }

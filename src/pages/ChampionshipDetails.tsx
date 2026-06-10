@@ -26,6 +26,10 @@ import {
   TeamCrest,
   TeamFlagBadge,
 } from "@/components/championship/TeamIdentity";
+import {
+  ChampionCelebration,
+  ChampionFireworks,
+} from "@/components/championship/ChampionCelebration";
 import { TeamPhotoBadge } from "@/components/profile/TeamPhotoBadge";
 import {
   ChallengeModal,
@@ -608,13 +612,15 @@ export function ChampionshipWorkspacePage({
 
   const saveWorkspace = async (nextWorkspace: ChampionshipWorkspaceRecord, successDescription: string) => {
     try {
-      await persistWorkspace(nextWorkspace);
+      const savedWorkspace = await persistWorkspace(nextWorkspace);
       toast({
         title: "Campeonato atualizado",
         description: successDescription,
       });
+      return savedWorkspace;
     } catch {
       // O estado de erro ja foi atualizado dentro de persistWorkspace.
+      return null;
     }
   };
 
@@ -807,10 +813,26 @@ export function ChampionshipWorkspacePage({
       return;
     }
 
-    await saveWorkspace(
-      updateBracketMatch(workspace, championship, editingBracketMatch.id, patch),
-      "O confronto do mata-mata foi atualizado e o bracket foi recalculado.",
+    const previousChampionTeamId =
+      workspace.bracket.matches.find((match) => match.stageKey === "final")?.winnerTeamId ?? null;
+    const nextWorkspace = updateBracketMatch(workspace, championship, editingBracketMatch.id, patch);
+    const nextChampionTeamId =
+      nextWorkspace.bracket.matches.find((match) => match.stageKey === "final")?.winnerTeamId ?? null;
+    const hasNewChampion =
+      editingBracketMatch.stageKey === "final" &&
+      Boolean(nextChampionTeamId) &&
+      nextChampionTeamId !== previousChampionTeamId;
+    const savedWorkspace = await saveWorkspace(
+      nextWorkspace,
+      hasNewChampion
+        ? "Campeao marcado. A celebracao premium aparece no chaveamento."
+        : "O confronto do mata-mata foi atualizado e o bracket foi recalculado.",
     );
+
+    if (savedWorkspace && hasNewChampion && nextChampionTeamId) {
+      setActiveChampionshipTab("finals");
+    }
+
     setEditingBracketMatch(null);
   };
 
@@ -1102,6 +1124,20 @@ export function ChampionshipWorkspacePage({
     () => new Map((workspace?.teams ?? []).map((team) => [team.id, team] as const)),
     [workspace?.teams],
   );
+  const championFinalMatch = workspace
+    ? workspace.bracket.matches.find((match) => match.stageKey === "final" && match.winnerTeamId) ?? null
+    : null;
+  const championTeamId = championFinalMatch?.winnerTeamId ?? null;
+  const championTeamName =
+    championTeamId && workspace ? getTeamName(workspace.teams, championTeamId) : null;
+  const hasChampionDefined = Boolean(championFinalMatch?.winnerTeamId && championTeamName);
+  const championLogo = championTeamId
+    ? publicTeamMetaById.get(championTeamId)?.teamPhotoUrl ??
+      teamsById.get(championTeamId)?.flagUrl ??
+      null
+    : null;
+  const shouldShowChampionCelebration =
+    hasChampionDefined && activeChampionshipTab === "finals";
   const ownedTeamId = useMemo(() => {
     if (!workspace) {
       return null;
@@ -2453,6 +2489,13 @@ export function ChampionshipWorkspacePage({
                   ) : null}
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  <ChampionCelebration
+                    championName={championTeamName}
+                    championLogo={championLogo}
+                    tournamentName={championship.name}
+                    isFinished={shouldShowChampionCelebration}
+                  />
+
                   {bracketValidationMessage && !workspace.bracket.matches.length ? (
                     <div className="rounded-2xl border border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
                       {bracketValidationMessage}
@@ -2517,6 +2560,14 @@ export function ChampionshipWorkspacePage({
                                       winnerTeamId={match.winnerTeamId}
                                       homeTeamId={match.homeTeamId}
                                       awayTeamId={match.awayTeamId}
+                                      championMatch={
+                                        hasChampionDefined &&
+                                        match.stageKey === "final" &&
+                                        Boolean(match.winnerTeamId) &&
+                                        match.winnerTeamId === championTeamId
+                                      }
+                                      championName={championTeamName}
+                                      celebrateChampion={false}
                                       homeFlagUrl={teamsById.get(match.homeTeamId ?? "")?.flagUrl ?? null}
                                       awayFlagUrl={teamsById.get(match.awayTeamId ?? "")?.flagUrl ?? null}
                                       homeTeamPhotoUrl={
@@ -3255,13 +3306,7 @@ function TeamNameBlock({
   const markPhotoUrl = team?.teamPhotoUrl ?? team?.flagUrl ?? null;
   const markSizeClassName =
     size === "sm" ? "h-7 w-7 text-[10px]" : "h-9 w-9 text-xs";
-  const markFallback = (
-    <TeamCrest
-      name={label}
-      size={size === "sm" ? "sm" : "md"}
-      className="h-full w-full rounded-[10px]"
-    />
-  );
+  const markFallback = <TeamCrest name={label} size={size === "sm" ? "sm" : "md"} />;
   const mark = markPhotoUrl ? (
     <TeamPhotoBadge
       name={label}
@@ -3269,7 +3314,13 @@ function TeamNameBlock({
       size="sm"
       shape="square"
       className={`${markSizeClassName} border-white/15 bg-black/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_8px_20px_rgba(0,0,0,0.18)]`}
-      fallbackContent={markFallback}
+      fallbackContent={
+        <TeamCrest
+          name={label}
+          size={size === "sm" ? "sm" : "md"}
+          className="h-full w-full rounded-[10px]"
+        />
+      }
     />
   ) : (
     markFallback
@@ -3613,6 +3664,9 @@ function MatchCard({
   awayFlagUrl,
   homeTeamPhotoUrl,
   awayTeamPhotoUrl,
+  championMatch = false,
+  championName,
+  celebrateChampion = false,
   onClick,
   onOpenTeamProfile,
 }: {
@@ -3634,6 +3688,9 @@ function MatchCard({
   awayFlagUrl?: string | null;
   homeTeamPhotoUrl?: string | null;
   awayTeamPhotoUrl?: string | null;
+  championMatch?: boolean;
+  championName?: string | null;
+  celebrateChampion?: boolean;
   onClick?: () => void;
   onOpenTeamProfile?: (teamId: string | null) => void;
 }) {
@@ -3664,10 +3721,21 @@ function MatchCard({
           away: scoreAway + scoreAwaySecondLeg,
         }
       : null;
+  const isChampionMatch = championMatch && Boolean(winnerTeamId);
 
   return (
-    <article className="overflow-hidden rounded-2xl border border-border/80 bg-background/70 p-3 text-left shadow-[0_10px_24px_hsl(0_0%_0%_/_0.16)]">
-      <div className="mb-3 flex items-start justify-between gap-3">
+    <article
+      className={`relative overflow-hidden rounded-2xl border p-3 text-left shadow-[0_10px_24px_hsl(0_0%_0%_/_0.16)] ${
+        isChampionMatch
+          ? "champion-match-card border-primary/55 bg-[linear-gradient(145deg,hsl(50_100%_50%_/_0.16),hsl(0_0%_4%_/_0.94)_42%,hsl(195_100%_50%_/_0.08))]"
+          : "border-border/80 bg-background/70"
+      }`}
+    >
+      {isChampionMatch ? (
+        <ChampionFireworks isActive={celebrateChampion} compact />
+      ) : null}
+
+      <div className="relative z-10 mb-3 flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
             {title}
@@ -3682,7 +3750,7 @@ function MatchCard({
         </Badge>
       </div>
 
-      <div className="space-y-2">
+      <div className="relative z-10 space-y-2">
         <BracketTeamLine
           team={homeTeam}
           fallbackName={homeLabel}
@@ -3703,8 +3771,18 @@ function MatchCard({
         />
       </div>
 
+      {isChampionMatch ? (
+        <div className="champion-match-ribbon">
+          <span className="champion-match-ribbon__icon">
+            <Trophy className="h-4 w-4" />
+          </span>
+          <span>Campeao</span>
+          <strong>{championName ?? "Definido"}</strong>
+        </div>
+      ) : null}
+
       {isTwoLegged ? (
-        <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-[9px] uppercase leading-5 tracking-[0.12em] text-muted-foreground">
+        <div className="relative z-10 mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-[9px] uppercase leading-5 tracking-[0.12em] text-muted-foreground">
           <span className="font-semibold text-primary">Ida e volta</span>
           <span>Ida {scoreHome ?? "-"}x{scoreAway ?? "-"}</span>
           <span>Volta {scoreHomeSecondLeg ?? "-"}x{scoreAwaySecondLeg ?? "-"}</span>
@@ -3712,7 +3790,7 @@ function MatchCard({
         </div>
       ) : null}
 
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-border/60 pt-3 text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+      <div className="relative z-10 mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-border/60 pt-3 text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
         <span className="min-w-0 truncate">{secondaryMeta}</span>
         {onClick ? (
           <Button

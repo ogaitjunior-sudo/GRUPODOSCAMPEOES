@@ -1,6 +1,7 @@
 import type { PostgrestError } from "@supabase/supabase-js";
 import { createDefaultSiteSettings, createInitialAdminPanelState } from "@/admin/context/adminSeed";
 import { adminSupabase, isSupabaseConfigured, supabase } from "@/lib/supabase";
+import { safeUpper } from "@/lib/utils";
 import type {
   AdminPanelState,
   AuditLog,
@@ -148,7 +149,7 @@ function shouldFallbackToLocal(error: unknown) {
 function getErrorCode(error: unknown) {
   const code = (error as Partial<PostgrestError> | null)?.code;
 
-  return typeof code === "string" ? code.toUpperCase() : "";
+  return safeUpper(code);
 }
 
 function getErrorMessage(error: unknown) {
