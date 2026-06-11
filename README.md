@@ -37,10 +37,13 @@ Use o arquivo `.env.example` como base.
 - `DIRECT_DATABASE_URL`: conexao direta `db.<project-ref>.supabase.co` para migrations do Prisma
 - `VITE_SUPABASE_URL`: URL publica do projeto
 - `VITE_SUPABASE_ANON_KEY`: chave anon/publica do Supabase
+- `VITE_PUBLIC_SITE_URL`: URL publica do portal usada nos links de recuperacao de senha
 - `VITE_ADMIN_USERNAME`: usuario exibido no login administrativo local
 - `VITE_ADMIN_PASSWORD_HASH`: hash SHA-256 da senha admin local
 
 Se a sua string de conexao foi copiada do painel do Supabase com colchetes em volta da senha, remova os colchetes antes de executar migrations.
+
+Para recuperacao de senha, configure `VITE_PUBLIC_SITE_URL` com o dominio publicado do site e adicione `${VITE_PUBLIC_SITE_URL}/recuperar-senha` em Supabase Auth > URL Configuration > Redirect URLs.
 
 ### Como aplicar a migration no Supabase
 

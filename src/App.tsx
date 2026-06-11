@@ -1,10 +1,11 @@
-import { Suspense, lazy } from "react";
+import { Suspense, lazy, useEffect } from "react";
 import {
   BrowserRouter,
   Navigate,
   Route,
   Routes,
   useLocation,
+  useNavigate,
 } from "react-router-dom";
 import { RequireAdminAccess, RequireAdminPermission } from "@/admin/layout/AdminRouteGuards";
 import { AdminLayout } from "@/admin/layout/AdminLayout";
@@ -20,7 +21,7 @@ import {
 } from "@/contexts/AdminAuthContext";
 import { ChampionshipProvider } from "@/contexts/ChampionshipContext";
 import { FriendlyChallengesProvider } from "@/contexts/FriendlyChallengesContext";
-import { PlayerAuthProvider } from "@/contexts/PlayerAuthContext";
+import { PlayerAuthProvider, usePlayerAuth } from "@/contexts/PlayerAuthContext";
 import Index from "./pages/Index.tsx";
 
 const Ajuda = lazy(() => import("./pages/Ajuda.tsx"));
@@ -55,6 +56,39 @@ const AdminSupportPage = lazy(() => import("@/admin/pages/AdminSupportPage"));
 const AdminSystemPage = lazy(() => import("@/admin/pages/AdminSystemPage"));
 const AdminTeamsPage = lazy(() => import("@/admin/pages/AdminTeamsPage"));
 const AdminUsersPage = lazy(() => import("@/admin/pages/AdminUsersPage"));
+
+function hasPasswordRecoveryRedirect(search: string, hash: string) {
+  const searchParams = new URLSearchParams(search);
+  const hashParams = new URLSearchParams(hash.replace(/^#/, ""));
+
+  return searchParams.get("type") === "recovery" || hashParams.get("type") === "recovery";
+}
+
+function PasswordRecoveryRedirect() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { isPasswordRecoverySession } = usePlayerAuth();
+
+  useEffect(() => {
+    if (location.pathname === "/recuperar-senha") {
+      return;
+    }
+
+    if (!isPasswordRecoverySession && !hasPasswordRecoveryRedirect(location.search, location.hash)) {
+      return;
+    }
+
+    navigate(`/recuperar-senha${location.search}${location.hash}`, { replace: true });
+  }, [
+    isPasswordRecoverySession,
+    location.hash,
+    location.pathname,
+    location.search,
+    navigate,
+  ]);
+
+  return null;
+}
 
 function RouteFallback({ isAdminRoute }: { isAdminRoute: boolean }) {
   return (
@@ -252,6 +286,7 @@ function AppRoutes() {
 
   return (
     <>
+      <PasswordRecoveryRedirect />
       {!isAdminRoute ? <Navbar /> : null}
       <Toaster />
       {isAdminRoute ? routes : <main className="app-main">{routes}</main>}

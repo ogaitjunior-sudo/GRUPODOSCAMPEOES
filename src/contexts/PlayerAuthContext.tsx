@@ -8,7 +8,9 @@ import {
 } from "react";
 import type { Session } from "@supabase/supabase-js";
 import {
+  getPasswordRecoveryRedirectUrl,
   isSupabaseConfigured,
+  isUsingLocalPasswordRecoveryRedirect,
   supabase,
   supabaseAuthSetupMessage,
 } from "@/lib/supabase";
@@ -64,6 +66,7 @@ interface PlayerAuthContextValue {
   avatarUrl: string | null;
   teamPhotoUrl: string | null;
   isUpdatingProfile: boolean;
+  isPasswordRecoverySession: boolean;
   login: (identifier: string, password: string) => Promise<AuthResult>;
   register: (payload: RegisterPayload) => Promise<AuthResult>;
   requestPasswordReset: (email: string) => Promise<AuthResult>;
@@ -125,6 +128,22 @@ function getAuthErrorMessage(error: unknown) {
   }
 
   return "";
+}
+
+function hasPasswordRecoveryUrlParams() {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+  const searchParams = new URLSearchParams(window.location.search);
+  const hasRecoveryType = hashParams.get("type") === "recovery" || searchParams.get("type") === "recovery";
+
+  return (
+    hasRecoveryType ||
+    (window.location.pathname === "/recuperar-senha" &&
+      (hashParams.has("access_token") || searchParams.has("code")))
+  );
 }
 
 function resolveUserAvatar(
@@ -233,6 +252,9 @@ function readStoredFallbackSession() {
 export function PlayerAuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<PlayerSession | null>(() => readStoredFallbackSession());
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
+  const [isPasswordRecoverySession, setIsPasswordRecoverySession] = useState(() =>
+    hasPasswordRecoveryUrlParams(),
+  );
   const sessionRef = useRef<PlayerSession | null>(session);
   const profileMediaSyncQueueRef = useRef(Promise.resolve());
   const isSigningOutRef = useRef(false);
@@ -280,7 +302,11 @@ export function PlayerAuthProvider({ children }: { children: ReactNode }) {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    } = supabase.auth.onAuthStateChange((event, nextSession) => {
+      if (event === "PASSWORD_RECOVERY") {
+        setIsPasswordRecoverySession(true);
+      }
+
       if (!nextSession) {
         isSigningOutRef.current = false;
       }
@@ -520,8 +546,7 @@ export function PlayerAuthProvider({ children }: { children: ReactNode }) {
       };
     }
 
-    const redirectTo =
-      typeof window !== "undefined" ? `${window.location.origin}/recuperar-senha` : undefined;
+    const redirectTo = getPasswordRecoveryRedirectUrl();
 
     const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
       redirectTo,
@@ -531,6 +556,14 @@ export function PlayerAuthProvider({ children }: { children: ReactNode }) {
       return {
         success: false,
         message: error.message,
+      };
+    }
+
+    if (isUsingLocalPasswordRecoveryRedirect()) {
+      return {
+        success: true,
+        message:
+          "Enviamos o link de recuperacao para o seu e-mail. Como o portal esta em localhost, abra o link no mesmo dispositivo ou configure VITE_PUBLIC_SITE_URL com a URL publica.",
       };
     }
 
@@ -567,6 +600,8 @@ export function PlayerAuthProvider({ children }: { children: ReactNode }) {
         message: error.message,
       };
     }
+
+    setIsPasswordRecoverySession(false);
 
     return {
       success: true,
@@ -776,6 +811,7 @@ export function PlayerAuthProvider({ children }: { children: ReactNode }) {
     }
 
     setSession(null);
+    setIsPasswordRecoverySession(false);
 
     if (typeof window !== "undefined") {
       window.localStorage.removeItem(PLAYER_FALLBACK_SESSION_STORAGE_KEY);
@@ -807,6 +843,7 @@ export function PlayerAuthProvider({ children }: { children: ReactNode }) {
         avatarUrl: session?.avatarUrl ?? null,
         teamPhotoUrl: session?.teamPhotoUrl ?? null,
         isUpdatingProfile,
+        isPasswordRecoverySession,
         login,
         register,
         requestPasswordReset,

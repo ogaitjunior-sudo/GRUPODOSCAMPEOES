@@ -317,6 +317,28 @@ describe("app routes", () => {
     expect(await screen.findByLabelText(/e-mail/i)).toBeInTheDocument();
   });
 
+  it("renders the new password form when the recovery callback reaches /recuperar-senha", async () => {
+    window.history.pushState({}, "", "/recuperar-senha#type=recovery");
+
+    render(<App />);
+
+    expect(await screen.findByRole("button", { name: /salvar nova senha/i })).toBeInTheDocument();
+    expect(await screen.findByLabelText(/^nova senha$/i)).toBeInTheDocument();
+    expect(await screen.findByLabelText(/^confirmar nova senha$/i)).toBeInTheDocument();
+  });
+
+  it("redirects password recovery callbacks from the site root to /recuperar-senha", async () => {
+    window.history.pushState({}, "", "/#type=recovery");
+
+    render(<App />);
+
+    expect(await screen.findByRole("button", { name: /salvar nova senha/i })).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(window.location.pathname).toBe("/recuperar-senha");
+    });
+  });
+
   it("renders the championship management page", async () => {
     window.localStorage.setItem(
       "gc_championships_v2",

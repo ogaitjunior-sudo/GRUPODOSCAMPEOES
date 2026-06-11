@@ -30,7 +30,12 @@ import type { PlatformName, PlayerStatus } from "@/admin/types";
 import { formatDateTime, normalizeSearch } from "@/admin/utils/format";
 import { useChampionships } from "@/contexts/ChampionshipContext";
 import { toast } from "@/hooks/use-toast";
-import { isSupabaseConfigured, supabase } from "@/lib/supabase";
+import {
+  getPasswordRecoveryRedirectUrl,
+  isSupabaseConfigured,
+  isUsingLocalPasswordRecoveryRedirect,
+  supabase,
+} from "@/lib/supabase";
 import {
   formatPlayerAccountsStoreError,
   listPlayerAccounts,
@@ -355,8 +360,7 @@ export default function AdminPlayersPage() {
     }
 
     try {
-      const redirectTo =
-        typeof window !== "undefined" ? `${window.location.origin}/recuperar-senha` : undefined;
+      const redirectTo = getPasswordRecoveryRedirectUrl();
       const { error } = await supabase.auth.resetPasswordForEmail(normalizeEmail(row.email), {
         redirectTo,
       });
@@ -367,7 +371,9 @@ export default function AdminPlayersPage() {
 
       toast({
         title: "Redefinicao enviada",
-        description: `Enviamos um link de redefinicao para ${row.email}.`,
+        description: isUsingLocalPasswordRecoveryRedirect()
+          ? `Enviamos um link para ${row.email}. Como o painel esta em localhost, configure VITE_PUBLIC_SITE_URL para gerar links publicos.`
+          : `Enviamos um link de redefinicao para ${row.email}.`,
       });
     } catch (error) {
       toast({

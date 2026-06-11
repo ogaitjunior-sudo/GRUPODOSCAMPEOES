@@ -13,11 +13,28 @@ interface RecoveryForm {
   confirmPassword: string;
 }
 
+function hasRecoveryParams() {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+  const searchParams = new URLSearchParams(window.location.search);
+
+  return (
+    hashParams.get("type") === "recovery" ||
+    searchParams.get("type") === "recovery" ||
+    hashParams.has("access_token") ||
+    searchParams.has("code")
+  );
+}
+
 export default function RecuperarSenha() {
   const navigate = useNavigate();
   const {
     authConfigurationMessage,
     isAuthConfigured,
+    isPasswordRecoverySession,
     requestPasswordReset,
     updatePassword,
   } = usePlayerAuth();
@@ -27,16 +44,11 @@ export default function RecuperarSenha() {
     confirmPassword: "",
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isRecoveryMode, setIsRecoveryMode] = useState(false);
+  const [hasRecoveryUrlParams, setHasRecoveryUrlParams] = useState(() => hasRecoveryParams());
+  const isRecoveryMode = hasRecoveryUrlParams || isPasswordRecoverySession;
 
   useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    const hash = window.location.hash.replace(/^#/, "");
-    const params = new URLSearchParams(hash);
-    setIsRecoveryMode(params.get("type") === "recovery");
+    setHasRecoveryUrlParams(hasRecoveryParams());
   }, []);
 
   const updateField = (field: keyof RecoveryForm) => (event: ChangeEvent<HTMLInputElement>) => {
