@@ -1,6 +1,21 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import handler from "../../api/admin-player-password";
 
+const { endMock, postgresMock, sqlMock } = vi.hoisted(() => {
+  const end = vi.fn();
+  const sql = vi.fn();
+
+  return {
+    endMock: end,
+    postgresMock: vi.fn(() => Object.assign(sql, { end })),
+    sqlMock: sql,
+  };
+});
+
+vi.mock("postgres", () => ({
+  default: postgresMock,
+}));
+
 function createResponse() {
   const result = {
     statusCode: 0,
@@ -38,7 +53,13 @@ describe("admin player password api", () => {
     vi.stubEnv("VITE_SUPABASE_URL", "https://project.supabase.co");
     vi.stubEnv("VITE_SUPABASE_ANON_KEY", "anon-key");
     vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "service-role-key");
+    vi.stubEnv("DATABASE_URL", "postgresql://database.example.com/postgres");
     vi.stubEnv("VITE_ADMIN_SUPABASE_EMAIL", "admin@example.com");
+    postgresMock.mockClear();
+    sqlMock.mockReset();
+    sqlMock.mockResolvedValue([{ id: "a26073f0-9fde-43cb-9718-3ba57664fde2" }]);
+    endMock.mockReset();
+    endMock.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -119,5 +140,32 @@ describe("admin player password api", () => {
         body: JSON.stringify({ password: "secure-password" }),
       }),
     );
+  });
+
+  it("uses the server database when the service role key is unavailable", async () => {
+    vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "");
+    const fetchMock = vi.fn().mockResolvedValueOnce(jsonResponse({ email: "admin@example.com" }));
+    vi.stubGlobal("fetch", fetchMock);
+    const { result, response } = createResponse();
+
+    await handler(
+      {
+        method: "POST",
+        headers: { authorization: "Bearer admin-token" },
+        body: {
+          authUserId: "a26073f0-9fde-43cb-9718-3ba57664fde2",
+          password: "secure-password",
+        },
+      },
+      response,
+    );
+
+    expect(result.statusCode).toBe(200);
+    expect(postgresMock).toHaveBeenCalledWith(
+      "postgresql://database.example.com/postgres",
+      expect.objectContaining({ max: 1 }),
+    );
+    expect(sqlMock).toHaveBeenCalledTimes(1);
+    expect(endMock).toHaveBeenCalledWith({ timeout: 1 });
   });
 });

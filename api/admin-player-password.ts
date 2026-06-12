@@ -85,6 +85,39 @@ function getResponseError(payload: unknown, fallback: string) {
   return fallback;
 }
 
+async function updatePasswordWithDatabase(
+  databaseUrl: string,
+  authUserId: string,
+  password: string,
+) {
+  const { default: postgres } = await import("postgres");
+  const sql = postgres(databaseUrl, {
+    connect_timeout: 8,
+    idle_timeout: 2,
+    max: 1,
+    ssl: { rejectUnauthorized: false },
+  });
+
+  try {
+    const updatedUsers = await sql`
+      update auth.users
+      set
+        encrypted_password = crypt(${password}, gen_salt('bf', 10)),
+        recovery_token = '',
+        recovery_sent_at = null,
+        updated_at = timezone('utc', now())
+      where id = ${authUserId}::uuid
+      returning id
+    `;
+
+    if (updatedUsers.length !== 1) {
+      throw new Error("A conta de autenticacao do jogador nao foi localizada.");
+    }
+  } finally {
+    await sql.end({ timeout: 1 });
+  }
+}
+
 export default async function handler(req: ApiRequest, res: ApiResponse) {
   res.setHeader("Cache-Control", "no-store, max-age=0");
 
@@ -118,9 +151,11 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     process.env.VITE_SUPABASE_ANON_KEY?.trim() || fallbackSupabaseAnonKey;
   const serviceRoleKey =
     process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() || process.env.SUPABASE_SECRET_KEY?.trim();
+  const databaseUrl =
+    process.env.DATABASE_URL?.trim() || process.env.DIRECT_DATABASE_URL?.trim();
   const adminEmail = process.env.VITE_ADMIN_SUPABASE_EMAIL?.trim().toLowerCase();
 
-  if (!serviceRoleKey || !adminEmail) {
+  if ((!serviceRoleKey && !databaseUrl) || !adminEmail) {
     res.status(500).json({
       error: "A alteracao direta de senha ainda nao foi configurada no servidor.",
     });
@@ -153,23 +188,27 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       return;
     }
 
-    const updateResponse = await fetch(
-      `${supabaseUrl}/auth/v1/admin/users/${encodeURIComponent(authUserId)}`,
-      {
-        method: "PUT",
-        headers: {
-          apikey: serviceRoleKey,
-          Authorization: `Bearer ${serviceRoleKey}`,
-          "Content-Type": "application/json",
+    if (serviceRoleKey) {
+      const updateResponse = await fetch(
+        `${supabaseUrl}/auth/v1/admin/users/${encodeURIComponent(authUserId)}`,
+        {
+          method: "PUT",
+          headers: {
+            apikey: serviceRoleKey,
+            Authorization: `Bearer ${serviceRoleKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ password }),
+          signal: controller.signal,
         },
-        body: JSON.stringify({ password }),
-        signal: controller.signal,
-      },
-    );
-    const updatePayload = await readResponsePayload(updateResponse);
+      );
+      const updatePayload = await readResponsePayload(updateResponse);
 
-    if (!updateResponse.ok) {
-      throw new Error(getResponseError(updatePayload, "O Supabase recusou a alteracao de senha."));
+      if (!updateResponse.ok) {
+        throw new Error(getResponseError(updatePayload, "O Supabase recusou a alteracao de senha."));
+      }
+    } else if (databaseUrl) {
+      await updatePasswordWithDatabase(databaseUrl, authUserId, password);
     }
 
     res.status(200).json({ success: true });
