@@ -204,4 +204,31 @@ describe("admin player password api", () => {
       }),
     );
   });
+
+  it("uses the project admin email when the server environment omits it", async () => {
+    vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "");
+    vi.stubEnv("DATABASE_URL", "");
+    vi.stubEnv("VITE_ADMIN_SUPABASE_EMAIL", "");
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ email: "admin@grupodecampeoes.com" }))
+      .mockResolvedValueOnce(jsonResponse(true));
+    vi.stubGlobal("fetch", fetchMock);
+    const { result, response } = createResponse();
+
+    await handler(
+      {
+        method: "POST",
+        headers: { authorization: "Bearer admin-token" },
+        body: {
+          authUserId: "a26073f0-9fde-43cb-9718-3ba57664fde2",
+          password: "secure-password",
+        },
+      },
+      response,
+    );
+
+    expect(result.statusCode).toBe(200);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
 });

@@ -18,6 +18,7 @@ type PasswordPayload = {
 
 const fallbackSupabaseUrl = "https://dbktjneeglyohycyvydt.supabase.co";
 const fallbackSupabaseAnonKey = "sb_publishable_bBNv6LyEuovMXOazxQlydA_2eA7EGAc";
+const fallbackAdminEmail = "admin@grupodecampeoes.com";
 const API_TIMEOUT_MS = 12_000;
 const USER_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -181,14 +182,8 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() || process.env.SUPABASE_SECRET_KEY?.trim();
   const databaseUrl =
     process.env.DATABASE_URL?.trim() || process.env.DIRECT_DATABASE_URL?.trim();
-  const adminEmail = process.env.VITE_ADMIN_SUPABASE_EMAIL?.trim().toLowerCase();
-
-  if (!adminEmail) {
-    res.status(500).json({
-      error: "A alteracao direta de senha ainda nao foi configurada no servidor.",
-    });
-    return;
-  }
+  const adminEmail =
+    process.env.VITE_ADMIN_SUPABASE_EMAIL?.trim().toLowerCase() || fallbackAdminEmail;
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
