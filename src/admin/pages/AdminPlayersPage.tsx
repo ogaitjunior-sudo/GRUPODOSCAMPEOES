@@ -31,6 +31,7 @@ import { formatDateTime, normalizeSearch } from "@/admin/utils/format";
 import { useChampionships } from "@/contexts/ChampionshipContext";
 import { toast } from "@/hooks/use-toast";
 import {
+  adminSupabase,
   getPasswordRecoveryRedirectUrl,
   isSupabaseConfigured,
   isUsingLocalPasswordRecoveryRedirect,
@@ -59,6 +60,7 @@ interface PlayerChampionshipLink {
 interface PlayerAdminRow {
   key: string;
   id?: string;
+  authUserId: string | null;
   name: string;
   email: string;
   platform: PlatformName | "Nao definido";
@@ -80,6 +82,11 @@ interface PlayerFormState {
 interface PendingPlayerSave {
   payload: PlayerFormState;
   sensitiveChanged: boolean;
+}
+
+interface PasswordFormState {
+  password: string;
+  confirmPassword: string;
 }
 
 function normalizeEmail(email: string) {
@@ -108,6 +115,7 @@ function buildPlayerRows(
     directory.set(key, {
       key,
       id: player.id,
+      authUserId: null,
       name: player.name,
       email: player.email,
       platform: player.platform,
@@ -122,13 +130,20 @@ function buildPlayerRows(
   playerAccounts.forEach((account) => {
     const key = normalizeEmail(account.email) || account.id;
 
-    if (directory.has(key)) {
+    const existing = directory.get(key);
+
+    if (existing) {
+      directory.set(key, {
+        ...existing,
+        authUserId: account.authUserId,
+      });
       return;
     }
 
     directory.set(key, {
       key,
       id: account.id,
+      authUserId: account.authUserId,
       name: account.name,
       email: account.email,
       platform: "Nao definido",
@@ -157,6 +172,7 @@ function buildPlayerRows(
       directory.set(key, {
         key,
         id: user.id,
+        authUserId: null,
         name: user.name,
         email: user.email,
         platform: "Nao definido",
@@ -193,6 +209,7 @@ function buildPlayerRows(
 
       directory.set(key, {
         key,
+        authUserId: null,
         name: request.playerName,
         email: request.playerEmail,
         platform: "Nao definido",
@@ -220,6 +237,11 @@ export default function AdminPlayersPage() {
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [pendingSave, setPendingSave] = useState<PendingPlayerSave | null>(null);
   const [passwordResetTarget, setPasswordResetTarget] = useState<PlayerAdminRow | null>(null);
+  const [passwordForm, setPasswordForm] = useState<PasswordFormState>({
+    password: "",
+    confirmPassword: "",
+  });
+  const [isPasswordActionPending, setIsPasswordActionPending] = useState(false);
   const [playerAccounts, setPlayerAccounts] = useState<PlayerAccountRecord[]>([]);
   const [playerAccountsError, setPlayerAccountsError] = useState("");
   const [isLoadingPlayerAccounts, setIsLoadingPlayerAccounts] = useState(false);
@@ -349,6 +371,11 @@ export default function AdminPlayersPage() {
     });
   };
 
+  const openPasswordDialog = (row: PlayerAdminRow) => {
+    setPasswordForm({ password: "", confirmPassword: "" });
+    setPasswordResetTarget(row);
+  };
+
   const handlePasswordReset = async (row: PlayerAdminRow) => {
     if (!isSupabaseConfigured || !supabase) {
       toast({
@@ -358,6 +385,8 @@ export default function AdminPlayersPage() {
       });
       return;
     }
+
+    setIsPasswordActionPending(true);
 
     try {
       const redirectTo = getPasswordRecoveryRedirectUrl();
@@ -382,7 +411,97 @@ export default function AdminPlayersPage() {
         variant: "destructive",
       });
     } finally {
+      setIsPasswordActionPending(false);
       setPasswordResetTarget(null);
+    }
+  };
+
+  const handlePasswordChange = async (row: PlayerAdminRow) => {
+    const password = passwordForm.password.trim();
+
+    if (!row.authUserId) {
+      toast({
+        title: "Conta de acesso nao localizada",
+        description: "Este jogador nao possui um usuario do Supabase vinculado para alterar a senha.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (password.length < 8) {
+      toast({
+        title: "Senha muito curta",
+        description: "Use pelo menos 8 caracteres para a nova senha.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (password !== passwordForm.confirmPassword.trim()) {
+      toast({
+        title: "Senhas diferentes",
+        description: "A confirmacao precisa ser igual a nova senha.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!adminSupabase) {
+      toast({
+        title: "Supabase nao configurado",
+        description: "A alteracao direta de senha exige uma sessao administrativa no Supabase.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsPasswordActionPending(true);
+
+    try {
+      const {
+        data: { session },
+      } = await adminSupabase.auth.getSession();
+
+      if (!session?.access_token) {
+        throw new Error("Sua sessao administrativa expirou. Entre novamente no painel.");
+      }
+
+      const response = await fetch("/api/admin-player-password", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          authUserId: row.authUserId,
+          password,
+        }),
+      });
+      const payload = (await response.json().catch(() => null)) as { error?: unknown } | null;
+
+      if (!response.ok) {
+        throw new Error(
+          typeof payload?.error === "string"
+            ? payload.error
+            : "Nao foi possivel alterar a senha agora.",
+        );
+      }
+
+      toast({
+        title: "Senha alterada",
+        description: `A nova senha de ${row.name} ja esta ativa.`,
+      });
+
+      setPasswordResetTarget(null);
+      setPasswordForm({ password: "", confirmPassword: "" });
+    } catch (error) {
+      toast({
+        title: "Falha ao alterar senha",
+        description: error instanceof Error ? error.message : "Nao foi possivel alterar a senha agora.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsPasswordActionPending(false);
     }
   };
 
@@ -555,8 +674,9 @@ export default function AdminPlayersPage() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => setPasswordResetTarget(row)}
+                        onClick={() => openPasswordDialog(row)}
                         disabled={!row.email.includes("@")}
+                        title="Alterar senha"
                       >
                         <KeyRound className="h-4 w-4" />
                       </Button>
@@ -760,33 +880,93 @@ export default function AdminPlayersPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog
+      <Dialog
         open={Boolean(passwordResetTarget)}
-        onOpenChange={(open) => !open && setPasswordResetTarget(null)}
+        onOpenChange={(open) => {
+          if (!open && !isPasswordActionPending) {
+            setPasswordResetTarget(null);
+            setPasswordForm({ password: "", confirmPassword: "" });
+          }
+        }}
       >
-        <AlertDialogContent className="border-white/10 bg-background text-white">
-          <AlertDialogHeader>
-            <AlertDialogTitle>Enviar redefinicao de senha</AlertDialogTitle>
-            <AlertDialogDescription>
+        <DialogContent className="border-white/10 bg-background text-white sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Alterar senha do jogador</DialogTitle>
+            <DialogDescription>
               {passwordResetTarget
-                ? `Deseja enviar um link de redefinicao para ${passwordResetTarget.email}? O jogador recebera o fluxo de recuperacao no e-mail cadastrado.`
-                : "Confirme o envio da redefinicao de senha."}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
+                ? `Defina uma nova senha para ${passwordResetTarget.name} ou envie um link de recuperacao para ${passwordResetTarget.email}.`
+                : "Defina uma nova senha para o jogador."}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-4">
+            <input
+              type="password"
+              value={passwordForm.password}
+              onChange={(event) =>
+                setPasswordForm((current) => ({ ...current, password: event.target.value }))
+              }
+              placeholder="Nova senha (minimo 8 caracteres)"
+              autoComplete="new-password"
+              className={inputClassName}
+              disabled={isPasswordActionPending || !passwordResetTarget?.authUserId}
+            />
+            <input
+              type="password"
+              value={passwordForm.confirmPassword}
+              onChange={(event) =>
+                setPasswordForm((current) => ({
+                  ...current,
+                  confirmPassword: event.target.value,
+                }))
+              }
+              placeholder="Confirmar nova senha"
+              autoComplete="new-password"
+              className={inputClassName}
+              disabled={isPasswordActionPending || !passwordResetTarget?.authUserId}
+            />
+            {!passwordResetTarget?.authUserId ? (
+              <p className="rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+                A conta de autenticacao deste jogador nao foi localizada. Ainda e possivel enviar o
+                link de recuperacao por e-mail.
+              </p>
+            ) : null}
+          </div>
+
+          <DialogFooter className="gap-2 sm:justify-between">
+            <Button
+              variant="outline"
               onClick={() => {
                 if (passwordResetTarget) {
                   void handlePasswordReset(passwordResetTarget);
                 }
               }}
+              disabled={isPasswordActionPending}
             >
               Enviar link
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setPasswordResetTarget(null)}
+                disabled={isPasswordActionPending}
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={() => {
+                  if (passwordResetTarget) {
+                    void handlePasswordChange(passwordResetTarget);
+                  }
+                }}
+                disabled={isPasswordActionPending || !passwordResetTarget?.authUserId}
+              >
+                {isPasswordActionPending ? "Salvando..." : "Alterar senha"}
+              </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
