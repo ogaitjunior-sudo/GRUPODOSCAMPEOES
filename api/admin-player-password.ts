@@ -118,6 +118,34 @@ async function updatePasswordWithDatabase(
   }
 }
 
+async function updatePasswordWithRpc(
+  supabaseUrl: string,
+  supabaseAnonKey: string,
+  accessToken: string,
+  authUserId: string,
+  password: string,
+  signal: AbortSignal,
+) {
+  const response = await fetch(`${supabaseUrl}/rest/v1/rpc/admin_set_player_password`, {
+    method: "POST",
+    headers: {
+      apikey: supabaseAnonKey,
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      p_password: password,
+      p_user_id: authUserId,
+    }),
+    signal,
+  });
+  const payload = await readResponsePayload(response);
+
+  if (!response.ok) {
+    throw new Error(getResponseError(payload, "O Supabase recusou a alteracao de senha."));
+  }
+}
+
 export default async function handler(req: ApiRequest, res: ApiResponse) {
   res.setHeader("Cache-Control", "no-store, max-age=0");
 
@@ -155,7 +183,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     process.env.DATABASE_URL?.trim() || process.env.DIRECT_DATABASE_URL?.trim();
   const adminEmail = process.env.VITE_ADMIN_SUPABASE_EMAIL?.trim().toLowerCase();
 
-  if ((!serviceRoleKey && !databaseUrl) || !adminEmail) {
+  if (!adminEmail) {
     res.status(500).json({
       error: "A alteracao direta de senha ainda nao foi configurada no servidor.",
     });
@@ -209,6 +237,15 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       }
     } else if (databaseUrl) {
       await updatePasswordWithDatabase(databaseUrl, authUserId, password);
+    } else {
+      await updatePasswordWithRpc(
+        supabaseUrl,
+        supabaseAnonKey,
+        accessToken,
+        authUserId,
+        password,
+        controller.signal,
+      );
     }
 
     res.status(200).json({ success: true });

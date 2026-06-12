@@ -168,4 +168,40 @@ describe("admin player password api", () => {
     expect(sqlMock).toHaveBeenCalledTimes(1);
     expect(endMock).toHaveBeenCalledWith({ timeout: 1 });
   });
+
+  it("uses the protected Supabase RPC when server secrets are unavailable", async () => {
+    vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "");
+    vi.stubEnv("DATABASE_URL", "");
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ email: "admin@example.com" }))
+      .mockResolvedValueOnce(jsonResponse(true));
+    vi.stubGlobal("fetch", fetchMock);
+    const { result, response } = createResponse();
+
+    await handler(
+      {
+        method: "POST",
+        headers: { authorization: "Bearer admin-token" },
+        body: {
+          authUserId: "a26073f0-9fde-43cb-9718-3ba57664fde2",
+          password: "secure-password",
+        },
+      },
+      response,
+    );
+
+    expect(result.statusCode).toBe(200);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      "https://project.supabase.co/rest/v1/rpc/admin_set_player_password",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          p_password: "secure-password",
+          p_user_id: "a26073f0-9fde-43cb-9718-3ba57664fde2",
+        }),
+      }),
+    );
+  });
 });
