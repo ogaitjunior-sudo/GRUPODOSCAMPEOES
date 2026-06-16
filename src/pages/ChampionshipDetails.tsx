@@ -1373,7 +1373,7 @@ export function ChampionshipWorkspacePage({
         },
         scoreHome: match.scoreHome,
         scoreAway: match.scoreAway,
-        statusLabel: match.status === "completed" ? "Encerrada" : "Em disputa",
+        statusLabel: match.status === "completed" ? "Finalizada" : "Ao vivo",
         metaLabel: formatMatchDateTime(match.playedAt),
       };
     });
